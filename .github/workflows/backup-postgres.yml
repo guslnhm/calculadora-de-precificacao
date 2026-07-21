@@ -1,0 +1,43 @@
+name: Backup PostgreSQL Railway
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Criar backup com PostgreSQL 18
+        env:
+          DATABASE_PUBLIC_URL: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL }}
+        run: |
+          docker run --rm \
+            -e DATABASE_PUBLIC_URL \
+            -v "$PWD:/backup" \
+            postgres:18 \
+            sh -c 'pg_dump \
+              --dbname="$DATABASE_PUBLIC_URL" \
+              --format=custom \
+              --no-owner \
+              --no-privileges \
+              --verbose \
+              --file=/backup/railway-backup.dump'
+
+      - name: Verificar arquivo
+        run: |
+          test -s railway-backup.dump
+
+          docker run --rm \
+            -v "$PWD:/backup" \
+            postgres:18 \
+            pg_restore --list /backup/railway-backup.dump \
+            | head -n 30
+
+      - name: Disponibilizar backup para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: railway-postgres-backup
+          path: railway-backup.dump
+          retention-days: 1
+          if-no-files-found: error
