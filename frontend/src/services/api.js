@@ -32,12 +32,23 @@ export async function login(dados) {
   return body;
 }
 
-export async function listarLojas() {
-  const response = await fetch(`${API_BASE_URL}/lojas`, {
+export async function listarLojas(plataforma = null) {
+  const url = plataforma
+    ? `${API_BASE_URL}/lojas?plataforma=${plataforma}`
+    : `${API_BASE_URL}/lojas`;
+
+  const response = await fetch(url, {
     headers: getHeaders(),
   });
+
   const body = await response.json();
-  if (!response.ok) throw new Error(body.mensagem || "Erro ao listar lojas");
+
+  if (!response.ok) {
+    throw new Error(
+      body.mensagem || "Erro ao listar lojas"
+    );
+  }
+
   return body;
 }
 
@@ -185,6 +196,153 @@ export async function simularPrecificacaoReversa(dados) {
   const body = await response.json();
   if (!response.ok) {
     throw new Error(body.mensagem || "Erro ao simular precificação reversa");
+  }
+
+  return body;
+}
+
+export async function simularPrecificacao99(dados) {
+  const response = await fetch(`${API_BASE_URL}/precificacao/99food`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(dados),
+  });
+
+  const body = await response.json();
+
+  if (!response.ok) {
+    throw new Error(body.mensagem || "Erro ao simular precificação 99Food");
+  }
+
+  return body;
+}
+
+export async function buscarConfiguracaoPlataforma(lojaId, plataforma) {
+  const response = await fetch(
+    `${API_BASE_URL}/lojas/${lojaId}/configuracoes/${plataforma}`,
+    {
+      method: "GET",
+      headers: getHeaders(),
+    }
+  );
+
+  const body = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      body.mensagem || "Erro ao buscar parâmetros da loja"
+    );
+  }
+
+  return body;
+}
+
+export async function salvarConfiguracaoPlataforma(lojaId, dados) {
+  const response = await fetch(
+    `${API_BASE_URL}/lojas/${lojaId}/configuracoes`,
+    {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify(dados),
+    }
+  );
+
+  const body = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      body.mensagem || "Erro ao salvar parâmetros da loja"
+    );
+  }
+
+  return body;
+}
+
+export async function buscarPlataformasLoja(lojaId) {
+  const response = await fetch(
+    `${API_BASE_URL}/lojas/${lojaId}/plataformas`,
+    {
+      method: "GET",
+      headers: getHeaders(),
+    }
+  );
+
+  const body = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      body.mensagem || "Erro ao buscar plataformas da loja"
+    );
+  }
+
+  return body;
+}
+
+export async function atualizarPlataformasLoja(lojaId, plataformas) {
+  const response = await fetch(
+    `${API_BASE_URL}/lojas/${lojaId}/plataformas`,
+    {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        plataformas,
+      }),
+    }
+  );
+
+  const body = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      body.mensagem || "Erro ao atualizar plataformas da loja"
+    );
+  }
+
+  return body;
+}
+
+export async function desativarLoja(lojaId) {
+  const response = await fetch(
+    `${API_BASE_URL}/lojas/${lojaId}`,
+    {
+      method: "DELETE",
+      headers: getHeaders(),
+    }
+  );
+
+  if (!response.ok) {
+    let body = {};
+
+    try {
+      body = await response.json();
+    } catch {
+      body = {};
+    }
+
+    throw new Error(
+      body.mensagem || "Erro ao desativar loja"
+    );
+  }
+}
+
+// ------
+
+export async function atualizarLoja(lojaId, dados) {
+  const response = await fetch(
+    `${API_BASE_URL}/lojas/${lojaId}`,
+    {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify(dados),
+    }
+  );
+
+  const body = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      body.mensagem || "Erro ao atualizar loja"
+    );
   }
 
   return body;

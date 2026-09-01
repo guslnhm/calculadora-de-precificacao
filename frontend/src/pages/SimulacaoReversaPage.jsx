@@ -76,7 +76,7 @@ export default function SimulacaoReversaPage() {
 
   async function carregarLojas() {
     try {
-      const data = await listarLojas();
+      const data = await listarLojas("IFOOD");
       setLojas(data);
     } catch (error) {
       setErro(error.message);
