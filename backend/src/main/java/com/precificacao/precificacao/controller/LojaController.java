@@ -6,6 +6,8 @@ import com.precificacao.precificacao.dto.LojaResponseDTO;
 import com.precificacao.precificacao.service.LojaService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import com.precificacao.precificacao.enums.Plataforma;
+import com.precificacao.precificacao.dto.LojaAtualizacaoDTO;
 
 import java.util.List;
 
@@ -20,8 +22,11 @@ public class LojaController {
     }
 
     @GetMapping
-    public List<LojaResponseDTO> listar() {
-        return lojaService.listar();
+    public List<LojaResponseDTO> listar(
+            @RequestParam(required = false)
+            Plataforma plataforma
+    ) {
+        return lojaService.listar(plataforma);
     }
 
     @PostMapping
@@ -40,5 +45,18 @@ public class LojaController {
             @Valid @RequestBody LojaPercentuaisDTO dto
     ) {
         return lojaService.salvarPercentuais(id, dto);
+    }
+    
+    @DeleteMapping("/{id}")
+    public void desativar(@PathVariable Long id) {
+        lojaService.desativar(id);
+    }
+
+    @PutMapping("/{id}")
+    public LojaResponseDTO atualizar(
+            @PathVariable Long id,
+            @Valid @RequestBody LojaAtualizacaoDTO dto
+    ) {
+        return lojaService.atualizar(id, dto);
     }
 }

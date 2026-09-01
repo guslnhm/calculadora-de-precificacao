@@ -6,6 +6,8 @@ import com.precificacao.precificacao.dto.LojaResponseDTO;
 import com.precificacao.precificacao.entity.Loja;
 import com.precificacao.precificacao.repository.LojaRepository;
 import org.springframework.stereotype.Service;
+import com.precificacao.precificacao.enums.Plataforma;
+import com.precificacao.precificacao.dto.LojaAtualizacaoDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,8 +22,17 @@ public class LojaService {
         this.lojaRepository = lojaRepository;
     }
 
-    public List<LojaResponseDTO> listar(){
-        return lojaRepository.findAll()
+    public List<LojaResponseDTO> listar(Plataforma plataforma) {
+
+        List<Loja> lojas;
+
+        if (plataforma == null) {
+            lojas = lojaRepository.findByAtivoTrue();
+        } else {
+            lojas = lojaRepository.findAtivasByPlataforma(plataforma);
+        }
+
+        return lojas
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
@@ -117,5 +128,35 @@ public class LojaService {
         dto.setCriadoEm(loja.getCriadoEm());
         dto.setAtualizadoEm(loja.getAtualizadoEm());
         return dto;
+    }
+
+    public void desativar(Long lojaId) {
+
+        Loja loja = lojaRepository.findById(lojaId)
+                .orElseThrow(() -> new RuntimeException("Loja não encontrada"));
+
+        loja.setAtivo(false);
+        loja.setAtualizadoEm(LocalDateTime.now());
+
+        lojaRepository.save(loja);
+    }
+
+    public LojaResponseDTO atualizar(
+            Long lojaId,
+            LojaAtualizacaoDTO dto
+    ) {
+
+        Loja loja = lojaRepository.findById(lojaId)
+                .orElseThrow(() ->
+                        new RuntimeException("Loja não encontrada")
+                );
+
+        loja.setNome(dto.getNome());
+        loja.setObservacao(dto.getObservacao());
+        loja.setAtualizadoEm(LocalDateTime.now());
+
+        Loja lojaSalva = lojaRepository.save(loja);
+
+        return toResponseDTO(lojaSalva);
     }
 }
