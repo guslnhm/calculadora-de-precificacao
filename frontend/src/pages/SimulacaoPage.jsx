@@ -16,6 +16,10 @@ function formatarMoeda(valor) {
   });
 }
 
+function formatarPercentual(valor) {
+  return Number.isFinite(valor) ? `${valor.toFixed(2)}%` : "—";
+}
+
 function InputPercentual({ label, value, onChange }) {
   return (
     <div style={styles.field}>
@@ -57,6 +61,23 @@ export default function SimulacaoPage() {
   const [salvandoPercentuais, setSalvandoPercentuais] = useState(false);
   const [taxaFranquia, setTaxaFranquia] = useState("");
   const [precoBaseEditado, setPrecoBaseEditado] = useState("");
+
+  const precoBaseAtual = Number(precoBaseEditado);
+  const precoBaseValido = Number.isFinite(precoBaseAtual) && precoBaseAtual > 0;
+  const cmvPercentual = resultado && precoBaseValido
+    ? (Number(resultado.cmv) / precoBaseAtual) * 100
+    : null;
+  const baseParaCalculo = precoBaseValido
+    ? precoBaseAtual
+    : Number(resultado?.valorBase);
+  const precosAtuais = resultado
+    ? {
+        base: baseParaCalculo,
+        cupom5: baseParaCalculo + 5,
+        cupom8: baseParaCalculo + 8,
+        cupom10: baseParaCalculo + 10,
+      }
+    : null;
 
   const somaPercentuais =
     Number(imposto || 0) +
@@ -149,14 +170,8 @@ export default function SimulacaoPage() {
   }
 
   function obterValorPrecoSelecionado() {
-    if (!resultado || !precoSelecionado) return null;
-
-    if (precoSelecionado === "base") return Number(precoBaseEditado);
-    if (precoSelecionado === "cupom5") return resultado.valorCupom5;
-    if (precoSelecionado === "cupom8") return resultado.valorCupom8;
-    if (precoSelecionado === "cupom10") return resultado.valorCupom10;
-
-    return null;
+    if (!precosAtuais || !precoSelecionado) return null;
+    return precosAtuais[precoSelecionado] ?? null;
   }
 
   async function handleSalvarPreco() {
@@ -433,6 +448,9 @@ export default function SimulacaoPage() {
                   <p style={styles.highlightText}>
                     Valor principal calculado a partir do CMV, frete e percentuais informados.
                   </p>
+                  <p style={styles.cmvPercentual}>
+                    CMV do item: {formatarPercentual(cmvPercentual)}
+                  </p>
                 </div>
               </div>
 
@@ -454,7 +472,7 @@ export default function SimulacaoPage() {
                     <span style={styles.radioLabel}>Salvar</span>
                   </div>
                   <p style={styles.cupomTitulo}>Cupom de R$ 5</p>
-                  <p style={styles.cupomValor}>{formatarMoeda(resultado.valorCupom5)}</p>
+                  <p style={styles.cupomValor}>{formatarMoeda(precosAtuais.cupom5)}</p>
                 </div>
 
                 <div
@@ -474,7 +492,7 @@ export default function SimulacaoPage() {
                     <span style={styles.radioLabel}>Salvar</span>
                   </div>
                   <p style={styles.cupomTitulo}>Cupom de R$ 8</p>
-                  <p style={styles.cupomValor}>{formatarMoeda(resultado.valorCupom8)}</p>
+                  <p style={styles.cupomValor}>{formatarMoeda(precosAtuais.cupom8)}</p>
                 </div>
 
                 <div
@@ -494,7 +512,7 @@ export default function SimulacaoPage() {
                     <span style={styles.radioLabel}>Salvar</span>
                   </div>
                   <p style={styles.cupomTitulo}>Cupom de R$ 10</p>
-                  <p style={styles.cupomValor}>{formatarMoeda(resultado.valorCupom10)}</p>
+                  <p style={styles.cupomValor}>{formatarMoeda(precosAtuais.cupom10)}</p>
                 </div>
               </div>
 
@@ -732,6 +750,13 @@ const styles = {
     margin: 0,
     color: "#D9D9D9",
     lineHeight: "1.5",
+  },
+
+  cmvPercentual: {
+    margin: "10px 0 0",
+    color: "#F6F8FA",
+    fontSize: "14px",
+    fontWeight: 700,
   },
 
   cuponsContainer: {

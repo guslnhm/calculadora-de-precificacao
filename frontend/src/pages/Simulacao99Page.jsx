@@ -16,6 +16,10 @@ function formatarMoeda(valor) {
   });
 }
 
+function formatarPercentual(valor) {
+  return Number.isFinite(valor) ? `${valor.toFixed(2)}%` : "—";
+}
+
 function InputPercentual({ label, value, onChange }) {
   return (
     <div style={styles.field}>
@@ -71,6 +75,40 @@ export default function Simulacao99Page() {
   const [salvandoParametros, setSalvandoParametros] = useState(false);
 
   const [precoBaseEditado, setPrecoBaseEditado] = useState("");
+
+  const precoBaseAtual = Number(precoBaseEditado);
+  const precoBaseValido = Number.isFinite(precoBaseAtual) && precoBaseAtual > 0;
+  const cmvPercentual = resultado && precoBaseValido
+    ? (Number(resultado.cmv) / precoBaseAtual) * 100
+    : null;
+
+  let precosAtuais = null;
+  if (resultado) {
+    const valorPratoOriginal = Number(resultado.valorPrato);
+    const baseParaCalculo = precoBaseValido ? precoBaseAtual : valorPratoOriginal;
+    const precoFoiEditado = baseParaCalculo !== valorPratoOriginal;
+    const ajusteManual = baseParaCalculo - valorPratoOriginal;
+    const freteGratis = Number(resultado.valorFreteGratis) + ajusteManual;
+
+    precosAtuais = {
+      prato: baseParaCalculo,
+      freteGratis,
+      off20: precoFoiEditado ? freteGratis / 0.8 : Number(resultado.valor20Off),
+      off30: precoFoiEditado ? freteGratis / 0.7 : Number(resultado.valor30Off),
+      off40: precoFoiEditado ? freteGratis / 0.6 : Number(resultado.valor40Off),
+      off50: precoFoiEditado ? freteGratis / 0.5 : Number(resultado.valor50Off),
+      off60: precoFoiEditado ? freteGratis / 0.4 : Number(resultado.valor60Off),
+      copart30: precoFoiEditado
+        ? freteGratis / 0.745
+        : Number(resultado.valor30OffCoparticipacao),
+      copart40: precoFoiEditado
+        ? freteGratis / 0.68
+        : Number(resultado.valor40OffCoparticipacao),
+      copart50: precoFoiEditado
+        ? freteGratis / 0.625
+        : Number(resultado.valor50OffCoparticipacao),
+    };
+  }
 
   const somaPercentuais =
     Number(taxa99 || 0) +
@@ -270,23 +308,8 @@ export default function Simulacao99Page() {
   }
 
   function obterValorPrecoSelecionado() {
-    if (!resultado || !precoSelecionado) return null;
-
-    const precos = {
-      prato: Number(precoBaseEditado),
-      freteGratis: resultado.valorFreteGratis,
-      off20: resultado.valor20Off,
-      off30: resultado.valor30Off,
-      off40: resultado.valor40Off,
-      off50: resultado.valor50Off,
-      off60: resultado.valor60Off,
-
-      copart30: resultado.valor30OffCoparticipacao,
-      copart40: resultado.valor40OffCoparticipacao,
-      copart50: resultado.valor50OffCoparticipacao,
-    };
-
-    return precos[precoSelecionado];
+    if (!precosAtuais || !precoSelecionado) return null;
+    return precosAtuais[precoSelecionado] ?? null;
   }
 
   async function handleSalvarPreco() {
@@ -398,6 +421,10 @@ export default function Simulacao99Page() {
             <span style={styles.editablePriceHint}>
               Você pode ajustar o preço sugerido.
             </span>
+
+            <span style={styles.cmvPercentual}>
+              CMV do item: {formatarPercentual(cmvPercentual)}
+            </span>
           </>
         ) : (
           <p style={styles.priceValue}>
@@ -414,19 +441,19 @@ export default function Simulacao99Page() {
         id: "copart30",
         titulo: "30% OFF",
         participacao: "15% pela 99",
-        valor: resultado.valor30OffCoparticipacao,
+        valor: precosAtuais.copart30,
       },
       {
         id: "copart40",
         titulo: "40% OFF",
         participacao: "20% pela 99",
-        valor: resultado.valor40OffCoparticipacao,
+        valor: precosAtuais.copart40,
       },
       {
         id: "copart50",
         titulo: "50% OFF",
         participacao: "25% pela 99",
-        valor: resultado.valor50OffCoparticipacao,
+        valor: precosAtuais.copart50,
       },
     ];
 
@@ -722,38 +749,38 @@ export default function Simulacao99Page() {
               <CardPreco
                 id="freteGratis"
                 titulo="Com Frete Grátis"
-                valor={resultado.valorFreteGratis}
+                valor={precosAtuais.freteGratis}
               />
 
               <div style={styles.promoGrid}>
                 <CardPreco
                   id="off20"
                   titulo="20% OFF"
-                  valor={resultado.valor20Off}
+                  valor={precosAtuais.off20}
                 />
 
                 <CardPreco
                   id="off30"
                   titulo="30% OFF"
-                  valor={resultado.valor30Off}
+                  valor={precosAtuais.off30}
                 />
 
                 <CardPreco
                   id="off40"
                   titulo="40% OFF"
-                  valor={resultado.valor40Off}
+                  valor={precosAtuais.off40}
                 />
 
                 <CardPreco
                   id="off50"
                   titulo="50% OFF"
-                  valor={resultado.valor50Off}
+                  valor={precosAtuais.off50}
                 />
 
                 <CardPreco
                   id="off60"
                   titulo="60% OFF"
-                  valor={resultado.valor60Off}
+                  valor={precosAtuais.off60}
                 />
 
                 <CardCoparticipacao />
@@ -1019,6 +1046,14 @@ const styles = {
     marginTop: "7px",
     color: "#8B949E",
     fontSize: "12px",
+  },
+
+  cmvPercentual: {
+    display: "block",
+    marginTop: "8px",
+    color: "#F6F8FA",
+    fontSize: "14px",
+    fontWeight: 700,
   },
 
   promoGrid: {
