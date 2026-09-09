@@ -38,6 +38,7 @@ function InputPercentual({ label, value, onChange }) {
 }
 
 const custosLogisticos = {
+  ENTREGA_PROPRIA: 0,
   ATE_3_KM: 4,
   ATE_5_KM: 6,
   ACIMA_5_KM: 7.5,
@@ -68,6 +69,8 @@ export default function Simulacao99Page() {
   const [salvandoPreco, setSalvandoPreco] = useState(false);
 
   const [salvandoParametros, setSalvandoParametros] = useState(false);
+
+  const [precoBaseEditado, setPrecoBaseEditado] = useState("");
 
   const somaPercentuais =
     Number(taxa99 || 0) +
@@ -197,6 +200,7 @@ export default function Simulacao99Page() {
     setPrecoSelecionado("");
     setMensagem("");
     setErro("");
+    setPrecoBaseEditado("");
 
     if (!valor) {
       setItens([]);
@@ -239,6 +243,7 @@ export default function Simulacao99Page() {
       setMensagem("");
       setResultado(null);
       setPrecoSelecionado("");
+      setPrecoBaseEditado("");
 
       const data = await simularPrecificacao99({
         itemId: Number(itemId),
@@ -253,6 +258,9 @@ export default function Simulacao99Page() {
       });
 
       setResultado(data);
+      setPrecoBaseEditado(
+        Number(data.valorPrato).toFixed(2)
+      );
       setMensagem("Cálculo realizado com sucesso.");
     } catch (error) {
       setErro(error.message);
@@ -265,7 +273,7 @@ export default function Simulacao99Page() {
     if (!resultado || !precoSelecionado) return null;
 
     const precos = {
-      prato: resultado.valorPrato,
+      prato: Number(precoBaseEditado),
       freteGratis: resultado.valorFreteGratis,
       off20: resultado.valor20Off,
       off30: resultado.valor30Off,
@@ -294,9 +302,13 @@ export default function Simulacao99Page() {
       setErro("");
       setMensagem("");
 
-      await salvarPrecoVendaItem(Number(itemId), {
-        precoVendaAtual: Number(valor),
-      });
+      await salvarPrecoVendaItem(
+        Number(itemId),
+        "FOOD99",
+        {
+          precoVendaAtual: Number(valor),
+        }
+      );
 
       setMensagem("Preço de venda salvo com sucesso.");
     } catch (error) {
@@ -322,11 +334,18 @@ export default function Simulacao99Page() {
 
     setResultado(null);
     setPrecoSelecionado("");
+    setPrecoBaseEditado("");
     setErro("");
     setMensagem("");
   }
 
-  function CardPreco({ id, titulo, valor, destaque = false }) {
+  function CardPreco({
+    id,
+    titulo,
+    valor,
+    destaque = false,
+    editavel = false,
+  }) {
     const selecionado = precoSelecionado === id;
 
     return (
@@ -346,11 +365,45 @@ export default function Simulacao99Page() {
             onChange={() => setPrecoSelecionado(id)}
           />
 
-          <span style={styles.radioText}>Salvar este preço</span>
+          <span style={styles.radioText}>
+            Salvar este preço
+          </span>
         </div>
 
-        <p style={styles.priceTitle}>{titulo}</p>
-        <p style={styles.priceValue}>{formatarMoeda(valor)}</p>
+        <p style={styles.priceTitle}>
+          {titulo}
+        </p>
+
+        {editavel ? (
+          <>
+            <div style={styles.editablePriceBox}>
+              <span style={styles.currencyLabel}>
+                R$
+              </span>
+
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={precoBaseEditado}
+                onChange={(e) => {
+                  setPrecoBaseEditado(e.target.value);
+                  setPrecoSelecionado(id);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={styles.editablePriceInput}
+              />
+            </div>
+
+            <span style={styles.editablePriceHint}>
+              Você pode ajustar o preço sugerido.
+            </span>
+          </>
+        ) : (
+          <p style={styles.priceValue}>
+            {formatarMoeda(valor)}
+          </p>
+        )}
       </div>
     );
   }
@@ -485,6 +538,7 @@ export default function Simulacao99Page() {
               style={styles.input}
             >
               <option value="">Selecione a distância</option>
+              <option value="ENTREGA_PROPRIA">Entrega própria</option>
               <option value="ATE_3_KM">Até 3 km</option>
               <option value="ATE_5_KM">Até 5 km</option>
               <option value="ACIMA_5_KM">Acima de 5 km</option>
@@ -662,6 +716,7 @@ export default function Simulacao99Page() {
                 titulo="Valor do prato"
                 valor={resultado.valorPrato}
                 destaque
+                editavel
               />
 
               <CardPreco
@@ -931,6 +986,39 @@ const styles = {
     fontSize: "24px",
     fontWeight: 700,
     color: "#F6F8FA",
+  },
+
+  editablePriceBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginTop: "6px",
+  },
+
+  currencyLabel: {
+    fontSize: "18px",
+    fontWeight: 700,
+    color: "#f7d600",
+  },
+
+  editablePriceInput: {
+    width: "150px",
+    boxSizing: "border-box",
+    padding: "8px 10px",
+    borderRadius: "8px",
+    border: "1px solid #f7d600",
+    backgroundColor: "#161B22",
+    color: "#F6F8FA",
+    fontSize: "22px",
+    fontWeight: 700,
+    outline: "none",
+  },
+
+  editablePriceHint: {
+    display: "block",
+    marginTop: "7px",
+    color: "#8B949E",
+    fontSize: "12px",
   },
 
   promoGrid: {

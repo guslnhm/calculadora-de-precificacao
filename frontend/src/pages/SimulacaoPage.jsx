@@ -56,6 +56,7 @@ export default function SimulacaoPage() {
   const [salvandoPreco, setSalvandoPreco] = useState(false);
   const [salvandoPercentuais, setSalvandoPercentuais] = useState(false);
   const [taxaFranquia, setTaxaFranquia] = useState("");
+  const [precoBaseEditado, setPrecoBaseEditado] = useState("");
 
   const somaPercentuais =
     Number(imposto || 0) +
@@ -121,6 +122,7 @@ export default function SimulacaoPage() {
       setMensagem("");
       setResultado(null);
       setPrecoSelecionado("");
+      setPrecoBaseEditado("");
 
       const data = await simularPrecificacao({
         itemId: Number(itemId),
@@ -135,6 +137,9 @@ export default function SimulacaoPage() {
       });
 
       setResultado(data);
+      setPrecoBaseEditado(
+        Number(data.valorBase).toFixed(2)
+      );
       setMensagem("Cálculo realizado com sucesso.");
     } catch (error) {
       setErro(error.message);
@@ -146,7 +151,7 @@ export default function SimulacaoPage() {
   function obterValorPrecoSelecionado() {
     if (!resultado || !precoSelecionado) return null;
 
-    if (precoSelecionado === "base") return resultado.valorBase;
+    if (precoSelecionado === "base") return Number(precoBaseEditado);
     if (precoSelecionado === "cupom5") return resultado.valorCupom5;
     if (precoSelecionado === "cupom8") return resultado.valorCupom8;
     if (precoSelecionado === "cupom10") return resultado.valorCupom10;
@@ -167,9 +172,13 @@ export default function SimulacaoPage() {
       setErro("");
       setMensagem("");
 
-      await salvarPrecoVendaItem(Number(itemId), {
-        precoVendaAtual: Number(valorSelecionado),
-      });
+      await salvarPrecoVendaItem(
+        Number(itemId),
+        "IFOOD",
+        {
+          precoVendaAtual: Number(valorSelecionado),
+        }
+      );
 
       setMensagem("Preço de venda salvo com sucesso.");
     } catch (error) {
@@ -195,6 +204,7 @@ export default function SimulacaoPage() {
     setErro("");
     setMensagem("");
     setPrecoSelecionado("");
+    setPrecoBaseEditado("");
   }
 
   function preencherPercentuais(percentuais) {
@@ -404,7 +414,22 @@ export default function SimulacaoPage() {
 
                 <div style={styles.highlightCardInner}>
                   <p style={styles.highlightLabel}>Preço base sugerido</p>
-                  <p style={styles.highlightValue}>{formatarMoeda(resultado.valorBase)}</p>
+                  <div style={styles.editablePriceBox}>
+                    <span style={styles.currencyLabel}>R$</span>
+
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={precoBaseEditado}
+                      onChange={(e) => {
+                        setPrecoBaseEditado(e.target.value);
+                        setPrecoSelecionado("base");
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={styles.editablePriceInput}
+                    />
+                  </div>
                   <p style={styles.highlightText}>
                     Valor principal calculado a partir do CMV, frete e percentuais informados.
                   </p>
@@ -808,5 +833,30 @@ const styles = {
     margin: 0,
     color: "#D9D9D9",
     lineHeight: "1.5",
+  },
+
+  editablePriceBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    margin: "10px 0",
+  },
+
+  currencyLabel: {
+    fontSize: "22px",
+    fontWeight: "bold",
+    color: "#A9CCE3",
+  },
+
+  editablePriceInput: {
+    width: "160px",
+    backgroundColor: "#0D1117",
+    border: "1px solid #30363D",
+    borderRadius: "10px",
+    padding: "10px 12px",
+    color: "#F6F8FA",
+    fontSize: "26px",
+    fontWeight: "bold",
+    outline: "none",
   },
 };

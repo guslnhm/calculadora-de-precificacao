@@ -15,6 +15,16 @@ function formatarMoeda(valor) {
   });
 }
 
+function formatarPercentual(valor) {
+  if (valor == null) {
+    return "-";
+  }
+
+  return `${Number(valor)
+    .toFixed(2)
+    .replace(".", ",")}%`;
+}
+
 export default function ItensPage() {
   const [lojas, setLojas] = useState([]);
   const [itens, setItens] = useState([]);
@@ -187,210 +197,429 @@ async function handleDesativarItem(item) {
         </p>
       </div>
 
-      <div style={styles.layout}>
-        <div style={styles.leftColumn}>
-  <form onSubmit={handleSubmit} style={styles.formCard}>
-    <h3 style={styles.cardTitle}>
-      {itemEditandoId ? "Editar item" : "Cadastrar item"}
-    </h3>
+      <div style={styles.pageContent}>
+  <div style={styles.formsGrid}>
+    {/* CADASTRO / EDIÇÃO DE ITEM */}
+    <form onSubmit={handleSubmit} style={styles.formCard}>
+      <h3 style={styles.cardTitle}>
+        {itemEditandoId ? "Editar item" : "Cadastrar item"}
+      </h3>
 
-    <div style={styles.field}>
-      <label style={styles.label}>Loja</label>
-      <select
-        value={lojaId}
-        onChange={(e) => setLojaId(e.target.value)}
-        required
-        style={styles.input}
-      >
-        <option value="">Selecione uma loja</option>
-        {lojas.map((loja) => (
-          <option key={loja.id} value={loja.id}>
-            {loja.nome}
-          </option>
-        ))}
-      </select>
-    </div>
+      <div style={styles.field}>
+        <label style={styles.label}>Loja</label>
 
-    <div style={styles.field}>
-      <label style={styles.label}>Nome do item</label>
-      <input
-        style={styles.input}
-        type="text"
-        value={nomeItem}
-        onChange={(e) => setNomeItem(e.target.value)}
-        required
-      />
-    </div>
+        <select
+          value={lojaId}
+          onChange={(e) => setLojaId(e.target.value)}
+          required
+          style={styles.input}
+        >
+          <option value="">Selecione uma loja</option>
 
-    <div style={styles.field}>
-      <label style={styles.label}>CMV</label>
-      <input
-        style={styles.input}
-        type="number"
-        step="0.01"
-        min="0"
-        value={cmv}
-        onChange={(e) => setCmv(e.target.value)}
-        required
-      />
-    </div>
-
-    <div style={styles.field}>
-      <label style={styles.label}>Observação</label>
-      <textarea
-        style={styles.textarea}
-        value={observacao}
-        onChange={(e) => setObservacao(e.target.value)}
-      />
-    </div>
-
-    <button type="submit" disabled={carregando} style={styles.primaryButton}>
-      {carregando
-        ? "Salvando..."
-        : itemEditandoId
-        ? "Salvar alterações"
-        : "Cadastrar item"}
-    </button>
-
-    {itemEditandoId && (
-      <button
-        type="button"
-        onClick={limparFormularioItem}
-        style={styles.secondaryButton}
-      >
-        Cancelar edição
-      </button>
-    )}
-  </form>
-
-  <form onSubmit={handleImportarPlanilha} style={styles.formCard}>
-    <h3 style={styles.cardTitle}>Importar planilha</h3>
-
-    <p style={styles.helperText}>
-      Envie um arquivo .xlsx (Excel) com a primeira aba no formato:
-      <strong> A1 = Nome do item</strong> e <strong>B1 = CMV</strong>.
-    </p>
-
-    <div style={styles.importActions}>
-      <a
-        href="/planilha_cmv.xlsx"
-        download
-        style={styles.downloadButton}
-      >
-        Baixar modelo de planilha
-      </a>
-    </div>
-
-    <div style={styles.field}>
-      <label style={styles.label}>Loja</label>
-      <select
-        value={lojaImportacaoId}
-        onChange={(e) => setLojaImportacaoId(e.target.value)}
-        required
-        style={styles.input}
-      >
-        <option value="">Selecione uma loja</option>
-        {lojas.map((loja) => (
-          <option key={loja.id} value={loja.id}>
-            {loja.nome}
-          </option>
-        ))}
-      </select>
-    </div>
-
-    <div style={styles.field}>
-      <label style={styles.label}>Arquivo .xlsx</label>
-      <input
-        id="input-importacao-planilha"
-        type="file"
-        accept=".xlsx"
-        onChange={(e) => setArquivoImportacao(e.target.files?.[0] || null)}
-        style={styles.fileInput}
-      />
-    </div>
-
-    <button
-      type="submit"
-      disabled={carregandoImportacao}
-      style={styles.primaryButton}
-    >
-      {carregandoImportacao ? "Importando..." : "Importar planilha"}
-    </button>
-  </form>
-
-  {erro && <p style={styles.erro}>{erro}</p>}
-  {mensagem && <p style={styles.sucesso}>{mensagem}</p>}
-</div>
-
-        <div style={styles.tableCard}>
-          <div style={styles.tableHeader}>
-            <h3 style={styles.cardTitle}>Lista de itens</h3>
-
-            <div style={styles.filterBox}>
-              <label style={styles.label}>Filtrar por loja</label>
-              <select value={filtroLojaId} onChange={handleFiltrar} style={styles.input}>
-                <option value="">Todas</option>
-                {lojas.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {itens.length === 0 ? (
-            <p style={styles.emptyText}>Nenhum item cadastrado.</p>
-          ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th>Loja</th>
-                  <th>Item</th>
-                  <th>CMV</th>
-                  <th>Preço de venda atual</th>
-                  <th>Observação</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {itens.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.nomeLoja}</td>
-                    <td>{item.nomeItem}</td>
-                    <td>{formatarMoeda(item.cmv)}</td>
-                    <td>
-                      {item.precoVendaAtual != null
-                        ? formatarMoeda(item.precoVendaAtual)
-                        : "-"}
-                    </td>
-                    <td>{item.observacao || "-"}</td>
-                    <td>
-                      <div style={styles.actionButtons}>
-                        <button
-                          type="button"
-                          onClick={() => handleEditarItem(item)}
-                          style={styles.editButton}
-                        >
-                          Editar
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDesativarItem(item)}
-                          style={styles.deleteButton}
-                        >
-                          Desativar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+          {lojas.map((loja) => (
+            <option key={loja.id} value={loja.id}>
+              {loja.nome}
+            </option>
+          ))}
+        </select>
       </div>
+
+      <div style={styles.field}>
+        <label style={styles.label}>Nome do item</label>
+
+        <input
+          style={styles.input}
+          type="text"
+          value={nomeItem}
+          onChange={(e) => setNomeItem(e.target.value)}
+          required
+        />
+      </div>
+
+      <div style={styles.field}>
+        <label style={styles.label}>CMV</label>
+
+        <input
+          style={styles.input}
+          type="number"
+          step="0.01"
+          min="0"
+          value={cmv}
+          onChange={(e) => setCmv(e.target.value)}
+          required
+        />
+      </div>
+
+      <div style={styles.field}>
+        <label style={styles.label}>Observação</label>
+
+        <textarea
+          style={styles.textarea}
+          value={observacao}
+          onChange={(e) => setObservacao(e.target.value)}
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={carregando}
+        style={styles.primaryButton}
+      >
+        {carregando
+          ? "Salvando..."
+          : itemEditandoId
+          ? "Salvar alterações"
+          : "Cadastrar item"}
+      </button>
+
+      {itemEditandoId && (
+        <button
+          type="button"
+          onClick={limparFormularioItem}
+          style={styles.secondaryButton}
+        >
+          Cancelar edição
+        </button>
+      )}
+    </form>
+
+    {/* IMPORTAÇÃO DE PLANILHA */}
+    <form
+      onSubmit={handleImportarPlanilha}
+      style={styles.formCard}
+    >
+      <h3 style={styles.cardTitle}>
+        Importar planilha
+      </h3>
+
+      <p style={styles.helperText}>
+        Envie um arquivo .xlsx (Excel) com a primeira aba no
+        formato:
+        <strong> A1 = Nome do item</strong> e{" "}
+        <strong>B1 = CMV</strong>.
+      </p>
+
+      <div style={styles.importActions}>
+        <a
+          href="/planilha_cmv.xlsx"
+          download
+          style={styles.downloadButton}
+        >
+          Baixar modelo de planilha
+        </a>
+      </div>
+
+      <div style={styles.field}>
+        <label style={styles.label}>Loja</label>
+
+        <select
+          value={lojaImportacaoId}
+          onChange={(e) =>
+            setLojaImportacaoId(e.target.value)
+          }
+          required
+          style={styles.input}
+        >
+          <option value="">Selecione uma loja</option>
+
+          {lojas.map((loja) => (
+            <option key={loja.id} value={loja.id}>
+              {loja.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={styles.field}>
+        <label style={styles.label}>
+          Arquivo .xlsx
+        </label>
+
+        <input
+          id="input-importacao-planilha"
+          type="file"
+          accept=".xlsx"
+          onChange={(e) =>
+            setArquivoImportacao(
+              e.target.files?.[0] || null
+            )
+          }
+          style={styles.fileInput}
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={carregandoImportacao}
+        style={styles.primaryButton}
+      >
+        {carregandoImportacao
+          ? "Importando..."
+          : "Importar planilha"}
+      </button>
+    </form>
+  </div>
+
+  {/* MENSAGENS */}
+  {erro && <p style={styles.erro}>{erro}</p>}
+
+  {mensagem && (
+    <p style={styles.sucesso}>
+      {mensagem}
+    </p>
+  )}
+
+  {/* TABELA */}
+  <div style={styles.tableCard}>
+    <div style={styles.tableHeader}>
+      <h3 style={styles.cardTitle}>
+        Lista de itens
+      </h3>
+
+      <div style={styles.filterBox}>
+        <label style={styles.label}>
+          Filtrar por loja
+        </label>
+
+        <select
+          value={filtroLojaId}
+          onChange={handleFiltrar}
+          style={styles.input}
+        >
+          <option value="">Todas</option>
+
+          {lojas.map((loja) => (
+            <option
+              key={loja.id}
+              value={loja.id}
+            >
+              {loja.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+
+    {itens.length === 0 ? (
+      <p style={styles.emptyText}>
+        Nenhum item cadastrado.
+      </p>
+    ) : (
+      <div style={styles.tableWrapper}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th
+                rowSpan="2"
+                style={styles.th}
+              >
+                Loja
+              </th>
+
+              <th
+                rowSpan="2"
+                style={styles.th}
+              >
+                Item
+              </th>
+
+              <th
+                rowSpan="2"
+                style={styles.th}
+              >
+                CMV
+              </th>
+
+              <th
+                colSpan="3"
+                style={{
+                  ...styles.th,
+                  ...styles.platformHeader,
+                }}
+              >
+                iFood
+              </th>
+
+              <th
+                colSpan="3"
+                style={{
+                  ...styles.th,
+                  ...styles.platformHeader,
+                  ...styles.food99Header,
+                }}
+              >
+                99Food
+              </th>
+
+              <th
+                rowSpan="2"
+                style={styles.th}
+              >
+                Observação
+              </th>
+
+              <th
+                rowSpan="2"
+                style={styles.th}
+              >
+                Ações
+              </th>
+            </tr>
+
+            <tr>
+              <th style={styles.thSub}>
+                Preço atual
+              </th>
+
+              <th style={styles.thSub}>
+                CMV (%)
+              </th>
+
+              <th style={styles.thSub}>
+                Lucro (%)
+              </th>
+
+              <th style={styles.thSub}>
+                Preço atual
+              </th>
+
+              <th style={styles.thSub}>
+                CMV (%)
+              </th>
+
+              <th style={styles.thSub}>
+                Lucro (%)
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {itens.map((item) => (
+              <tr key={item.id}>
+                <td style={styles.td}>
+                  {item.nomeLoja}
+                </td>
+
+                <td style={styles.td}>
+                  {item.nomeItem}
+                </td>
+
+                <td
+                  style={{
+                    ...styles.td,
+                    ...styles.numericCell,
+                  }}
+                >
+                  {formatarMoeda(item.cmv)}
+                </td>
+
+                {/* iFood */}
+                <td
+                  style={{
+                    ...styles.td,
+                    ...styles.numericCell,
+                  }}
+                >
+                  {item.precoVendaAtualIfood == null
+                    ? "-"
+                    : formatarMoeda(
+                        item.precoVendaAtualIfood
+                      )}
+                </td>
+
+                <td
+                  style={{
+                    ...styles.td,
+                    ...styles.numericCell,
+                  }}
+                >
+                  {formatarPercentual(
+                    item.cmvPercentualIfood
+                  )}
+                </td>
+
+                <td
+                  style={{
+                    ...styles.td,
+                    ...styles.numericCell,
+                  }}
+                >
+                  {formatarPercentual(
+                    item.lucratividadeIfood
+                  )}
+                </td>
+
+                {/* 99Food */}
+                <td
+                  style={{
+                    ...styles.td,
+                    ...styles.numericCell,
+                  }}
+                >
+                  {item.precoVendaAtual99Food == null
+                    ? "-"
+                    : formatarMoeda(
+                        item.precoVendaAtual99Food
+                      )}
+                </td>
+
+                <td
+                  style={{
+                    ...styles.td,
+                    ...styles.numericCell,
+                  }}
+                >
+                  {formatarPercentual(
+                    item.cmvPercentual99Food
+                  )}
+                </td>
+
+                <td
+                  style={{
+                    ...styles.td,
+                    ...styles.numericCell,
+                  }}
+                >
+                  {formatarPercentual(
+                    item.lucratividade99Food
+                  )}
+                </td>
+
+                <td style={styles.td}>
+                  {item.observacao || "-"}
+                </td>
+
+                <td style={styles.td}>
+                  <div style={styles.actionButtons}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleEditarItem(item)
+                      }
+                      style={styles.editButton}
+                    >
+                      Editar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleDesativarItem(item)
+                      }
+                      style={styles.deleteButton}
+                    >
+                      Desativar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+</div>
     </div>
   );
 }
@@ -415,7 +644,7 @@ const styles = {
 
   layout: {
     display: "grid",
-    gridTemplateColumns: "380px 1fr",
+    gridTemplateColumns: "320px minmax(0, 1fr)",
     gap: "20px",
     alignItems: "start",
   },
@@ -436,6 +665,13 @@ const styles = {
     borderRadius: "18px",
     padding: "22px",
     boxShadow: "0 14px 40px rgba(0,0,0,0.25)",
+    width: "100%",
+    boxSizing: "border-box",
+    minWidth: 0,
+  },
+
+  tableWrapper: {
+    width: "100%",
   },
 
   tableHeader: {
@@ -520,6 +756,8 @@ const styles = {
     width: "100%",
     borderCollapse: "collapse",
     color: "#F6F8FA",
+    tableLayout: "fixed",
+    fontSize: "12px",
   },
 
   leftColumn: {
@@ -611,5 +849,58 @@ const styles = {
 
   deleteButtonHover: {
     backgroundColor: "#E6394620",
+  },
+
+  th: {
+    textAlign: "left",
+    padding: "10px 12px",
+    color: "#8B949E",
+    borderBottom: "1px solid #30363D",
+    whiteSpace: "nowrap",
+    verticalAlign: "middle",
+  },
+
+  thSub: {
+    textAlign: "left",
+    padding: "8px 12px",
+    color: "#8B949E",
+    borderBottom: "1px solid #30363D",
+    fontSize: "12px",
+    whiteSpace: "nowrap",
+  },
+
+  platformHeader: {
+    textAlign: "center",
+    color: "#A9CCE3",
+    fontWeight: 700,
+  },
+
+  food99Header: {
+    color: "#F7D600",
+  },
+
+  pageContent: {
+    display: "grid",
+    gap: "20px",
+  },
+
+  formsGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "20px",
+    alignItems: "stretch",
+  },
+
+  td: {
+    padding: "9px 7px",
+    borderBottom: "1px solid #21262D",
+    verticalAlign: "middle",
+    overflowWrap: "break-word",
+  },
+
+  numericCell: {
+    textAlign: "center",
+    whiteSpace: "nowrap",
+    fontSize: "12px",
   },
 };

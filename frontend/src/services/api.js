@@ -102,15 +102,28 @@ export async function simularPrecificacao(dados) {
   return body;
 }
 
-export async function salvarPrecoVendaItem(itemId, dados) {
-  const response = await fetch(`${API_BASE_URL}/itens/${itemId}/preco-venda`, {
-    method: "PUT",
-    headers: getHeaders(),
-    body: JSON.stringify(dados),
-  });
+export async function salvarPrecoVendaItem(
+  itemId,
+  plataforma,
+  dados
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/itens/${itemId}/preco-venda/${plataforma}`,
+    {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify(dados),
+    }
+  );
 
   const body = await response.json();
-  if (!response.ok) throw new Error(body.mensagem || "Erro ao salvar preço de venda");
+
+  if (!response.ok) {
+    throw new Error(
+      body.mensagem || "Erro ao salvar preço de venda"
+    );
+  }
+
   return body;
 }
 
