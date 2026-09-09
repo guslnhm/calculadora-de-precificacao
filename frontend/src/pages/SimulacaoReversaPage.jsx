@@ -6,6 +6,7 @@ import {
   salvarPercentuaisLoja,
   simularPrecificacaoReversa,
 } from "../services/api";
+import ItemSearchSelect from "../components/ItemSearchSelect";
 
 function formatarMoeda(valor) {
   return Number(valor || 0).toLocaleString("pt-BR", {
@@ -135,14 +136,17 @@ export default function SimulacaoReversaPage() {
     await carregarPercentuaisDaLoja(valor);
   }
 
-  function handleChangeItem(event) {
-    const valor = event.target.value;
+  function handleChangeItem(valor) {
     setItemId(valor);
     setResultado(null);
     setMensagem("");
     setErro("");
 
-    const item = itens.find((itemAtual) => String(itemAtual.id) === String(valor));
+    const item = itens.find(
+      (itemAtual) =>
+        String(itemAtual.id) === String(valor)
+    );
+
     setItemSelecionado(item || null);
 
     if (item?.precoVendaAtual != null) {
@@ -274,20 +278,15 @@ export default function SimulacaoReversaPage() {
 
           <div style={styles.field}>
             <label style={styles.label}>Item</label>
-            <select
+
+            <ItemSearchSelect
+              key={lojaId || "sem-loja"}
+              itens={itens}
               value={itemId}
               onChange={handleChangeItem}
-              required
               disabled={!lojaId}
-              style={styles.input}
-            >
-              <option value="">Selecione um item</option>
-              {itens.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nomeItem}
-                </option>
-              ))}
-            </select>
+              placeholder="Digite para procurar um item..."
+            />
           </div>
 
           {itemSelecionado && (

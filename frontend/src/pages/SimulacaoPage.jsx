@@ -7,6 +7,7 @@ import {
   salvarPrecoVendaItem,
   simularPrecificacao,
 } from "../services/api";
+import ItemSearchSelect from "../components/ItemSearchSelect";
 
 function formatarMoeda(valor) {
   return Number(valor).toLocaleString("pt-BR", {
@@ -109,6 +110,10 @@ export default function SimulacaoPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!itemId) {
+      setErro("Selecione um item para calcular.");
+      return;
+    }
 
     try {
       setCarregando(true);
@@ -274,22 +279,21 @@ export default function SimulacaoPage() {
           </div>
 
           <div style={styles.field}>
-            <label style={styles.label}>Item</label>
-            <select
-              value={itemId}
-              onChange={(e) => setItemId(e.target.value)}
-              required
-              disabled={!lojaId}
-              style={styles.input}
-            >
-              <option value="">Selecione um item</option>
-              {itens.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nomeItem}
-                </option>
-              ))}
-            </select>
-          </div>
+  <label style={styles.label}>Item</label>
+
+        <ItemSearchSelect
+          key={lojaId || "sem-loja"}
+          itens={itens}
+          value={itemId}
+          onChange={(novoItemId) => {
+            setItemId(novoItemId);
+            setResultado(null);
+            setPrecoSelecionado("");
+          }}
+          disabled={!lojaId}
+          placeholder="Digite para procurar um item..."
+        />
+      </div>
 
           <div style={styles.field}>
             <label style={styles.label}>Frete</label>

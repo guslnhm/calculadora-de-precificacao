@@ -7,6 +7,7 @@ import {
   buscarConfiguracaoPlataforma,
   salvarConfiguracaoPlataforma,
 } from "../services/api";
+import ItemSearchSelect from "../components/ItemSearchSelect";
 
 function formatarMoeda(valor) {
   return Number(valor).toLocaleString("pt-BR", {
@@ -220,6 +221,10 @@ export default function Simulacao99Page() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!itemId) {
+      setErro("Selecione um produto para calcular.");
+      return;
+    }
 
     if (percentualInvalido) {
       setErro(
@@ -453,21 +458,18 @@ export default function Simulacao99Page() {
           <div style={styles.field}>
             <label style={styles.label}>Produto</label>
 
-            <select
+            <ItemSearchSelect
+              key={lojaId || "sem-loja"}
+              itens={itens}
               value={itemId}
-              onChange={(e) => setItemId(e.target.value)}
-              required
+              onChange={(novoItemId) => {
+                setItemId(novoItemId);
+                setResultado(null);
+                setPrecoSelecionado("");
+              }}
               disabled={!lojaId}
-              style={styles.input}
-            >
-              <option value="">Selecione um produto</option>
-
-              {itens.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nomeItem}
-                </option>
-              ))}
-            </select>
+              placeholder="Digite para procurar um produto..."
+            />
           </div>
 
           <div style={styles.field}>
