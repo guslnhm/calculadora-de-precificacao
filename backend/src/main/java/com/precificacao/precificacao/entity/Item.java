@@ -36,8 +36,15 @@ public class Item {
     @Column(name = "observacao")
     private String observacao;
 
+    // legado
     @Column(name = "preco_venda_atual", precision = 12, scale = 2)
     private BigDecimal precoVendaAtual;
+
+    @Column(name = "preco_venda_atual_ifood", precision = 12, scale = 2)
+    private BigDecimal precoVendaAtualIfood;
+
+    @Column(name = "preco_venda_atual_99food", precision = 12, scale = 2)
+    private BigDecimal precoVendaAtual99Food;
 
     @Column(name = "data_precificacao")
     private LocalDateTime dataPrecificacao;

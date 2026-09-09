@@ -14,10 +14,16 @@ public class ItemResponseDTO {
     private BigDecimal rendimento;
     private String observacao;
     private BigDecimal precoVendaAtual;
+    private BigDecimal precoVendaAtualIfood;
+    private BigDecimal precoVendaAtual99Food;
+    private BigDecimal cmvPercentualIfood;
+    private BigDecimal cmvPercentual99Food;
     private LocalDateTime dataPrecificacao;
     private Boolean ativo;
     private LocalDateTime criadoEm;
     private LocalDateTime atualizadoEm;
+    private BigDecimal lucratividadeIfood;
+    private BigDecimal lucratividade99Food;
 
     public Long getId() {
         return id;
@@ -83,6 +89,38 @@ public class ItemResponseDTO {
         this.precoVendaAtual = precoVendaAtual;
     }
 
+    public BigDecimal getPrecoVendaAtualIfood() {
+        return precoVendaAtualIfood;
+    }
+
+    public void setPrecoVendaAtualIfood(BigDecimal precoVendaAtualIfood) {
+        this.precoVendaAtualIfood = precoVendaAtualIfood;
+    }
+
+    public BigDecimal getPrecoVendaAtual99Food() {
+        return precoVendaAtual99Food;
+    }
+
+    public void setPrecoVendaAtual99Food(BigDecimal precoVendaAtual99Food) {
+        this.precoVendaAtual99Food = precoVendaAtual99Food;
+    }
+
+    public BigDecimal getCmvPercentualIfood() {
+        return cmvPercentualIfood;
+    }
+
+    public void setCmvPercentualIfood(BigDecimal cmvPercentualIfood) {
+        this.cmvPercentualIfood = cmvPercentualIfood;
+    }
+
+    public BigDecimal getCmvPercentual99Food() {
+        return cmvPercentual99Food;
+    }
+
+    public void setCmvPercentual99Food(BigDecimal cmvPercentual99Food) {
+        this.cmvPercentual99Food = cmvPercentual99Food;
+    }
+
     public LocalDateTime getDataPrecificacao() {
         return dataPrecificacao;
     }
@@ -121,5 +159,21 @@ public class ItemResponseDTO {
 
     public void setCmv(BigDecimal cmv) {
         this.cmv = cmv;
+    }
+
+    public BigDecimal getLucratividadeIfood() {
+        return lucratividadeIfood;
+    }
+
+    public void setLucratividadeIfood(BigDecimal lucratividadeIfood) {
+        this.lucratividadeIfood = lucratividadeIfood;
+    }
+
+    public BigDecimal getLucratividade99Food() {
+        return lucratividade99Food;
+    }
+
+    public void setLucratividade99Food(BigDecimal lucratividade99Food) {
+        this.lucratividade99Food = lucratividade99Food;
     }
 }

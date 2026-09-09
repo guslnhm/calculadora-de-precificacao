@@ -12,34 +12,74 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import com.precificacao.precificacao.enums.Plataforma;
+import com.precificacao.precificacao.entity.LojaConfiguracaoPlataforma;
+import com.precificacao.precificacao.enums.Plataforma;
+import com.precificacao.precificacao.repository.LojaConfiguracaoPlataformaRepository;
 
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.math.RoundingMode;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ItemService {
 
     private final ItemRepository itemRepository;
     private final LojaRepository lojaRepository;
+    private final LojaConfiguracaoPlataformaRepository configuracaoRepository;
 
-    public ItemService(ItemRepository itemRepository, LojaRepository lojaRepository) {
+    public ItemService(ItemRepository itemRepository, LojaRepository lojaRepository, LojaConfiguracaoPlataformaRepository configuracaoRepository) {
         this.itemRepository = itemRepository;
         this.lojaRepository = lojaRepository;
+        this.configuracaoRepository = configuracaoRepository;
     }
 
     public List<ItemResponseDTO> listarTodos() {
-        return itemRepository.findByAtivoTrue()
+        List<Item> itens = itemRepository.findByAtivoTrue();
+
+        Map<Long, BigDecimal> lucros99PorLoja =
+                carregarLucros99PorLoja();
+
+        return itens
                 .stream()
-                .map(this::toResponseDTO)
+                .map(item ->
+                        toResponseDTO(
+                                item,
+                                lucros99PorLoja.get(
+                                        item.getLoja().getId()
+                                )
+                        )
+                )
                 .toList();
     }
 
     public List<ItemResponseDTO> listarPorLoja(Long lojaId) {
-        return itemRepository.findByLojaIdAndAtivoTrue(lojaId)
+        List<Item> itens =
+                itemRepository.findByLojaIdAndAtivoTrue(lojaId);
+
+        BigDecimal lucro99 =
+                configuracaoRepository
+                        .findByLojaIdAndPlataforma(
+                                lojaId,
+                                Plataforma.FOOD99
+                        )
+                        .filter(config ->
+                                Boolean.TRUE.equals(config.getAtivo())
+                        )
+                        .map(
+                                LojaConfiguracaoPlataforma::getPercentualLucro
+                        )
+                        .orElse(null);
+
+        return itens
                 .stream()
-                .map(this::toResponseDTO)
+                .map(item ->
+                        toResponseDTO(item, lucro99)
+                )
                 .toList();
     }
 
@@ -202,7 +242,59 @@ public class ItemService {
         }
     }
 
-    private ItemResponseDTO toResponseDTO(Item item) {
+    private BigDecimal calcularCmvPercentual(
+        BigDecimal cmv,
+        BigDecimal precoVenda
+    ) {
+        if (
+                cmv == null ||
+                precoVenda == null ||
+                precoVenda.compareTo(BigDecimal.ZERO) <= 0
+        ) {
+            return null;
+        }
+
+        return cmv
+                .multiply(BigDecimal.valueOf(100))
+                .divide(precoVenda, 2, RoundingMode.HALF_UP);
+    }
+
+    public ItemResponseDTO salvarPrecoVendaPorPlataforma(
+        Long itemId,
+        Plataforma plataforma,
+        SalvarPrecoVendaRequestDTO dto
+    ) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() ->
+                        new RuntimeException("Item não encontrado")
+                );
+
+        switch (plataforma) {
+            case IFOOD ->
+                    item.setPrecoVendaAtualIfood(
+                            dto.getPrecoVendaAtual()
+                    );
+
+            case FOOD99 ->
+                    item.setPrecoVendaAtual99Food(
+                            dto.getPrecoVendaAtual()
+                    );
+
+            default ->
+                    throw new RuntimeException(
+                            "Plataforma não suportada para preço de venda"
+                    );
+        }
+
+        item.setDataPrecificacao(LocalDateTime.now());
+        item.setAtualizadoEm(LocalDateTime.now());
+
+        Item itemSalvo = itemRepository.save(item);
+
+        return toResponseDTO(itemSalvo);
+    }
+
+    private ItemResponseDTO toResponseDTO(Item item, BigDecimal lucro99Food) {
         ItemResponseDTO dto = new ItemResponseDTO();
         dto.setId(item.getId());
         dto.setLojaId(item.getLoja().getId());
@@ -213,11 +305,54 @@ public class ItemService {
         dto.setRendimento(item.getRendimento());
         dto.setObservacao(item.getObservacao());
         dto.setPrecoVendaAtual(item.getPrecoVendaAtual());
+        dto.setPrecoVendaAtualIfood(item.getPrecoVendaAtualIfood());
+        dto.setPrecoVendaAtual99Food(item.getPrecoVendaAtual99Food());
+
+        dto.setCmvPercentualIfood(
+                calcularCmvPercentual(
+                        item.getCmv(),
+                        item.getPrecoVendaAtualIfood()
+                )
+        );
+
+        dto.setCmvPercentual99Food(
+                calcularCmvPercentual(
+                        item.getCmv(),
+                        item.getPrecoVendaAtual99Food()
+                )
+        );
+
+        dto.setLucratividadeIfood(
+            item.getLoja().getPercentualLucro()
+        );
+
+        dto.setLucratividade99Food(
+            lucro99Food
+        );
+
         dto.setDataPrecificacao(item.getDataPrecificacao());
         dto.setAtivo(item.getAtivo());
         dto.setCriadoEm(item.getCriadoEm());
         dto.setAtualizadoEm(item.getAtualizadoEm());
         return dto;
+    }
+
+    private ItemResponseDTO toResponseDTO(Item item) {
+        BigDecimal lucro99 =
+            configuracaoRepository
+                    .findByLojaIdAndPlataforma(
+                            item.getLoja().getId(),
+                            Plataforma.FOOD99
+                    )
+                    .filter(config ->
+                            Boolean.TRUE.equals(config.getAtivo())
+                    )
+                    .map(
+                            LojaConfiguracaoPlataforma::getPercentualLucro
+                    )
+                    .orElse(null);
+
+        return toResponseDTO(item, lucro99);
     }
 
     public ItemResponseDTO atualizar(Long itemId, ItemRequestDTO dto) {
@@ -247,5 +382,21 @@ public class ItemService {
         item.setAtualizadoEm(LocalDateTime.now());
 
         itemRepository.save(item);
+    }
+
+    private Map<Long, BigDecimal> carregarLucros99PorLoja() {
+        return configuracaoRepository
+                .findByPlataforma(Plataforma.FOOD99)
+                .stream()
+                .filter(config ->
+                        Boolean.TRUE.equals(config.getAtivo())
+                )
+                .collect(
+                        Collectors.toMap(
+                                config -> config.getLoja().getId(),
+                                LojaConfiguracaoPlataforma::getPercentualLucro,
+                                (valor1, valor2) -> valor2
+                        )
+                );
     }
 }

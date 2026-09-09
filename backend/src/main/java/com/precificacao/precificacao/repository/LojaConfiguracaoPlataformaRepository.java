@@ -5,6 +5,7 @@ import com.precificacao.precificacao.enums.Plataforma;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface LojaConfiguracaoPlataformaRepository
         extends JpaRepository<LojaConfiguracaoPlataforma, Long> {
@@ -13,4 +14,8 @@ public interface LojaConfiguracaoPlataformaRepository
             Long lojaId,
             Plataforma plataforma
     );
+
+    List<LojaConfiguracaoPlataforma> findByPlataforma(
+        Plataforma plataforma
+        );
 }

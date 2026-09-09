@@ -8,6 +8,7 @@ import com.precificacao.precificacao.service.ItemService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.precificacao.precificacao.enums.Plataforma;
 
 import java.util.List;
 
@@ -63,5 +64,18 @@ public class ItemController {
     @DeleteMapping("/{id}")
     public void desativar(@PathVariable Long id) {
         itemService.desativar(id);
+    }
+
+    @PutMapping("/{id}/preco-venda/{plataforma}")
+    public ItemResponseDTO salvarPrecoVendaPorPlataforma(
+            @PathVariable Long id,
+            @PathVariable Plataforma plataforma,
+            @Valid @RequestBody SalvarPrecoVendaRequestDTO dto
+    ) {
+        return itemService.salvarPrecoVendaPorPlataforma(
+                id,
+                plataforma,
+                dto
+        );
     }
 }
