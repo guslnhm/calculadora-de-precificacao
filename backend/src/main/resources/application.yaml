@@ -29,3 +29,10 @@ server:
 app:
   cors:
     allowed-origin: "${APP_CORS_ALLOWED_ORIGIN:http://localhost:5173}"
+# Integração com o iFood (aplicativo centralizado). Sem as variáveis, o sistema
+# sobe normalmente; só as funções que falam com o iFood ficam indisponíveis.
+ifood:
+  client-id: ${IFOOD_CLIENT_ID:}
+  client-secret: ${IFOOD_CLIENT_SECRET:}
+  base-url: ${IFOOD_BASE_URL:https://merchant-api.ifood.com.br}
+  fuso: America/Sao_Paulo

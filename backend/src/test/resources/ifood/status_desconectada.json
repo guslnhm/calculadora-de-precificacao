@@ -1,0 +1,15 @@
+[
+  {
+    "operation": "delivery",
+    "salesChannel": "ifood-app",
+    "available": false,
+    "state": "ERROR",
+    "reopenable": { "identifier": null, "type": null, "reopenable": false },
+    "validations": [
+      { "id": "v1", "code": "is.not.connected.config", "state": "ERROR",
+        "message": { "title": "Loja fechada", "subtitle": "Gestor de Pedidos ou PDV desconectado" } },
+      { "id": "v2", "code": "during.opening-hours.config", "state": "OK" }
+    ],
+    "message": { "title": "Loja fechada", "subtitle": "Gestor de Pedidos ou PDV desconectado" }
+  }
+]
