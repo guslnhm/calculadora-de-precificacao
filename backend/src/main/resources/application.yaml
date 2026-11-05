@@ -36,3 +36,23 @@ ifood:
   client-secret: ${IFOOD_CLIENT_SECRET:}
   base-url: ${IFOOD_BASE_URL:https://merchant-api.ifood.com.br}
   fuso: America/Sao_Paulo
+
+# Monitor de lojas. Começa DESLIGADO; e, ligado, começa em "modo sombra"
+# (calcula e registra as mensagens, mas não envia), para comparar com o monitor em Python.
+monitor:
+  ativo: ${MONITOR_ATIVO:false}
+  enviar-whatsapp: ${MONITOR_ENVIAR_WHATSAPP:false}
+  intervalo-segundos: ${MONITOR_INTERVALO_SEGUNDOS:30}
+  ciclos-confirmacao: 2
+  estados-alerta: ERROR
+  alertar-pausas: true
+  lembrete-minutos: ${MONITOR_LEMBRETE_MINUTOS:30}
+  avisar-recuperacao: true
+  workers: ${MONITOR_WORKERS:8}
+  resumo-diario: "${MONITOR_RESUMO_DIARIO:08:00}"
+
+whatsapp:
+  provider: ${WHATSAPP_PROVIDER:console}
+  zapi-instance-id: ${ZAPI_INSTANCE_ID:}
+  zapi-token: ${ZAPI_TOKEN:}
+  zapi-client-token: ${ZAPI_CLIENT_TOKEN:}
