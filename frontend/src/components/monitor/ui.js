@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 // Estilos e funções de apoio das telas do monitor iFood (mesmo tema escuro do resto do site).
 
 export const FUSO = "America/Sao_Paulo";
@@ -196,7 +198,7 @@ export const s = {
   label: { color: cores.textoSuave, fontSize: "13px", display: "grid", gap: "6px" },
   check: { display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "14px" },
   tabelaWrap: { overflowX: "auto" },
-  tabela: { width: "100%", borderCollapse: "collapse", fontSize: "14px" },
+  tabela: { width: "100%", borderCollapse: "collapse", fontSize: "14px", border: "none" },
   th: {
     textAlign: "left",
     color: cores.textoSuave,
@@ -255,4 +257,15 @@ export function pilula(cor) {
     backgroundColor: `${cor}1F`,
     border: `1px solid ${cor}66`,
   };
+}
+
+/** true quando a tela é estreita (celular). */
+export function useTelaEstreita(limite = 640) {
+  const [estreita, setEstreita] = useState(() => window.innerWidth < limite);
+  useEffect(() => {
+    const aoMudar = () => setEstreita(window.innerWidth < limite);
+    window.addEventListener("resize", aoMudar);
+    return () => window.removeEventListener("resize", aoMudar);
+  }, [limite]);
+  return estreita;
 }

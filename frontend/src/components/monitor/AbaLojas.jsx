@@ -11,6 +11,7 @@ import {
   pilula,
   s,
   textoMotivos,
+  useTelaEstreita,
 } from "./ui";
 
 const ATUALIZAR_A_CADA_MS = 30000;
@@ -79,6 +80,7 @@ export default function AbaLojas({ versao }) {
   const [filtro, setFiltro] = useState("PROBLEMAS");
   const [aberta, setAberta] = useState(null);
   const [agora, setAgora] = useState(() => Date.now());
+  const estreita = useTelaEstreita();
 
   const carregar = useCallback(async () => {
     try {
@@ -195,7 +197,43 @@ export default function AbaLojas({ versao }) {
           </div>
         )}
 
-        {visiveis.length > 0 && (
+        {visiveis.length > 0 && estreita && (
+          <div style={{ display: "grid", gap: "8px" }}>
+            {visiveis.map((l) => {
+              const chave = `${l.merchant_id}|${l.operacao}|${l.canal}`;
+              const info = estadoInfo(l.estado);
+              const motivo = l.estado === "OK" ? "" : textoMotivos(l.motivos, l.estado);
+              return (
+                <div
+                  key={chave}
+                  onClick={() => setAberta(aberta === chave ? null : chave)}
+                  style={{
+                    border: `1px solid ${cores.borda}`,
+                    borderLeft: `3px solid ${info.cor}`,
+                    borderRadius: "10px",
+                    padding: "10px 12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "center" }}>
+                    <strong>{l.loja}</strong>
+                    <span style={pilula(info.cor)}>{info.rotulo}</span>
+                  </div>
+                  <div style={{ ...s.suave, marginTop: "4px" }}>
+                    {motivo ? `${motivo} · ` : ""}desde {hora(l.desde)} (há {desdeAgora(l.desde, agora)})
+                  </div>
+                  {aberta === chave && (
+                    <div style={{ marginTop: "10px", borderTop: `1px solid ${cores.borda}`, paddingTop: "10px" }}>
+                      <Historico merchantId={l.merchant_id} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {visiveis.length > 0 && !estreita && (
           <div style={s.tabelaWrap}>
             <table style={s.tabela}>
               <thead>
