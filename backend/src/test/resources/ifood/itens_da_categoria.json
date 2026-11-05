@@ -1,0 +1,36 @@
+{
+  "items": [
+    {
+      "id": "df8597e7-ebfd-4949-b305-e5f65c5cd9d7",
+      "type": "DEFAULT",
+      "categoryId": "76c2af1b-6fe4-48ba-befe-17f36ff03663",
+      "status": "AVAILABLE",
+      "price": { "value": 15.9, "originalValue": 15.9 },
+      "externalCode": "TESTE-df8597e7",
+      "index": 0,
+      "productId": "a5a83dbf-50fc-48a7-9a43-ac1d7b9c4483",
+      "contextModifiers": [
+        { "catalogContext": "DEFAULT", "externalCode": "TESTE-df8597e7",
+          "price": { "value": 15.9, "originalValue": 15.9 }, "status": "AVAILABLE",
+          "itemContextId": "62ebd8de-9083-43be-94af-bbda317cd9fd" }
+      ]
+    }
+  ],
+  "optionGroups": [],
+  "options": [],
+  "products": [
+    {
+      "id": "a5a83dbf-50fc-48a7-9a43-ac1d7b9c4483",
+      "name": "Açaí 300ml",
+      "externalCode": "TESTE-df8597e7",
+      "description": "",
+      "imagePath": "",
+      "tags": [],
+      "serving": "NOT_APPLICABLE",
+      "dietaryRestrictions": [],
+      "weight": {},
+      "optionGroups": [],
+      "industrialized": false
+    }
+  ]
+}
