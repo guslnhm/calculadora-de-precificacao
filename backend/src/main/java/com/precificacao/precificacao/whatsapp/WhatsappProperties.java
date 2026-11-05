@@ -16,6 +16,26 @@ public record WhatsappProperties(
         @DefaultValue("") String zapiClientToken,
         @DefaultValue("https://api.z-api.io") String zapiBaseUrl
 ) {
+    public WhatsappProperties {
+        provider = limpar(provider);
+        zapiInstanceId = limpar(zapiInstanceId);
+        zapiToken = limpar(zapiToken);
+        zapiClientToken = limpar(zapiClientToken);
+        zapiBaseUrl = limpar(zapiBaseUrl).isEmpty() ? "https://api.z-api.io" : limpar(zapiBaseUrl);
+    }
+
+    /** Tira espaços, quebras de linha e aspas que costumam vir junto ao colar a variável no Railway. */
+    static String limpar(String v) {
+        if (v == null) {
+            return "";
+        }
+        String s = v.strip();
+        while (s.length() >= 2 && (s.startsWith("\"") && s.endsWith("\"") || s.startsWith("'") && s.endsWith("'"))) {
+            s = s.substring(1, s.length() - 1).strip();
+        }
+        return s;
+    }
+
     public boolean zapiConfigurada() {
         return !zapiInstanceId.isBlank() && !zapiToken.isBlank();
     }

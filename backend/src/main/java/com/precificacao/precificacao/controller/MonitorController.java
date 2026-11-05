@@ -6,7 +6,10 @@ import com.precificacao.precificacao.monitor.MonitorModelos.LojaMerchant;
 import com.precificacao.precificacao.monitor.MonitorProperties;
 import com.precificacao.precificacao.monitor.MonitorRepository;
 import com.precificacao.precificacao.monitor.MonitorService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -113,5 +116,13 @@ public class MonitorController {
     public Map<String, String> resumo(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dia) {
         return monitor.enviarResumo(dia);
+    }
+
+    /** Mostra na tela o motivo real do erro (em vez de "erro inesperado"). */
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, Object>> erro(RuntimeException e) {
+        org.slf4j.LoggerFactory.getLogger(getClass()).error("Erro no monitor", e);
+        String msg = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("erro", "MONITOR", "mensagem", msg));
     }
 }

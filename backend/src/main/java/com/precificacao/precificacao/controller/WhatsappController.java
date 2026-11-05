@@ -7,6 +7,7 @@ import com.precificacao.precificacao.whatsapp.WhatsappSender;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -104,5 +105,13 @@ public class WhatsappController {
         long gid = grupos.salvar(id, req.nome().trim(), req.chatId().trim(), req.todasLojas(), req.admin(),
                 req.avisarRetorno() == null || req.avisarRetorno(), req.ativo() == null || req.ativo(), req.lojas());
         return ResponseEntity.ok(grupos.buscar(gid).orElseThrow());
+    }
+
+    /** Mostra na tela o motivo real do erro (em vez de "erro inesperado"). */
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, Object>> erro(RuntimeException e) {
+        org.slf4j.LoggerFactory.getLogger(getClass()).error("Erro no WhatsApp", e);
+        String msg = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("erro", "WHATSAPP", "mensagem", msg));
     }
 }
