@@ -78,7 +78,7 @@ export default function AbaLojas({ versao }) {
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState("PROBLEMAS");
   const [aberta, setAberta] = useState(null);
-  const [agora, setAgora] = useState(Date.now());
+  const [agora, setAgora] = useState(() => Date.now());
 
   const carregar = useCallback(async () => {
     try {

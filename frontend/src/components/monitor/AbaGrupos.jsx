@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { monitorApi, whatsappApi } from "../../services/api";
 import { cores, pilula, s } from "./ui";
 
@@ -354,7 +354,7 @@ export default function AbaGrupos() {
   const [editando, setEditando] = useState(null);
   const [situacao, setSituacao] = useState(null);
 
-  async function carregar() {
+  const carregar = useCallback(async () => {
     try {
       const [gs, ls] = await Promise.all([whatsappApi.grupos(), monitorApi.lojasIfood()]);
       setGrupos(gs);
@@ -363,7 +363,7 @@ export default function AbaGrupos() {
     } catch (e) {
       setErro(e.message);
     }
-  }
+  }, []);
 
   useEffect(() => {
     carregar();
@@ -371,7 +371,7 @@ export default function AbaGrupos() {
       .situacao()
       .then(setSituacao)
       .catch((e) => setSituacao({ erro: e.message }));
-  }, []);
+  }, [carregar]);
 
   const nomes = useMemo(() => Object.fromEntries(lojas.map((l) => [l.merchantId, l.nome])), [lojas]);
 

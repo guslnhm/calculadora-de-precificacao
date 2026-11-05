@@ -23,21 +23,23 @@ export default function AbaIncidentes({ versao }) {
   const hoje = diaISO();
   const [de, setDe] = useState(somarDias(hoje, -6));
   const [ate, setAte] = useState(hoje);
-  const [linhas, setLinhas] = useState(null);
-  const [erro, setErro] = useState("");
+  const [resultado, setResultado] = useState({ chave: null, linhas: null, erro: "" });
   const [busca, setBusca] = useState("");
+  const chave = `${de}|${ate}|${versao}`;
+  const carregado = resultado.chave === chave;
+  const linhas = carregado ? resultado.linhas : null;
+  const erro = carregado ? resultado.erro : "";
 
   useEffect(() => {
     let cancelado = false;
-    setLinhas(null);
     monitorApi
       .incidentes(de, ate)
-      .then((d) => !cancelado && (setLinhas(d), setErro("")))
-      .catch((e) => !cancelado && setErro(e.message));
+      .then((d) => !cancelado && setResultado({ chave, linhas: d, erro: "" }))
+      .catch((e) => !cancelado && setResultado({ chave, linhas: null, erro: e.message }));
     return () => {
       cancelado = true;
     };
-  }, [de, ate, versao]);
+  }, [de, ate, chave]);
 
   const visiveis = useMemo(() => {
     const termo = busca.trim().toLowerCase();
