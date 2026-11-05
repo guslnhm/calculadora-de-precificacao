@@ -19,6 +19,8 @@ spring:
     enabled: true
     baseline-on-migrate: true
     baseline-version: 0
+    # Necessário para aplicar a V0_9 (tabelas base) em bancos que já têm V1 e V2.
+    out-of-order: true
     locations: classpath:db/migration
 
 server:

@@ -1,5 +1,7 @@
 package com.precificacao.precificacao.entity;
 
+import com.precificacao.precificacao.enums.Arredondamento;
+import com.precificacao.precificacao.enums.ModoCupomIfood;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -46,6 +48,18 @@ public class Loja {
 
     @Column(name = "percentual_lucro", precision = 5, scale = 2)
     private BigDecimal percentualLucro;
+
+    // Regras do preço que vai para o iFood (migração V3)
+    @Column(name = "ifood_frete_padrao", nullable = false, precision = 12, scale = 2)
+    private BigDecimal ifoodFretePadrao = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ifood_modo_cupom", nullable = false, length = 20)
+    private ModoCupomIfood ifoodModoCupom = ModoCupomIfood.BASE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ifood_arredondamento", nullable = false, length = 20)
+    private Arredondamento ifoodArredondamento = Arredondamento.NENHUM;
 
     @Column(name = "ativo", nullable = false)
     private Boolean ativo;

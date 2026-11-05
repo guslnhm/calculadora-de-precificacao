@@ -36,6 +36,10 @@ public class Item {
     @Column(name = "observacao")
     private String observacao;
 
+    // Frete específico do item; null = usa o frete padrão da loja (migração V3)
+    @Column(name = "frete", precision = 12, scale = 2)
+    private BigDecimal frete;
+
     // legado
     @Column(name = "preco_venda_atual", precision = 12, scale = 2)
     private BigDecimal precoVendaAtual;
