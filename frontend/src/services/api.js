@@ -360,3 +360,63 @@ export async function atualizarLoja(lojaId, dados) {
 
   return body;
 }
+// ------ Monitor iFood e grupos de WhatsApp
+
+async function requisicao(metodo, caminho, dados) {
+  const response = await fetch(`${API_BASE_URL}${caminho}`, {
+    method: metodo,
+    headers: getHeaders(),
+    ...(dados !== undefined ? { body: JSON.stringify(dados) } : {}),
+  });
+
+  let body = null;
+  const texto = await response.text();
+  if (texto) {
+    try {
+      body = JSON.parse(texto);
+    } catch {
+      body = texto;
+    }
+  }
+
+  if (!response.ok) {
+    const mensagem =
+      (body && (body.mensagem || body.erro || body.message)) ||
+      `Erro ${response.status} ao chamar ${caminho}`;
+    throw new Error(typeof mensagem === "string" ? mensagem : JSON.stringify(mensagem));
+  }
+
+  return body;
+}
+
+function query(params) {
+  const q = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (Array.isArray(v)) v.forEach((x) => q.append(k, x));
+    else if (v !== undefined && v !== null && v !== "") q.append(k, v);
+  });
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
+export const monitorApi = {
+  painel: () => requisicao("GET", "/monitor/lojas"),
+  lojasIfood: () => requisicao("GET", "/monitor/lojas-ifood"),
+  incidentes: (de, ate, lojas) => requisicao("GET", `/monitor/incidentes${query({ de, ate, lojas })}`),
+  historico: (merchantId, de, ate) =>
+    requisicao("GET", `/monitor/historico/${encodeURIComponent(merchantId)}${query({ de, ate })}`),
+  mensagens: (limite = 100) => requisicao("GET", `/monitor/mensagens${query({ limite })}`),
+  configuracao: () => requisicao("GET", "/monitor/configuracao"),
+  rodarCiclo: () => requisicao("POST", "/monitor/ciclo"),
+  enviarResumo: (dia) => requisicao("POST", `/monitor/resumo${query({ dia })}`),
+};
+
+export const whatsappApi = {
+  grupos: () => requisicao("GET", "/whatsapp/grupos"),
+  criarGrupo: (dados) => requisicao("POST", "/whatsapp/grupos", dados),
+  atualizarGrupo: (id, dados) => requisicao("PUT", `/whatsapp/grupos/${id}`, dados),
+  removerGrupo: (id) => requisicao("DELETE", `/whatsapp/grupos/${id}`),
+  gruposDisponiveis: () => requisicao("GET", "/whatsapp/grupos-disponiveis"),
+  situacao: () => requisicao("GET", "/whatsapp/situacao"),
+  testarGrupo: (id) => requisicao("POST", `/whatsapp/grupos/${id}/teste`),
+};
