@@ -53,6 +53,9 @@ public class ZapiSender implements WhatsappSender {
                 }
             } catch (IOException e) {
                 erro = "Falha de rede com a Z-API: " + e.getMessage();
+            } catch (IllegalArgumentException e) {
+                throw new FalhaEnvio("Endereço da Z-API inválido: confira ZAPI_INSTANCE_ID e ZAPI_TOKEN no Railway ("
+                        + e.getMessage() + ")", e);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new FalhaEnvio("Interrompido ao enviar WhatsApp", e);
@@ -87,7 +90,14 @@ public class ZapiSender implements WhatsappSender {
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> situacao() {
-        return mapper.convertValue(get("/status", ""), Map.class);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("provider", "zapi");
+        try {
+            m.putAll(mapper.convertValue(get("/status", ""), Map.class));
+        } catch (RuntimeException e) {
+            m.put("erro", e.getMessage());
+        }
+        return m;
     }
 
     private List<JsonNode> paginado(String caminho) {
@@ -116,6 +126,9 @@ public class ZapiSender implements WhatsappSender {
             return r.body() == null || r.body().isBlank() ? mapper.createArrayNode() : mapper.readTree(r.body());
         } catch (IOException e) {
             throw new FalhaEnvio("Falha de rede com a Z-API: " + e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            throw new FalhaEnvio("Endereço da Z-API inválido: confira ZAPI_INSTANCE_ID e ZAPI_TOKEN no Railway ("
+                    + e.getMessage() + ")", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new FalhaEnvio("Interrompido", e);
