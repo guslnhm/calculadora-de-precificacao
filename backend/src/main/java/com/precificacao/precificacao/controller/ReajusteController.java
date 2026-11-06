@@ -91,8 +91,29 @@ public class ReajusteController {
         return Map.of("aceitas", n);
     }
 
+    public record ImportarRequest(String merchantId) {
+    }
+
+    /** Traz os itens do cardápio do iFood para a calculadora, já ligados. */
+    @PostMapping("/{lojaId}/importar-ifood")
+    public ReajusteService.Importacao importar(@PathVariable long lojaId, @RequestBody(required = false) ImportarRequest req,
+                                               HttpServletRequest http) {
+        return service.importarDoIfood(lojaId, req == null ? null : req.merchantId(), usuario(http));
+    }
+
+    /** Preço de cada item com cada cupom, para calcular e salvar em massa. */
+    @GetMapping("/{lojaId}/precos")
+    public ReajusteService.Precos precos(@PathVariable long lojaId) {
+        return service.precos(lojaId);
+    }
+
+    @PutMapping("/{lojaId}/precos")
+    public Map<String, Object> salvarPrecos(@PathVariable long lojaId, @RequestBody List<ReajusteService.SalvarPreco> req) {
+        return Map.of("salvos", service.salvarPrecos(lojaId, req));
+    }
+
     @GetMapping("/{lojaId}/previa")
-    public Previa previa(@PathVariable long lojaId, @RequestParam(defaultValue = "CALCULADO") String fonte) {
+    public Previa previa(@PathVariable long lojaId, @RequestParam(defaultValue = "SALVO") String fonte) {
         return service.previa(lojaId, fonte);
     }
 

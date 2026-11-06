@@ -51,6 +51,7 @@ class ReajusteTest {
     @Autowired ItemRepository itens;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
+    @Autowired com.precificacao.precificacao.service.ItemService itemService;
 
     CardapioTest.Relogio relogio;
     CardapioTest.IfoodFalso ifood;
@@ -215,6 +216,84 @@ class ReajusteTest {
             assertThat(l.ifoodId()).isEqualTo("i-xbacon");
             assertThat(l.precoNovo()).isEqualByComparingTo("36.90");
         });
+    }
+
+    @Test
+    void importaItensDoIfoodLigadosESemDuplicar() {
+        var r = service.importarDoIfood(loja.getId(), M, "Gustavo"); // liga a loja do iFood na hora
+        assertThat(r.lojas()).containsExactly("Burger Moema");
+        assertThat(r.ligadosAExistentes()).isEqualTo(2); // X-Bacon e Burger Clássico já existiam com nome parecido
+        assertThat(r.criados()).isEqualTo(1);            // Combo do dia
+        var combo = itens.findByLojaIdAndAtivoTrue(loja.getId()).stream()
+                .filter(i -> i.getNomeItem().equals("Combo do dia")).findFirst().orElseThrow();
+        assertThat(combo.getCmv()).isEqualByComparingTo("0");
+        assertThat(combo.getPrecoVendaAtualIfood()).isEqualByComparingTo("19.90");
+
+        var de_novo = service.importarDoIfood(loja.getId(), null, "Gustavo");
+        assertThat(de_novo.criados()).isZero();
+        assertThat(de_novo.jaLigados()).isEqualTo(3);
+        // complementos não entram
+        assertThat(service.vinculos(loja.getId(), M).entidades()).filteredOn(e -> e.tipo().equals("COMPLEMENTO"))
+                .allSatisfy(e -> assertThat(e.vinculo()).isNull());
+    }
+
+    @Test
+    void calculaComCadaCupomESalvaParaARevisao() {
+        service.importarDoIfood(loja.getId(), M, "Gustavo");
+        var precos = service.precos(loja.getId());
+        var xb = precos.itens().stream().filter(i -> i.nome().equals("X Bacon")).findFirst().orElseThrow();
+        assertThat(xb.opcoes().get("BASE")).isEqualByComparingTo(precoCalculado("12.00"));
+        assertThat(xb.opcoes().get("CUPOM_5")).isEqualByComparingTo(precoCalculado("12.00").add(new BigDecimal("5")));
+        assertThat(xb.precoIfood()).isEqualByComparingTo("34.90");
+        assertThat(xb.sugerido()).isEqualTo("BASE");
+        assertThat(xb.margens().get("CUPOM_10")).isGreaterThan(xb.margens().get("BASE"));
+        assertThat(precos.itens().stream().filter(i -> i.nome().equals("Combo do dia")).findFirst().orElseThrow().semCusto())
+                .isTrue();
+
+        BigDecimal escolhido = xb.opcoes().get("CUPOM_8");
+        assertThat(service.salvarPrecos(loja.getId(), List.of(new ReajusteService.SalvarPreco(xb.itemId(), escolhido))))
+                .isEqualTo(1);
+        assertThat(service.previa(loja.getId(), "SALVO").linhas()).anySatisfy(l -> {
+            assertThat(l.ifoodId()).isEqualTo("i-xbacon");
+            assertThat(l.precoNovo()).isEqualByComparingTo(escolhido);
+            assertThat(l.muda()).isTrue();
+        });
+        assertThatThrownBy(() -> service.salvarPrecos(loja.getId(), List.of(new ReajusteService.SalvarPreco(999999L, BigDecimal.TEN))))
+                .hasMessageContaining("não é desta loja");
+    }
+
+    @Test
+    void planilhaDeCustosVaiEVoltaSemDuplicar() throws Exception {
+        service.importarDoIfood(loja.getId(), M, "Gustavo");
+        int antes = itens.findByLojaIdAndAtivoTrue(loja.getId()).size();
+        byte[] xlsx = itemService.planilhaCustos(loja.getId());
+        byte[] preenchida;
+        try (var wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(xlsx));
+             var out = new java.io.ByteArrayOutputStream()) {
+            var sheet = wb.getSheetAt(0);
+            assertThat(sheet.getRow(0).getCell(1).getStringCellValue()).isEqualTo("Custo (R$)");
+            assertThat(sheet.isColumnHidden(2)).isTrue();
+            for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+                var row = sheet.getRow(r);
+                if (row.getCell(0).getStringCellValue().equals("Combo do dia")) {
+                    row.getCell(0).setCellValue("Combo do Dia (promo)"); // cliente mexeu no nome: o código resolve
+                    row.getCell(1).setCellValue(8.75);
+                }
+            }
+            sheet.createRow(sheet.getLastRowNum() + 1).createCell(0).setCellValue("x bacon"); // mesmo nome, sem código
+            sheet.getRow(sheet.getLastRowNum()).createCell(1).setCellValue("13,50");
+            wb.write(out);
+            preenchida = out.toByteArray();
+        }
+        var resp = itemService.importarPlanilha(loja.getId(), new org.springframework.mock.web.MockMultipartFile(
+                "arquivo", "custos.xlsx", "application/octet-stream", preenchida));
+        assertThat(resp.getItensAtualizados()).isEqualTo(5); // as 4 linhas com custo (pelo código) + "x bacon" pelo nome
+        assertThat(resp.getItensImportados()).isZero();
+        assertThat(itens.findByLojaIdAndAtivoTrue(loja.getId())).hasSize(antes);
+        var combo = itens.findByLojaIdAndAtivoTrue(loja.getId()).stream()
+                .filter(i -> i.getNomeItem().equals("Combo do dia")).findFirst().orElseThrow();
+        assertThat(combo.getCmv()).isEqualByComparingTo("8.75");
+        assertThat(itens.findById(xBacon.getId()).orElseThrow().getCmv()).isEqualByComparingTo("13.50");
     }
 
     static EntidadeIfood entidade(List<EntidadeIfood> l, String nome) {

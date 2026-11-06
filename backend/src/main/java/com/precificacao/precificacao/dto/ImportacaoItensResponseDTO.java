@@ -5,6 +5,7 @@ public class ImportacaoItensResponseDTO {
     private int totalLinhasLidas;
     private int itensImportados;
     private int linhasIgnoradas;
+    private int itensAtualizados;
     private String mensagem;
 
     public int getTotalLinhasLidas() {
@@ -29,6 +30,14 @@ public class ImportacaoItensResponseDTO {
 
     public void setLinhasIgnoradas(int linhasIgnoradas) {
         this.linhasIgnoradas = linhasIgnoradas;
+    }
+
+    public int getItensAtualizados() {
+        return itensAtualizados;
+    }
+
+    public void setItensAtualizados(int itensAtualizados) {
+        this.itensAtualizados = itensAtualizados;
     }
 
     public String getMensagem() {
