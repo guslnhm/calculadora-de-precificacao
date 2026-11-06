@@ -116,7 +116,7 @@ export default function CalcularPrecos({ lojaId, onSalvo }) {
       {msg && <div style={s.ok}>{msg}</div>}
       {semCusto > 0 && (
         <div style={s.aviso}>
-          {semCusto} item(ns) sem custo: preencha pela planilha de custos (aba “1. Lojas e regras”) para calcular.
+          {semCusto} item(ns) sem custo: preencha pela planilha de custos (aba “1. Loja, itens e regras”) para calcular.
         </div>
       )}
 

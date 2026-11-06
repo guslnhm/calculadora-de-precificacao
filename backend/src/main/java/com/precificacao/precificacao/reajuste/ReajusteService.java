@@ -447,7 +447,7 @@ public class ReajusteService {
                 }
             }
             if (semVinculo > 0) {
-                avisos.add(li.nome() + ": " + semVinculo + " item(ns) do iFood sem vínculo com a calculadora (não entram no reajuste).");
+                avisos.add(li.nome() + ": " + semVinculo + " item(ns) do iFood ainda fora da calculadora (não entram no reajuste): use “Importar itens do iFood” na aba 1.");
             }
         }
         linhas.sort((a, b) -> {

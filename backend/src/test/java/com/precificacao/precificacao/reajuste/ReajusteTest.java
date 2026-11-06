@@ -157,7 +157,7 @@ class ReajusteTest {
             assertThat(l.variacao()).isNotNull();
             assertThat(l.margemNova()).isNotNull();
         });
-        assertThat(p.avisos()).anyMatch(a -> a.contains("sem vínculo")); // o i-promo
+        assertThat(p.avisos()).anyMatch(a -> a.contains("fora da calculadora")); // o i-promo
 
         LinhaPrevia linha = p.linhas().get(0);
         Lote lote = service.publicar(loja.getId(), "CALCULADO", List.of(linha.chave()), "Gustavo");
