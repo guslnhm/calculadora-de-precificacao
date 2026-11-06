@@ -299,13 +299,13 @@ class ReajusteTest {
     @Test
     void lojaDoIfoodMudaDeLojaDaCalculadoraEDaParaDesligar() {
         service.importarDoIfood(loja.getId(), M, "Gustavo");
-        Loja outra = new Loja();
-        outra.setNome("Outra loja");
-        outra.setPercentualLucro(new BigDecimal("20"));
-        outra.setAtivo(true);
-        outra.setCriadoEm(LocalDateTime.now());
-        outra.setAtualizadoEm(LocalDateTime.now());
-        outra = lojas.save(outra);
+        Loja nova = new Loja();
+        nova.setNome("Outra loja");
+        nova.setPercentualLucro(new BigDecimal("20"));
+        nova.setAtivo(true);
+        nova.setCriadoEm(LocalDateTime.now());
+        nova.setAtualizadoEm(LocalDateTime.now());
+        final Loja outra = lojas.save(nova);
 
         // importar na outra loja leva a loja do iFood junto e cria os itens lá (os vínculos antigos não "seguram")
         var r = service.importarDoIfood(outra.getId(), M, "Gustavo");
