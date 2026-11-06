@@ -421,3 +421,16 @@ export const whatsappApi = {
   conectar: () => requisicao("POST", "/whatsapp/conectar"),
   testarGrupo: (id) => requisicao("POST", `/whatsapp/grupos/${id}/teste`),
 };
+
+export const cardapioApi = {
+  lojas: () => requisicao("GET", "/cardapio/lojas"),
+  pausados: () => requisicao("GET", "/cardapio/pausados"),
+  cardapio: (merchantId, atualizar = false) =>
+    requisicao("GET", `/cardapio/${encodeURIComponent(merchantId)}${atualizar ? "?atualizar=true" : ""}`),
+  alterarStatus: (merchantId, tipo, id, status) =>
+    requisicao("POST", `/cardapio/${encodeURIComponent(merchantId)}/status`, { tipo, id, status }),
+  alterarPreco: (merchantId, tipo, id, preco) =>
+    requisicao("POST", `/cardapio/${encodeURIComponent(merchantId)}/preco`, { tipo, id, preco }),
+  alteracoes: (merchantId) => requisicao("GET", `/cardapio/${encodeURIComponent(merchantId)}/alteracoes`),
+  desfazer: (id) => requisicao("POST", `/cardapio/alteracoes/${id}/desfazer`),
+};
