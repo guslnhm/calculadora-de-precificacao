@@ -2,16 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { listarLojas, reajusteApi } from "../services/api";
 import { cores, dataHora, pilula, s } from "../components/monitor/ui";
-import LojasERegras from "../components/reajuste/LojasERegras";
+import { LojasIfoodLigadas } from "../components/reajuste/Regras";
 import Vinculos from "../components/reajuste/Vinculos";
 import Previa from "../components/reajuste/Previa";
 import CalcularPrecos from "../components/reajuste/CalcularPrecos";
 import Progresso, { SITUACOES_LOTE } from "../components/reajuste/Progresso";
 
 const ABAS = [
-  { id: "lojas", rotulo: "1. Loja, itens e regras" },
-  { id: "precos", rotulo: "2. Calcular preços" },
-  { id: "previa", rotulo: "3. Revisar e publicar" },
+  { id: "precos", rotulo: "1. Calcular preços" },
+  { id: "previa", rotulo: "2. Revisar e publicar" },
   { id: "historico", rotulo: "Histórico" },
   { id: "vinculos", rotulo: "Vínculos (avançado)" },
 ];
@@ -100,7 +99,7 @@ function Historico({ lojaId }) {
 export default function ReajustePage() {
   const [params, setParams] = useSearchParams();
   const lojaId = params.get("loja") ? Number(params.get("loja")) : null;
-  const aba = ABAS.some((a) => a.id === params.get("aba")) ? params.get("aba") : "lojas";
+  const aba = ABAS.some((a) => a.id === params.get("aba")) ? params.get("aba") : "precos";
   const [lojas, setLojas] = useState(null);
   const [dados, setDados] = useState(null);
   const [erro, setErro] = useState("");
@@ -149,7 +148,7 @@ export default function ReajustePage() {
       {erro && <div style={s.erro}>{erro}</div>}
 
       <div style={{ marginBottom: "16px", maxWidth: "420px" }}>
-        <select style={s.input} value={lojaId || ""} onChange={(e) => ir("lojas", e.target.value || null)} aria-label="Loja da calculadora">
+        <select style={s.input} value={lojaId || ""} onChange={(e) => ir("precos", e.target.value || null)} aria-label="Loja da calculadora">
           <option value="">{lojas === null ? "Carregando lojas…" : "Escolha a loja da calculadora"}</option>
           {(lojas || []).map((l) => (
             <option key={l.id} value={l.id}>
@@ -164,12 +163,12 @@ export default function ReajustePage() {
         <div style={{ ...s.card, display: "grid", gap: "8px", lineHeight: 1.6 }}>
           <strong>Como funciona</strong>
           <span>
-            <strong>Cliente novo:</strong> escolha a loja da calculadora, ligue a loja do iFood e importe os itens do
-            cardápio. Baixe a planilha de custos, mande para o cliente e suba de volta em Itens → Importar planilha.
+            <strong>Cliente novo:</strong> na página <strong>Itens</strong>, importe os itens do cardápio do iFood para a
+            loja, baixe a planilha de custos, mande para o cliente e suba de volta em “Importar planilha”.
           </span>
           <span>
-            <strong>Calcular:</strong> o sistema calcula o preço de cada item com o custo e os percentuais da loja; você
-            escolhe o cupom (base, +5, +8, +10) item a item e salva na calculadora.
+            <strong>Calcular preços:</strong> cada item mostra o preço salvo e o cupom dele; troque o cupom (base, 5, 8,
+            10) ou digite o preço e salve na calculadora.
           </span>
           <span>
             <strong>Revisar e publicar:</strong> compare o preço salvo com o do iFood (quanto sobe em R$ e %, margem) e
@@ -187,19 +186,21 @@ export default function ReajustePage() {
               </button>
             ))}
           </div>
-          {aba === "lojas" && (
-            <LojasERegras
-              key={`${lojaId}-${versao}`}
-              lojaId={lojaId}
-              dados={dados}
-              onSalvo={() => {
-                carregar();
-                setVersao((v) => v + 1);
-              }}
-            />
-          )}
           {aba === "precos" && <CalcularPrecos key={`${lojaId}-${versao}`} lojaId={lojaId} />}
-          {aba === "vinculos" && <Vinculos key={`${lojaId}-${versao}`} lojaId={lojaId} lojasIfood={dados.lojasIfood} />}
+          {aba === "vinculos" && (
+            <>
+              <LojasIfoodLigadas
+                key={`ligadas-${lojaId}-${versao}`}
+                lojaId={lojaId}
+                ligadas={dados.lojasIfood}
+                onSalvo={() => {
+                  carregar();
+                  setVersao((v) => v + 1);
+                }}
+              />
+              <Vinculos key={`${lojaId}-${versao}`} lojaId={lojaId} lojasIfood={dados.lojasIfood} />
+            </>
+          )}
           {aba === "previa" && <Previa key={lojaId} lojaId={lojaId} onPublicado={() => setVersao((v) => v + 1)} />}
           {aba === "historico" && <Historico key={`${lojaId}-${versao}`} lojaId={lojaId} />}
         </>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { reajusteApi } from "../../services/api";
 import { cores, s } from "../monitor/ui";
 import { reais } from "../cardapio/Controles";
-import { ARREDONDAMENTOS, MODOS } from "./LojasERegras";
+import { ARREDONDAMENTOS, MODOS } from "./Regras";
 import Progresso from "./Progresso";
 
 function pct(v, sinal = false) {
