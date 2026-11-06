@@ -62,7 +62,7 @@ public final class CardapioModelos {
     }
 
     public record Opcao(String id, String productId, String nome, String status, BigDecimal preco,
-                        BigDecimal precoOriginal, String codigoExterno) {
+                        BigDecimal precoOriginal, String codigoExterno, String imagem) {
         public boolean pausada() {
             return PAUSADO.equals(status);
         }

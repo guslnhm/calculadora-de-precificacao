@@ -3,6 +3,7 @@ import { cardapioApi } from "../../services/api";
 import { cores, dataHora, desdeAgora, pilula, s } from "../monitor/ui";
 import { Interruptor, PrecoEditavel, reais } from "./Controles";
 import Historico from "./Historico";
+import { ComplementoForm, GrupoForm, ItemForm, NovaCategoria } from "./Cadastro";
 
 const CONTEXTOS = { DEFAULT: "Delivery", INDOOR: "Salão", WHITELABEL: "Cardápio digital", TAKEOUT: "Retirada" };
 const RESTRICOES = {
@@ -35,7 +36,7 @@ function itemParado(item, categoria) {
   );
 }
 
-function Complementos({ item, ocupado, onStatus, onPreco }) {
+function Complementos({ item, ocupado, onStatus, onPreco, cadastro }) {
   return (
     <div style={{ display: "grid", gap: "12px", padding: "6px 0 4px 60px" }}>
       {item.grupos.map((g) => (
@@ -45,6 +46,15 @@ function Complementos({ item, ocupado, onStatus, onPreco }) {
             {g.min !== null && g.max !== null && ` · escolha ${g.min === g.max ? g.max : `${g.min} a ${g.max}`}`}
             {g.status === "UNAVAILABLE" && <span style={{ ...pilula(cores.amarelo), marginLeft: "6px" }}>grupo pausado</span>}
           </div>
+          {cadastro?.form?.tipo === "editarOpcao" && g.opcoes.some((o) => o.id === cadastro.form.opcao.id) && (
+            <ComplementoForm
+              merchantId={cadastro.merchantId}
+              item={item}
+              opcao={cadastro.form.opcao}
+              onPronto={cadastro.pronto}
+              onCancelar={cadastro.fechar}
+            />
+          )}
           {g.opcoes.map((o) => (
             <div
               key={o.id}
@@ -58,7 +68,19 @@ function Complementos({ item, ocupado, onStatus, onPreco }) {
                 flexWrap: "wrap",
               }}
             >
-              <span style={{ fontSize: "14px", flex: "1 1 160px" }}>{o.nome}</span>
+              <span style={{ fontSize: "14px", flex: "1 1 160px", display: "flex", gap: "8px", alignItems: "center" }}>
+                {o.imagem && <img src={o.imagem} alt="" loading="lazy" style={{ width: "28px", height: "28px", borderRadius: "6px", objectFit: "cover" }} />}
+                {o.nome}
+                {cadastro && (
+                  <button
+                    type="button"
+                    onClick={() => cadastro.abrir({ tipo: "editarOpcao", item, opcao: o })}
+                    style={{ background: "transparent", border: "none", color: cores.azul, cursor: "pointer", fontSize: "12px", padding: 0 }}
+                  >
+                    editar
+                  </button>
+                )}
+              </span>
               <span style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                 <PrecoEditavel
                   valor={o.preco}
@@ -82,7 +104,7 @@ function Complementos({ item, ocupado, onStatus, onPreco }) {
   );
 }
 
-function LinhaItem({ item, categoria, ocupado, aberto, onAbrir, onStatus, onPreco }) {
+function LinhaItem({ item, categoria, ocupado, aberto, onAbrir, onStatus, onPreco, cadastro }) {
   const nComplementos = item.grupos.reduce((t, g) => t + g.opcoes.length, 0);
   const complementosPausados = item.grupos.reduce(
     (t, g) => t + g.opcoes.filter((o) => o.status === "UNAVAILABLE").length,
@@ -136,6 +158,24 @@ function LinhaItem({ item, categoria, ocupado, aberto, onAbrir, onStatus, onPrec
           )}
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "2px" }}>
             {item.codigoExterno && <span style={{ ...s.suave, fontSize: "12px" }}>cód. {item.codigoExterno}</span>}
+            {cadastro && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => cadastro.abrir({ tipo: "editarItem", item })}
+                  style={{ background: "transparent", border: "none", color: cores.azul, cursor: "pointer", padding: 0, fontSize: "12px" }}
+                >
+                  editar nome/foto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cadastro.abrir({ tipo: "grupo", item })}
+                  style={{ background: "transparent", border: "none", color: cores.azul, cursor: "pointer", padding: 0, fontSize: "12px" }}
+                >
+                  + grupo de complementos
+                </button>
+              </>
+            )}
             {nComplementos > 0 && (
               <button
                 type="button"
@@ -170,7 +210,13 @@ function LinhaItem({ item, categoria, ocupado, aberto, onAbrir, onStatus, onPrec
           />
         </div>
       </div>
-      {aberto && <Complementos item={item} ocupado={ocupado} onStatus={onStatus} onPreco={onPreco} />}
+      {cadastro?.form?.tipo === "editarItem" && cadastro.form.item.id === item.id && (
+        <ItemForm merchantId={cadastro.merchantId} item={item} onPronto={cadastro.pronto} onCancelar={cadastro.fechar} />
+      )}
+      {cadastro?.form?.tipo === "grupo" && cadastro.form.item.id === item.id && (
+        <GrupoForm merchantId={cadastro.merchantId} item={item} onPronto={cadastro.pronto} onCancelar={cadastro.fechar} />
+      )}
+      {aberto && <Complementos item={item} ocupado={ocupado} onStatus={onStatus} onPreco={onPreco} cadastro={cadastro} />}
       {categoria.status === "UNAVAILABLE" && item.status !== "UNAVAILABLE" && (
         <div style={{ ...s.suave, fontSize: "12px", paddingLeft: "60px" }}>
           Item ativo, mas a categoria inteira está pausada no iFood.
@@ -191,6 +237,7 @@ export default function CardapioLoja({ loja, onMudou }) {
   const [ocupado, setOcupado] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [verHistorico, setVerHistorico] = useState(false);
+  const [form, setForm] = useState(null);
   const [versaoHistorico, setVersaoHistorico] = useState(0);
 
   const carregar = useCallback(
@@ -277,8 +324,26 @@ export default function CardapioLoja({ loja, onMudou }) {
           );
         }),
       }))
-      .filter((k) => k.itensVisiveis.length > 0);
+      .filter((k) => k.itensVisiveis.length > 0 || (!termo && !soParados));
   }, [cat, busca, soParados]);
+
+  // cadastro no cardápio (categoria, item, complementos, edição de nome/foto)
+  const cadastro = {
+    merchantId: loja.merchant_id,
+    form,
+    abrir: (f) => {
+      setForm(f);
+      setAviso(null);
+    },
+    fechar: () => setForm(null),
+    pronto: (r, texto) => {
+      setDados((d) => ({ ...d, ...r }));
+      setAviso({ tipo: "ok", texto });
+      if (form?.item) setAbertos((a) => ({ ...a, [form.item.id]: true }));
+      setForm(null);
+      if (onMudou) onMudou();
+    },
+  };
 
   return (
     <div>
@@ -372,6 +437,11 @@ export default function CardapioLoja({ loja, onMudou }) {
           )}
 
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center", marginBottom: "14px" }}>
+            {catalogo === 0 && (
+              <button style={s.botao} onClick={() => cadastro.abrir({ tipo: "categoria" })}>
+                + Nova categoria
+              </button>
+            )}
             <input
               style={{ ...s.input, maxWidth: "340px" }}
               placeholder="Buscar item, complemento, código ou categoria…"
@@ -394,6 +464,9 @@ export default function CardapioLoja({ loja, onMudou }) {
             </div>
           )}
 
+          {form?.tipo === "categoria" && (
+            <NovaCategoria merchantId={loja.merchant_id} onPronto={cadastro.pronto} onCancelar={cadastro.fechar} />
+          )}
           <div style={{ display: "grid", gap: "14px" }}>
             {categorias.map((k) => (
               <div key={k.id} style={{ ...s.card, padding: "14px 18px" }}>
@@ -405,7 +478,19 @@ export default function CardapioLoja({ loja, onMudou }) {
                       : `${k.itensVisiveis.length} de ${k.itens.length}`}
                   </span>
                   {k.status === "UNAVAILABLE" && <span style={pilula(cores.amarelo)}>categoria pausada</span>}
+                  {catalogo === 0 && (
+                    <button
+                      style={{ ...s.botaoSec, padding: "4px 10px", marginLeft: "auto" }}
+                      onClick={() => cadastro.abrir({ tipo: "item", categoriaId: k.id })}
+                    >
+                      + Novo item
+                    </button>
+                  )}
                 </div>
+                {form?.tipo === "item" && form.categoriaId === k.id && (
+                  <ItemForm merchantId={loja.merchant_id} categoriaId={k.id} onPronto={cadastro.pronto} onCancelar={cadastro.fechar} />
+                )}
+                {k.itens.length === 0 && <div style={{ ...s.suave, padding: "8px 0" }}>Categoria sem itens.</div>}
                 {k.itensVisiveis.map((i) => (
                   <LinhaItem
                     key={i.id}
@@ -416,6 +501,7 @@ export default function CardapioLoja({ loja, onMudou }) {
                     onAbrir={() => setAbertos((a) => ({ ...a, [i.id]: !a[i.id] }))}
                     onStatus={onStatus}
                     onPreco={onPreco}
+                    cadastro={cadastro}
                   />
                 ))}
               </div>

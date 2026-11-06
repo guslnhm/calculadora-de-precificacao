@@ -433,6 +433,49 @@ export const cardapioApi = {
     requisicao("POST", `/cardapio/${encodeURIComponent(merchantId)}/preco`, { tipo, id, preco }),
   alteracoes: (merchantId) => requisicao("GET", `/cardapio/${encodeURIComponent(merchantId)}/alteracoes`),
   desfazer: (id) => requisicao("POST", `/cardapio/alteracoes/${id}/desfazer`),
+  criarCategoria: (m, nome) => requisicao("POST", `/cardapio/${encodeURIComponent(m)}/categorias`, { nome }),
+  criarItem: (m, dados) => requisicao("POST", `/cardapio/${encodeURIComponent(m)}/itens`, dados),
+  editarItem: (m, itemId, dados) =>
+    requisicao("PUT", `/cardapio/${encodeURIComponent(m)}/itens/${encodeURIComponent(itemId)}`, dados),
+  criarComplementos: (m, itemId, dados) =>
+    requisicao("POST", `/cardapio/${encodeURIComponent(m)}/itens/${encodeURIComponent(itemId)}/complementos`, dados),
+  editarComplemento: (m, itemId, optionId, dados) =>
+    requisicao(
+      "PUT",
+      `/cardapio/${encodeURIComponent(m)}/itens/${encodeURIComponent(itemId)}/complementos/${encodeURIComponent(optionId)}`,
+      dados
+    ),
+  /** Envia a foto ao iFood e devolve o imagePath. */
+  enviarFoto: async (m, arquivo) => {
+    const form = new FormData();
+    form.append("arquivo", arquivo);
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/cardapio/${encodeURIComponent(m)}/fotos`, {
+      method: "POST",
+      headers: { ...(token ? { Authorization: token } : {}) },
+      body: form,
+    });
+    const texto = await response.text();
+    let body = null;
+    try {
+      body = texto ? JSON.parse(texto) : null;
+    } catch {
+      body = texto;
+    }
+    if (!response.ok) throw new Error((body && (body.mensagem || body.message)) || `Erro ${response.status} ao enviar a foto`);
+    return body.imagePath;
+  },
+};
+
+export const lojaIfoodApi = {
+  lojas: () => requisicao("GET", "/ifood/lojas"),
+  info: (m) => requisicao("GET", `/ifood/lojas/${encodeURIComponent(m)}`),
+  pausas: (m) => requisicao("GET", `/ifood/lojas/${encodeURIComponent(m)}/pausas`),
+  pausar: (m, minutos, descricao) => requisicao("POST", `/ifood/lojas/${encodeURIComponent(m)}/pausas`, { minutos, descricao }),
+  removerPausa: (m, pausaId) =>
+    requisicao("DELETE", `/ifood/lojas/${encodeURIComponent(m)}/pausas${pausaId ? `/${encodeURIComponent(pausaId)}` : ""}`),
+  horarios: (m) => requisicao("GET", `/ifood/lojas/${encodeURIComponent(m)}/horarios`),
+  definirHorarios: (m, dias) => requisicao("PUT", `/ifood/lojas/${encodeURIComponent(m)}/horarios`, dias),
 };
 
 export const reajusteApi = {

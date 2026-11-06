@@ -154,9 +154,11 @@ public class LeitorCardapio {
                     }
                     JsonNode oprod = produtos.getOrDefault(texto(o, "productId", ""), o);
                     JsonNode oef = noContexto(o, contexto);
+                    String ofoto = texto(oprod, "imagePath", null);
                     ops.add(new Opcao(oid, texto(o, "productId", null), texto(oprod, "name", texto(o, "name", oid)),
                             texto(oef, "status", null), valor(oef.path("price"), "value"),
-                            valor(oef.path("price"), "originalValue"), texto(o, "externalCode", null)));
+                            valor(oef.path("price"), "originalValue"), texto(o, "externalCode", null),
+                            ofoto == null ? null : ofoto.startsWith("http") ? ofoto : URL_FOTOS + ofoto));
                 }
                 gs.add(new Grupo(gid, texto(g, "name", "Complementos"), texto(g, "status", null),
                         inteiro(ref.isObject() ? ref.path("min") : g.path("min")),
