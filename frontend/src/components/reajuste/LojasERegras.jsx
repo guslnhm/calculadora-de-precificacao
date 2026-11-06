@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { reajusteApi } from "../../services/api";
 import { cores, pilula, s } from "../monitor/ui";
+import ItensDoIfood from "./ItensDoIfood";
 
 export const MODOS = {
   BASE: "Preço base (sem cupom)",
@@ -79,6 +80,10 @@ export default function LojasERegras({ lojaId, dados, onSalvo }) {
   return (
     <div>
       {msg && <div style={msg.tipo === "ok" ? s.ok : s.erro}>{msg.texto}</div>}
+      <div style={{ ...s.card, marginBottom: "16px" }}>
+        <h3 style={s.cardTitulo}>Itens do iFood e planilha de custos</h3>
+        <ItensDoIfood lojaId={lojaId} nomeLoja={dados.regras.nome} />
+      </div>
       <div
         style={{
           display: "grid",

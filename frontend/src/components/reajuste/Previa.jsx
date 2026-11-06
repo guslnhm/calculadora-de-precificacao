@@ -12,7 +12,7 @@ function pct(v, sinal = false) {
 }
 
 export default function Previa({ lojaId, onPublicado }) {
-  const [fonte, setFonte] = useState("CALCULADO");
+  const fonte = "SALVO";
   const [previa, setPrevia] = useState(null);
   const [erro, setErro] = useState("");
   const [selecionadas, setSelecionadas] = useState(new Set());
@@ -105,16 +105,9 @@ export default function Previa({ lojaId, onPublicado }) {
   return (
     <div>
       <div style={{ ...s.card, padding: "14px 18px", marginBottom: "14px", display: "grid", gap: "10px" }}>
-        <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center" }}>
-          <span style={s.suave}>Preço novo:</span>
-          <label style={s.check}>
-            <input type="radio" checked={fonte === "CALCULADO"} onChange={() => setFonte("CALCULADO")} />
-            calcular agora pela calculadora (CMV atual)
-          </label>
-          <label style={s.check}>
-            <input type="radio" checked={fonte === "SALVO"} onChange={() => setFonte("SALVO")} />
-            usar o “preço de venda iFood” salvo na calculadora
-          </label>
+        <div style={{ fontSize: "14px" }}>
+          Compara o <strong>preço de venda iFood salvo na calculadora</strong> com o preço que está hoje no iFood.
+          Para mudar um preço, volte em “2. Calcular preços” (ou na Calculadora iFood).
         </div>
         {previa && (
           <div style={s.suave}>

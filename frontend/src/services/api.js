@@ -450,4 +450,31 @@ export const reajusteApi = {
   lotes: (lojaId) => requisicao("GET", `/reajuste/${lojaId}/lotes`),
   lote: (id) => requisicao("GET", `/reajuste/lotes/${id}`),
   desfazerLote: (id) => requisicao("POST", `/reajuste/lotes/${id}/desfazer`),
+  importarIfood: (lojaId, merchantId) => requisicao("POST", `/reajuste/${lojaId}/importar-ifood`, { merchantId }),
+  precos: (lojaId) => requisicao("GET", `/reajuste/${lojaId}/precos`),
+  salvarPrecos: (lojaId, lista) => requisicao("PUT", `/reajuste/${lojaId}/precos`, lista),
 };
+
+/** Baixa a planilha .xlsx com os itens da loja para o cliente preencher o custo. */
+export async function baixarPlanilhaCustos(lojaId, nomeArquivo) {
+  const response = await fetch(`${API_BASE_URL}/itens/planilha-custos?lojaId=${lojaId}`, { headers: getHeaders() });
+  if (!response.ok) {
+    let msg = `Erro ${response.status} ao gerar a planilha`;
+    try {
+      const body = await response.json();
+      msg = body.mensagem || msg;
+    } catch {
+      /* corpo não é JSON */
+    }
+    throw new Error(msg);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nomeArquivo || `custos-loja-${lojaId}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
