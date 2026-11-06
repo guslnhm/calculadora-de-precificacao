@@ -122,6 +122,59 @@ public class CardapioService {
         return volta;
     }
 
+    /** Mudança de preço de um reajuste em massa (desfazId preenchido quando é a volta de outra alteração). */
+    public record MudancaPreco(String tipo, String id, BigDecimal preco, Long desfazId) {
+    }
+
+    /**
+     * Várias mudanças de preço numa loja: chama o iFood uma a uma, registra cada alteração no lote
+     * e só no fim salva o cardápio e atualiza o monitor (silencioso). depoisDeCada recebe cada alteração registrada.
+     */
+    public List<Alteracao> alterarPrecosEmLote(String merchantId, List<MudancaPreco> mudancas, String usuario,
+                                               Long loteId, java.util.function.Consumer<Alteracao> depoisDeCada) {
+        Cardapio c = repo.cardapio(merchantId).orElseGet(() -> monitor.lerLoja(merchantId));
+        List<Alteracao> feitas = new ArrayList<>();
+        boolean mudouAlgo = false;
+        for (MudancaPreco m : mudancas) {
+            String tipo = tipo(m.tipo());
+            OffsetDateTime agora = OffsetDateTime.now(clock);
+            String novo = m.preco().setScale(2, RoundingMode.HALF_UP).toPlainString();
+            Optional<Encontrado> e = encontrar(c, tipo, m.id());
+            String nome = e.map(Encontrado::nome).orElse(m.id());
+            String antes = e.map(Encontrado::preco).map(BigDecimal::toPlainString).orElse(null);
+            String situacao = "FEITA";
+            String erro = null;
+            if (e.isEmpty()) {
+                situacao = "FALHOU";
+                erro = "Não está mais no cardápio desta loja";
+            } else {
+                try {
+                    escrita.preco(merchantId, tipo, m.id(), new BigDecimal(novo));
+                    c = alterar(c, tipo, m.id(), "PRECO", novo);
+                    mudouAlgo = true;
+                } catch (RuntimeException ex) {
+                    situacao = "FALHOU";
+                    erro = ex.getMessage();
+                }
+            }
+            long aid = repo.registrarAlteracao(merchantId, tipo, m.id(), nome, "PRECO", antes, novo, usuario, agora,
+                    situacao, erro, m.desfazId(), loteId);
+            if ("FEITA".equals(situacao) && m.desfazId() != null) {
+                repo.marcarDesfeita(m.desfazId(), usuario, agora);
+            }
+            Alteracao a = repo.alteracao(aid).orElseThrow();
+            feitas.add(a);
+            if (depoisDeCada != null) {
+                depoisDeCada.accept(a);
+            }
+        }
+        if (mudouAlgo) {
+            repo.salvarCardapio(c);
+            monitor.registrar(merchantId, c, true);
+        }
+        return feitas;
+    }
+
     public List<Alteracao> alteracoes(String merchantId) {
         return repo.alteracoes(merchantId, 200);
     }
