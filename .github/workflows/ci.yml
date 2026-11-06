@@ -72,5 +72,3 @@ jobs:
           VITE_API_BASE_URL: http://localhost:8080
         run: npm run build
 
-      - name: Build em base64 (temporário, para conferência visual)
-        run: tar czf - -C dist . | base64 -w0 | fold -w 4000 | sed 's/^/DIST:/'
