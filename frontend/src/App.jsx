@@ -100,6 +100,7 @@ import LoginPage from "./pages/LoginPage";
 import SimulacaoReversaPage from "./pages/SimulacaoReversaPage";
 import Simulacao99Page from "./pages/Simulacao99Page";
 import MonitorPage from "./pages/MonitorPage";
+import CardapioPage from "./pages/CardapioPage";
 
 function NavLink({ to, children }) {
   const location = useLocation();
@@ -151,6 +152,7 @@ export default function App() {
             <NavLink to="/simulacao-reversa">Calculadora Reversa iFood</NavLink>
             <NavLink to="/simulacao-99">Calculadora 99Food</NavLink>
             <NavLink to="/monitor">Monitor iFood</NavLink>
+            <NavLink to="/cardapio">Cardápio iFood</NavLink>
           </nav>
         </div>
       </header>
@@ -167,6 +169,7 @@ export default function App() {
               element={<Simulacao99Page />}
             />
             <Route path="/monitor" element={<MonitorPage />} />
+            <Route path="/cardapio" element={<CardapioPage />} />
           </Routes>
         </div>
       </main>

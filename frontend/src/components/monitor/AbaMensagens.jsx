@@ -11,6 +11,7 @@ const SITUACOES = {
 const TIPOS = {
   alerta: "Alerta",
   monitor: "Aviso do monitor",
+  itens: "Itens pausados",
   resumo: "Resumo diário",
   teste: "Teste",
 };

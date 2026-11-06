@@ -50,6 +50,14 @@ monitor:
   avisar-recuperacao: true
   workers: ${MONITOR_WORKERS:8}
   resumo-diario: "${MONITOR_RESUMO_DIARIO:08:00}"
+  itens:
+    ativo: ${MONITOR_ITENS_ATIVO:true}
+    intervalo-minutos: ${MONITOR_ITENS_INTERVALO_MINUTOS:10}
+    complementos: true
+    alertar-nao-vendavel: true
+    somente-com-loja-aberta: true
+    workers: ${MONITOR_ITENS_WORKERS:3}
+    ignorar-categorias: ${MONITOR_ITENS_IGNORAR_CATEGORIAS:}
 
 whatsapp:
   provider: ${WHATSAPP_PROVIDER:console}

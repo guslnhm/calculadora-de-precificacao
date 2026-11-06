@@ -17,6 +17,7 @@ public class AuthService {
     private final UsuarioRepository usuarioRepository;
 
     private final Map<String, Long> tokensAtivos = new ConcurrentHashMap<>();
+    private final Map<String, String> nomes = new ConcurrentHashMap<>();
 
     public AuthService(UsuarioRepository usuarioRepository) {
         this.usuarioRepository = usuarioRepository;
@@ -32,6 +33,7 @@ public class AuthService {
 
         String token = UUID.randomUUID().toString();
         tokensAtivos.put(token, usuario.getId());
+        nomes.put(token, usuario.getNome() == null ? usuario.getEmail() : usuario.getNome());
 
         LoginResponseDTO response = new LoginResponseDTO();
         response.setToken(token);
@@ -43,5 +45,10 @@ public class AuthService {
 
     public boolean tokenValido(String token) {
         return token != null && tokensAtivos.containsKey(token);
+    }
+
+    /** Nome de quem está logado com este token (para registrar quem fez cada alteração). */
+    public String nomeDoToken(String token) {
+        return token == null ? null : nomes.get(token);
     }
 }
