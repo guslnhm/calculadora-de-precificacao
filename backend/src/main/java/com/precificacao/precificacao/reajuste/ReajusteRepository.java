@@ -72,6 +72,13 @@ public class ReajusteRepository {
     /** Define quais lojas do iFood pertencem à loja da calculadora (tira de outra loja, se estiverem lá). */
     @Transactional
     public void vincularLojas(long lojaId, Collection<String> merchantIds) {
+        // as que saem desta loja perdem também os vínculos de itens (eram itens desta loja)
+        List<String> antes = jdbc.queryForList("SELECT merchant_id FROM loja_ifood WHERE loja_id = ?", String.class, lojaId);
+        for (String m : antes) {
+            if (!merchantIds.contains(m)) {
+                jdbc.update("DELETE FROM item_ifood_vinculo WHERE merchant_id = ?", m);
+            }
+        }
         jdbc.update("DELETE FROM loja_ifood WHERE loja_id = ?", lojaId);
         for (String m : merchantIds) {
             jdbc.update("DELETE FROM loja_ifood WHERE merchant_id = ?", m);
@@ -79,7 +86,23 @@ public class ReajusteRepository {
                     INSERT INTO loja_ifood (loja_id, merchant_id, nome_ifood, ativo, criado_em, atualizado_em)
                     VALUES (?, ?, (SELECT nome FROM ifood_merchant WHERE merchant_id = ?), true, now(), now())
                     """, lojaId, m, m);
+            // vindo de outra loja da calculadora: os itens dela apontavam para itens da loja antiga
+            jdbc.update("""
+                    DELETE FROM item_ifood_vinculo
+                    WHERE merchant_id = ? AND item_id IS NOT NULL
+                      AND item_id NOT IN (SELECT id FROM itens WHERE loja_id = ?)
+                    """, m, lojaId);
         }
+    }
+
+    /** Tira uma loja do iFood desta loja da calculadora (e os vínculos dos itens dela). */
+    @Transactional
+    public boolean desvincularLoja(long lojaId, String merchantId) {
+        int n = jdbc.update("DELETE FROM loja_ifood WHERE loja_id = ? AND merchant_id = ?", lojaId, merchantId);
+        if (n > 0) {
+            jdbc.update("DELETE FROM item_ifood_vinculo WHERE merchant_id = ?", merchantId);
+        }
+        return n > 0;
     }
 
     // ------------------------------------------------------------- vínculos de itens
