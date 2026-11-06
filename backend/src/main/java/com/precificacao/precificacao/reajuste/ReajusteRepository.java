@@ -106,7 +106,7 @@ public class ReajusteRepository {
                     item_id = EXCLUDED.item_id, ignorado = EXCLUDED.ignorado, origem = EXCLUDED.origem,
                     similaridade = EXCLUDED.similaridade, atualizado_em = EXCLUDED.atualizado_em,
                     atualizado_por = EXCLUDED.atualizado_por
-                """, merchantId, tipo, ifoodId, ifoodNome, itemId, ignorado, origem, similaridade, usuario, ts(agora));
+                """, merchantId, tipo, ifoodId, ifoodNome, itemId, ignorado, origem, similaridade, ts(agora), usuario);
     }
 
     public void apagarVinculo(String merchantId, String tipo, String ifoodId) {
