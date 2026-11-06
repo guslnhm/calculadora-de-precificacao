@@ -56,3 +56,6 @@ whatsapp:
   zapi-instance-id: ${ZAPI_INSTANCE_ID:}
   zapi-token: ${ZAPI_TOKEN:}
   zapi-client-token: ${ZAPI_CLIENT_TOKEN:}
+  evolution-url: ${EVOLUTION_URL:}
+  evolution-api-key: ${EVOLUTION_API_KEY:}
+  evolution-instancia: ${EVOLUTION_INSTANCIA:monitor}

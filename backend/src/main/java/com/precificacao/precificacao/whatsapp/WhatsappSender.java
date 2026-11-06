@@ -17,6 +17,15 @@ public interface WhatsappSender {
     /** Situação da conexão (ex.: connected, smartphoneConnected). */
     Map<String, Object> situacao();
 
+    /**
+     * Inicia/retoma a conexão do número e devolve o QR Code para ler no celular, quando o provedor permite
+     * (chaves: conectado, qrCode em data URL, codigoPareamento, mensagem).
+     */
+    default Map<String, Object> conectar() {
+        return Map.of("conectado", false,
+                "mensagem", "Este provedor não conecta pelo site: leia o QR Code no painel do próprio provedor.");
+    }
+
     class FalhaEnvio extends RuntimeException {
         public FalhaEnvio(String mensagem) {
             super(mensagem);

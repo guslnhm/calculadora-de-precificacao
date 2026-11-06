@@ -76,6 +76,12 @@ public class WhatsappController {
         return whatsapp.situacao();
     }
 
+    /** Conecta o número: devolve o QR Code para ler no WhatsApp do celular (ou conectado=true). */
+    @PostMapping("/conectar")
+    public Map<String, Object> conectar() {
+        return whatsapp.conectar();
+    }
+
     /** Manda uma mensagem de teste para o grupo (envia de verdade, mesmo no modo sombra). */
     @PostMapping("/grupos/{id}/teste")
     public ResponseEntity<?> teste(@PathVariable long id) {

@@ -418,5 +418,6 @@ export const whatsappApi = {
   removerGrupo: (id) => requisicao("DELETE", `/whatsapp/grupos/${id}`),
   gruposDisponiveis: () => requisicao("GET", "/whatsapp/grupos-disponiveis"),
   situacao: () => requisicao("GET", "/whatsapp/situacao"),
+  conectar: () => requisicao("POST", "/whatsapp/conectar"),
   testarGrupo: (id) => requisicao("POST", `/whatsapp/grupos/${id}/teste`),
 };

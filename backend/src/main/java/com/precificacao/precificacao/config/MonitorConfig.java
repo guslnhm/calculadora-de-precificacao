@@ -3,6 +3,7 @@ package com.precificacao.precificacao.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.precificacao.precificacao.monitor.MonitorProperties;
 import com.precificacao.precificacao.whatsapp.ConsoleSender;
+import com.precificacao.precificacao.whatsapp.EvolutionSender;
 import com.precificacao.precificacao.whatsapp.WhatsappProperties;
 import com.precificacao.precificacao.whatsapp.WhatsappSender;
 import com.precificacao.precificacao.whatsapp.ZapiSender;
@@ -24,6 +25,13 @@ public class MonitorConfig {
 
     @Bean
     public WhatsappSender whatsappSender(WhatsappProperties props, ObjectMapper mapper) {
+        if ("evolution".equalsIgnoreCase(props.provider())) {
+            if (!props.evolutionConfigurada()) {
+                log.warn("WHATSAPP_PROVIDER=evolution, mas EVOLUTION_URL/EVOLUTION_API_KEY não estão configurados: mensagens só vão para o log");
+                return new ConsoleSender();
+            }
+            return new EvolutionSender(props, mapper);
+        }
         if ("zapi".equalsIgnoreCase(props.provider())) {
             if (!props.zapiConfigurada()) {
                 log.warn("WHATSAPP_PROVIDER=zapi, mas ZAPI_INSTANCE_ID/ZAPI_TOKEN não estão configurados: mensagens só vão para o log");
