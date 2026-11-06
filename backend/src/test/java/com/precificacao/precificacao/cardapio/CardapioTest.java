@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Cardápio: leitura no formato real do Catalog v2, monitor de itens pausados e alterações pela tela. */
 @SpringBootTest
-class CardapioTest {
+public class CardapioTest {
 
     static final String LOJA = "loja-1";
 
@@ -243,12 +243,12 @@ class CardapioTest {
     }
 
     /** iFood falso com respostas no formato real do Catalog v2, que dá para alterar entre um ciclo e outro. */
-    static class IfoodFalso implements LeitorCardapio.Fonte {
+    public static class IfoodFalso implements LeitorCardapio.Fonte {
         final ObjectMapper mapper;
         final Map<String, ObjectNode> itensPorCategoria = new HashMap<>();
         final List<ObjectNode> categorias = new ArrayList<>();
 
-        IfoodFalso(ObjectMapper mapper) throws Exception {
+        public IfoodFalso(ObjectMapper mapper) throws Exception {
             this.mapper = mapper;
             categorias.add((ObjectNode) mapper.readTree("{\"id\":\"cat-lanches\",\"name\":\"Lanches\",\"status\":\"AVAILABLE\",\"index\":0}"));
             categorias.add((ObjectNode) mapper.readTree("{\"id\":\"cat-promo\",\"name\":\"Promoções da casa\",\"status\":\"AVAILABLE\",\"index\":1}"));
@@ -352,12 +352,12 @@ class CardapioTest {
     }
 
     /** Escrita falsa: aplica a mudança no iFood falso (como o iFood real faria). */
-    static class EscritaFalsa implements CardapioService.Escrita {
+    public static class EscritaFalsa implements CardapioService.Escrita {
         final IfoodFalso ifood;
-        final List<String> chamadas = new ArrayList<>();
-        RuntimeException falhar;
+        public final List<String> chamadas = new ArrayList<>();
+        public RuntimeException falhar;
 
-        EscritaFalsa(IfoodFalso ifood) {
+        public EscritaFalsa(IfoodFalso ifood) {
             this.ifood = ifood;
         }
 
@@ -388,14 +388,14 @@ class CardapioTest {
         }
     }
 
-    static class Relogio extends Clock {
+    public static class Relogio extends Clock {
         private Instant agora;
 
-        Relogio(Instant inicio) {
+        public Relogio(Instant inicio) {
             agora = inicio;
         }
 
-        void passar(Duration d) {
+        public void passar(Duration d) {
             agora = agora.plus(d);
         }
 

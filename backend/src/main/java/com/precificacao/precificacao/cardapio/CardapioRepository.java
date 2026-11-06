@@ -37,7 +37,7 @@ public class CardapioRepository {
 
     public record Alteracao(long id, String merchantId, String tipo, String entidadeId, String nome, String campo,
                             String antes, String depois, String usuario, OffsetDateTime feitoEm, String situacao,
-                            String erro, OffsetDateTime desfeitaEm, String desfeitaPor, Long desfazId) {
+                            String erro, OffsetDateTime desfeitaEm, String desfeitaPor, Long desfazId, Long loteId) {
     }
 
     private final JdbcTemplate jdbc;
@@ -214,17 +214,24 @@ public class CardapioRepository {
             rs.getString("campo"), rs.getString("antes"), rs.getString("depois"), rs.getString("usuario"),
             odt(rs.getTimestamp("feito_em")), rs.getString("situacao"), rs.getString("erro"),
             odt(rs.getTimestamp("desfeita_em")), rs.getString("desfeita_por"),
-            (Long) rs.getObject("desfaz_id"));
+            (Long) rs.getObject("desfaz_id"), (Long) rs.getObject("lote_id"));
 
     public long registrarAlteracao(String merchantId, String tipo, String entidadeId, String nome, String campo,
                                    String antes, String depois, String usuario, OffsetDateTime feitoEm,
                                    String situacao, String erro, Long desfazId) {
+        return registrarAlteracao(merchantId, tipo, entidadeId, nome, campo, antes, depois, usuario, feitoEm, situacao,
+                erro, desfazId, null);
+    }
+
+    public long registrarAlteracao(String merchantId, String tipo, String entidadeId, String nome, String campo,
+                                   String antes, String depois, String usuario, OffsetDateTime feitoEm,
+                                   String situacao, String erro, Long desfazId, Long loteId) {
         GeneratedKeyHolder kh = new GeneratedKeyHolder();
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement("""
                     INSERT INTO cardapio_alteracao (merchant_id, tipo, entidade_id, nome, campo, antes, depois, usuario,
-                        feito_em, situacao, erro, desfaz_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        feito_em, situacao, erro, desfaz_id, lote_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, merchantId);
             ps.setString(2, tipo);
@@ -238,6 +245,7 @@ public class CardapioRepository {
             ps.setString(10, situacao);
             ps.setString(11, erro);
             ps.setObject(12, desfazId);
+            ps.setObject(13, loteId);
             return ps;
         }, kh);
         Map<String, Object> keys = kh.getKeys();

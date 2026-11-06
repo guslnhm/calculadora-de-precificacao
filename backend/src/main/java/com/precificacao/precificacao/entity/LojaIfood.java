@@ -6,7 +6,10 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/** Vínculo entre uma loja da calculadora e a loja correspondente no iFood. */
+/**
+ * Vínculo entre uma loja da calculadora e uma loja no iFood. Uma loja da calculadora pode ter várias
+ * lojas no iFood (rede com o mesmo cardápio e os mesmos custos); cada loja do iFood tem um vínculo só.
+ */
 @Entity
 @Table(name = "loja_ifood")
 @Getter
@@ -17,8 +20,8 @@ public class LojaIfood {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "loja_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "loja_id", nullable = false)
     private Loja loja;
 
     /** ID da loja no iFood (merchantId). */

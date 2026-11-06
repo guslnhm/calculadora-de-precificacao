@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface LojaIfoodRepository extends JpaRepository<LojaIfood, Long> {
 
-    Optional<LojaIfood> findByLojaId(Long lojaId);
+    List<LojaIfood> findByLojaId(Long lojaId);
 
     Optional<LojaIfood> findByMerchantId(String merchantId);
 
