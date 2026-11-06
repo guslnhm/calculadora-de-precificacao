@@ -53,6 +53,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             return;
         }
 
+        request.setAttribute("usuarioNome", authService.nomeDoToken(token));
         filterChain.doFilter(request, response);
     }
 }
