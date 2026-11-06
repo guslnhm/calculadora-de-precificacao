@@ -72,6 +72,11 @@ public class ReajusteController {
         return service.vincularLojas(lojaId, req.merchantIds() == null ? List.of() : req.merchantIds());
     }
 
+    @org.springframework.web.bind.annotation.DeleteMapping("/{lojaId}/lojas-ifood/{merchantId}")
+    public List<LojaIfood> desligar(@PathVariable long lojaId, @PathVariable String merchantId) {
+        return service.desvincularLoja(lojaId, merchantId);
+    }
+
     @GetMapping("/{lojaId}/vinculos/{merchantId}")
     public VinculosLoja vinculos(@PathVariable long lojaId, @PathVariable String merchantId) {
         return service.vinculos(lojaId, merchantId);

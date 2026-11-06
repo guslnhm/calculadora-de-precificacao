@@ -296,6 +296,35 @@ class ReajusteTest {
         assertThat(itens.findById(xBacon.getId()).orElseThrow().getCmv()).isEqualByComparingTo("13.50");
     }
 
+    @Test
+    void lojaDoIfoodMudaDeLojaDaCalculadoraEDaParaDesligar() {
+        service.importarDoIfood(loja.getId(), M, "Gustavo");
+        Loja nova = new Loja();
+        nova.setNome("Outra loja");
+        nova.setPercentualLucro(new BigDecimal("20"));
+        nova.setAtivo(true);
+        nova.setCriadoEm(LocalDateTime.now());
+        nova.setAtualizadoEm(LocalDateTime.now());
+        final Loja outra = lojas.save(nova);
+
+        // importar na outra loja leva a loja do iFood junto e cria os itens lá (os vínculos antigos não "seguram")
+        var r = service.importarDoIfood(outra.getId(), M, "Gustavo");
+        assertThat(r.criados()).isEqualTo(3);
+        assertThat(r.jaLigados()).isZero();
+        assertThat(service.lojasIfood(loja.getId())).isEmpty();
+        assertThat(service.vinculos(outra.getId(), M).entidades()).filteredOn(e -> e.tipo().equals("ITEM"))
+                .allSatisfy(e -> assertThat(e.vinculo().itemId()).isNotIn(xBacon.getId(), burger.getId()));
+
+        assertThat(service.desvincularLoja(outra.getId(), M)).isEmpty();
+        assertThat(repo.vinculos(M)).isEmpty();
+        assertThatThrownBy(() -> service.desvincularLoja(outra.getId(), M)).hasMessageContaining("não está ligada");
+
+        // e volta para a primeira loja ligando de novo aos itens que já existiam lá
+        var volta = service.importarDoIfood(loja.getId(), M, "Gustavo");
+        assertThat(volta.criados()).isZero();
+        assertThat(volta.ligadosAExistentes()).isEqualTo(3);
+    }
+
     static EntidadeIfood entidade(List<EntidadeIfood> l, String nome) {
         return l.stream().filter(e -> e.nome().equals(nome)).findFirst().orElseThrow();
     }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { baixarPlanilhaCustos, reajusteApi } from "../../services/api";
-import { s } from "../monitor/ui";
+import { cores, s } from "../monitor/ui";
 
 /**
  * Entrada de um cliente novo: traz os itens do cardápio do iFood para a calculadora (já ligados)
@@ -12,6 +12,9 @@ export default function ItensDoIfood({ lojaId, nomeLoja, onImportado }) {
   const [ocupado, setOcupado] = useState("");
   const [msg, setMsg] = useState(null);
 
+  const [confirmar, setConfirmar] = useState(null);
+  const [versao, setVersao] = useState(0);
+
   useEffect(() => {
     reajusteApi
       .todasLojasIfood()
@@ -21,7 +24,24 @@ export default function ItensDoIfood({ lojaId, nomeLoja, onImportado }) {
         setMerchantId(ligada ? ligada.merchantId : "");
       })
       .catch((e) => setMsg({ tipo: "erro", texto: e.message }));
-  }, [lojaId]);
+  }, [lojaId, versao]);
+
+  const ligadas = (todas || []).filter((l) => l.lojaId === lojaId);
+
+  async function desligar(l) {
+    setOcupado("desligar");
+    setMsg(null);
+    try {
+      await reajusteApi.desligarLojaIfood(lojaId, l.merchantId);
+      setMsg({ tipo: "ok", texto: `${l.nome} foi desligada desta loja. Os itens continuam na calculadora.` });
+      setConfirmar(null);
+      setVersao((v) => v + 1);
+    } catch (e) {
+      setMsg({ tipo: "erro", texto: e.message });
+    } finally {
+      setOcupado("");
+    }
+  }
 
   const ordenadas = useMemo(() => {
     const l = [...(todas || [])];
@@ -42,6 +62,7 @@ export default function ItensDoIfood({ lojaId, nomeLoja, onImportado }) {
           (r.jaLigados ? `, ${r.jaLigados} já estavam ligados` : "") +
           ". Agora baixe a planilha de custos.",
       });
+      setVersao((v) => v + 1);
       if (onImportado) onImportado();
     } catch (e) {
       setMsg({ tipo: "erro", texto: e.message });
@@ -82,10 +103,52 @@ export default function ItensDoIfood({ lojaId, nomeLoja, onImportado }) {
           “Importar planilha”: o custo cai em cada item, sem duplicar.
         </span>
       </div>
+      {ligadas.length > 0 && (
+        <div style={{ display: "grid", gap: "6px" }}>
+          <span style={s.label}>Lojas do iFood ligadas a esta loja</span>
+          {ligadas.map((l) => (
+            <div
+              key={l.merchantId}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                flexWrap: "wrap",
+                padding: "8px 12px",
+                border: `1px solid ${cores.bordaCampo}`,
+                borderRadius: "10px",
+              }}
+            >
+              <span style={{ flex: 1, fontSize: "14px" }}>{l.nome}</span>
+              {confirmar === l.merchantId ? (
+                <>
+                  <span style={{ color: cores.amarelo, fontSize: "13px" }}>Desligar?</span>
+                  <button type="button" style={{ ...s.botaoPerigo, padding: "5px 10px" }} disabled={!!ocupado} onClick={() => desligar(l)}>
+                    Sim
+                  </button>
+                  <button type="button" style={{ ...s.botaoSec, padding: "5px 10px" }} onClick={() => setConfirmar(null)}>
+                    Não
+                  </button>
+                </>
+              ) : (
+                <button type="button" style={{ ...s.botaoSec, padding: "5px 10px" }} onClick={() => setConfirmar(l.merchantId)}>
+                  Desligar
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       <label style={s.label}>
         Loja no iFood
         <select style={s.input} value={merchantId} onChange={(e) => setMerchantId(e.target.value)}>
-          <option value="">{todas === null ? "Carregando…" : "Todas as lojas do iFood já ligadas a esta loja"}</option>
+          <option value="">
+            {todas === null
+              ? "Carregando…"
+              : ligadas.length
+                ? "Todas as lojas do iFood já ligadas a esta loja"
+                : "Escolha a loja do iFood"}
+          </option>
           {ordenadas.map((l) => (
             <option key={l.merchantId} value={l.merchantId}>
               {l.nome}
@@ -95,7 +158,10 @@ export default function ItensDoIfood({ lojaId, nomeLoja, onImportado }) {
         </select>
       </label>
       {deOutra && (
-        <div style={{ ...s.aviso, margin: 0 }}>Esta loja do iFood está ligada a outra loja da calculadora e passará para esta.</div>
+        <div style={{ ...s.aviso, margin: 0 }}>
+          Esta loja do iFood está ligada a outra loja da calculadora. Ao importar, ela sai de lá e passa para esta
+          (os itens da outra loja continuam onde estão).
+        </div>
       )}
       {msg && <div style={{ ...(msg.tipo === "ok" ? s.ok : s.erro), margin: 0 }}>{msg.texto}</div>}
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>

@@ -178,6 +178,14 @@ public class ReajusteService {
         return repo.lojasIfoodDaLoja(lojaId);
     }
 
+    public List<LojaIfood> desvincularLoja(long lojaId, String merchantId) {
+        loja(lojaId);
+        if (!repo.desvincularLoja(lojaId, merchantId)) {
+            throw new Recusado("Esta loja do iFood não está ligada a esta loja da calculadora");
+        }
+        return repo.lojasIfoodDaLoja(lojaId);
+    }
+
     // ------------------------------------------------------------------ vínculos de itens
 
     public VinculosLoja vinculos(long lojaId, String merchantId) {
@@ -255,8 +263,11 @@ public class ReajusteService {
             throw new Recusado("Ligue pelo menos uma loja do iFood a esta loja antes de importar");
         }
         Map<String, Long> porNome = new LinkedHashMap<>();
-        itens.findByLojaIdAndAtivoTrue(lojaId)
-                .forEach(i -> porNome.putIfAbsent(NomesParecidos.normalizar(i.getNomeItem()), i.getId()));
+        Set<Long> idsDaLoja = new LinkedHashSet<>();
+        itens.findByLojaIdAndAtivoTrue(lojaId).forEach(i -> {
+            porNome.putIfAbsent(NomesParecidos.normalizar(i.getNomeItem()), i.getId());
+            idsDaLoja.add(i.getId());
+        });
         int criados = 0;
         int ligados = 0;
         int jaLigados = 0;
@@ -268,7 +279,8 @@ public class ReajusteService {
                 if (!CardapioModelos.ITEM.equals(e.tipo())) {
                     continue;
                 }
-                if (salvos.containsKey(li.merchantId() + "|" + e.tipo() + "|" + e.ifoodId())) {
+                Vinculo salvo = salvos.get(li.merchantId() + "|" + e.tipo() + "|" + e.ifoodId());
+                if (salvo != null && (salvo.ignorado() || idsDaLoja.contains(salvo.itemId()))) {
                     jaLigados++;
                     continue;
                 }
@@ -287,6 +299,7 @@ public class ReajusteService {
                     item.setAtualizadoEm(java.time.LocalDateTime.now());
                     itemId = itens.save(item).getId();
                     porNome.put(chaveNome, itemId);
+                    idsDaLoja.add(itemId);
                     criados++;
                 } else {
                     ligados++;

@@ -440,6 +440,8 @@ export const reajusteApi = {
   loja: (lojaId) => requisicao("GET", `/reajuste/${lojaId}`),
   salvarRegras: (lojaId, regras) => requisicao("PUT", `/reajuste/${lojaId}/regras`, regras),
   salvarLojasIfood: (lojaId, merchantIds) => requisicao("PUT", `/reajuste/${lojaId}/lojas-ifood`, { merchantIds }),
+  desligarLojaIfood: (lojaId, merchantId) =>
+    requisicao("DELETE", `/reajuste/${lojaId}/lojas-ifood/${encodeURIComponent(merchantId)}`),
   vinculos: (lojaId, merchantId) => requisicao("GET", `/reajuste/${lojaId}/vinculos/${encodeURIComponent(merchantId)}`),
   salvarVinculos: (lojaId, merchantId, lista) =>
     requisicao("PUT", `/reajuste/${lojaId}/vinculos/${encodeURIComponent(merchantId)}`, lista),
