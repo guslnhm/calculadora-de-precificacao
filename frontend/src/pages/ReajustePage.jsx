@@ -5,13 +5,15 @@ import { cores, dataHora, pilula, s } from "../components/monitor/ui";
 import LojasERegras from "../components/reajuste/LojasERegras";
 import Vinculos from "../components/reajuste/Vinculos";
 import Previa from "../components/reajuste/Previa";
+import CalcularPrecos from "../components/reajuste/CalcularPrecos";
 import Progresso, { SITUACOES_LOTE } from "../components/reajuste/Progresso";
 
 const ABAS = [
-  { id: "lojas", rotulo: "1. Lojas e regras" },
-  { id: "vinculos", rotulo: "2. Vínculos dos itens" },
-  { id: "previa", rotulo: "3. Prévia e publicar" },
+  { id: "lojas", rotulo: "1. Loja, itens e regras" },
+  { id: "precos", rotulo: "2. Calcular preços" },
+  { id: "previa", rotulo: "3. Revisar e publicar" },
   { id: "historico", rotulo: "Histórico" },
+  { id: "vinculos", rotulo: "Vínculos (avançado)" },
 ];
 
 function Historico({ lojaId }) {
@@ -161,9 +163,18 @@ export default function ReajustePage() {
       {!lojaId && (
         <div style={{ ...s.card, display: "grid", gap: "8px", lineHeight: 1.6 }}>
           <strong>Como funciona</strong>
-          <span>1. Escolha a loja da calculadora, diga quais lojas do iFood usam os preços dela e a regra de cupom.</span>
-          <span>2. Ligue cada item do iFood ao item da calculadora (o sistema sugere pelos nomes).</span>
-          <span>3. Confira a prévia (preço atual × novo e a margem) e publique. Dá para desfazer tudo depois.</span>
+          <span>
+            <strong>Cliente novo:</strong> escolha a loja da calculadora, ligue a loja do iFood e importe os itens do
+            cardápio. Baixe a planilha de custos, mande para o cliente e suba de volta em Itens → Importar planilha.
+          </span>
+          <span>
+            <strong>Calcular:</strong> o sistema calcula o preço de cada item com o custo e os percentuais da loja; você
+            escolhe o cupom (base, +5, +8, +10) item a item e salva na calculadora.
+          </span>
+          <span>
+            <strong>Revisar e publicar:</strong> compare o preço salvo com o do iFood (quanto sobe em R$ e %, margem) e
+            mande tudo de uma vez. Dá para desfazer depois.
+          </span>
         </div>
       )}
 
@@ -187,6 +198,7 @@ export default function ReajustePage() {
               }}
             />
           )}
+          {aba === "precos" && <CalcularPrecos key={`${lojaId}-${versao}`} lojaId={lojaId} />}
           {aba === "vinculos" && <Vinculos key={`${lojaId}-${versao}`} lojaId={lojaId} lojasIfood={dados.lojasIfood} />}
           {aba === "previa" && <Previa key={lojaId} lojaId={lojaId} onPublicado={() => setVersao((v) => v + 1)} />}
           {aba === "historico" && <Historico key={`${lojaId}-${versao}`} lojaId={lojaId} />}

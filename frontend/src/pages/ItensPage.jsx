@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ItensDoIfood from "../components/reajuste/ItensDoIfood";
 import {
   criarItem,
   editarItem,
@@ -40,6 +41,7 @@ export default function ItensPage() {
   const [arquivoImportacao, setArquivoImportacao] = useState(null);
   const [carregandoImportacao, setCarregandoImportacao] = useState(false);
   const [itemEditandoId, setItemEditandoId] = useState(null);
+  const [lojaIfoodId, setLojaIfoodId] = useState("");
 
   async function carregarLojas() {
     try {
@@ -122,7 +124,7 @@ export default function ItensPage() {
       const response = await importarItensPlanilha(Number(lojaImportacaoId), arquivoImportacao);
 
       setMensagem(
-        `${response.mensagem}. ${response.itensImportados} item(ns) importado(s) e ${response.linhasIgnoradas} linha(s) ignorada(s).`
+        `${response.mensagem}.`
       );
 
       setLojaImportacaoId("");
@@ -283,6 +285,30 @@ async function handleDesativarItem(item) {
       )}
     </form>
 
+    {/* ITENS DO IFOOD + PLANILHA DE CUSTOS */}
+    <div style={styles.formCard}>
+      <h3 style={styles.cardTitle}>Itens do iFood e planilha de custos</h3>
+      <div style={styles.field}>
+        <label style={styles.label}>Loja</label>
+        <select value={lojaIfoodId} onChange={(e) => setLojaIfoodId(e.target.value)} style={styles.input}>
+          <option value="">Selecione uma loja</option>
+          {lojas.map((loja) => (
+            <option key={loja.id} value={loja.id}>
+              {loja.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+      {lojaIfoodId && (
+        <ItensDoIfood
+          key={lojaIfoodId}
+          lojaId={Number(lojaIfoodId)}
+          nomeLoja={lojas.find((l) => String(l.id) === String(lojaIfoodId))?.nome}
+          onImportado={() => carregarItens(filtroLojaId)}
+        />
+      )}
+    </div>
+
     {/* IMPORTAÇÃO DE PLANILHA */}
     <form
       onSubmit={handleImportarPlanilha}
@@ -296,7 +322,9 @@ async function handleDesativarItem(item) {
         Envie um arquivo .xlsx (Excel) com a primeira aba no
         formato:
         <strong> A1 = Nome do item</strong> e{" "}
-        <strong>B1 = CMV</strong>.
+        <strong>B1 = CMV</strong>. Se o item já existe na loja (mesmo
+        nome ou a planilha de custos baixada aqui), o custo dele é
+        atualizado; se não existe, o item é criado.
       </p>
 
       <div style={styles.importActions}>

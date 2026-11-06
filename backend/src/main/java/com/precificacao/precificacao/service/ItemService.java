@@ -8,6 +8,7 @@ import com.precificacao.precificacao.entity.Item;
 import com.precificacao.precificacao.entity.Loja;
 import com.precificacao.precificacao.repository.ItemRepository;
 import com.precificacao.precificacao.repository.LojaRepository;
+import com.precificacao.precificacao.reajuste.NomesParecidos;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
@@ -129,7 +130,17 @@ public class ItemService {
 
         int totalLinhasLidas = 0;
         int itensImportados = 0;
+        int itensAtualizados = 0;
         int linhasIgnoradas = 0;
+
+        // itens que já existem na loja: pelo código (coluna C da planilha de custos) e pelo nome
+        Map<Long, Item> porId = new java.util.HashMap<>();
+        Map<String, List<Item>> porNome = new java.util.HashMap<>();
+        for (Item existente : itemRepository.findByLojaIdAndAtivoTrue(lojaId)) {
+            porId.put(existente.getId(), existente);
+            porNome.computeIfAbsent(NomesParecidos.normalizar(existente.getNomeItem()), k -> new java.util.ArrayList<>())
+                    .add(existente);
+        }
 
         try (InputStream inputStream = arquivo.getInputStream();
              Workbook workbook = new XSSFWorkbook(inputStream)) {
@@ -151,6 +162,7 @@ public class ItemService {
 
                 String nomeItem = obterTextoCelula(row.getCell(0)).trim();
                 BigDecimal cmv = obterBigDecimalCelula(row.getCell(1));
+                BigDecimal codigo = obterBigDecimalCelula(row.getCell(2));
 
                 boolean linhaVazia = nomeItem.isBlank() && cmv == null;
                 if (linhaVazia) {
@@ -158,14 +170,36 @@ public class ItemService {
                     continue;
                 }
 
-                if (nomeItem.isBlank() || cmv == null || cmv.compareTo(BigDecimal.ZERO) < 0) {
+                if (cmv == null || cmv.compareTo(BigDecimal.ZERO) < 0) {
+                    linhasIgnoradas++; // sem custo preenchido: não mexe no item
+                    continue;
+                }
+
+                // 1) pelo código escondido da planilha de custos; 2) pelo nome (ignorando acento/maiúscula)
+                Item existente = codigo != null ? porId.get(codigo.longValue()) : null;
+                if (existente == null && !nomeItem.isBlank()) {
+                    List<Item> mesmos = porNome.get(NomesParecidos.normalizar(nomeItem));
+                    if (mesmos != null && mesmos.size() == 1) {
+                        existente = mesmos.get(0);
+                    }
+                }
+
+                if (existente != null) {
+                    existente.setCmv(cmv.setScale(2, RoundingMode.HALF_UP));
+                    existente.setAtualizadoEm(LocalDateTime.now());
+                    itemRepository.save(existente);
+                    itensAtualizados++;
+                    continue;
+                }
+
+                if (nomeItem.isBlank()) {
                     linhasIgnoradas++;
                     continue;
                 }
 
                 Item item = new Item();
                 item.setLoja(loja);
-                item.setNomeItem(nomeItem);
+                item.setNomeItem(nomeItem.length() > 150 ? nomeItem.substring(0, 150) : nomeItem);
                 item.setCmv(cmv);
                 item.setPrecoVendaInicial(null);
                 item.setRendimento(null);
@@ -176,7 +210,10 @@ public class ItemService {
                 item.setCriadoEm(LocalDateTime.now());
                 item.setAtualizadoEm(LocalDateTime.now());
 
-                itemRepository.save(item);
+                item = itemRepository.save(item);
+                porId.put(item.getId(), item);
+                porNome.computeIfAbsent(NomesParecidos.normalizar(item.getNomeItem()), k -> new java.util.ArrayList<>())
+                        .add(item);
                 itensImportados++;
             }
 
@@ -189,8 +226,10 @@ public class ItemService {
         ImportacaoItensResponseDTO response = new ImportacaoItensResponseDTO();
         response.setTotalLinhasLidas(totalLinhasLidas);
         response.setItensImportados(itensImportados);
+        response.setItensAtualizados(itensAtualizados);
         response.setLinhasIgnoradas(linhasIgnoradas);
-        response.setMensagem("Importação concluída com sucesso");
+        response.setMensagem("Importação concluída: " + itensAtualizados + " custo(s) atualizado(s), "
+                + itensImportados + " item(ns) novo(s), " + linhasIgnoradas + " linha(s) ignorada(s)");
         return response;
     }
 
@@ -398,5 +437,57 @@ public class ItemService {
                                 (valor1, valor2) -> valor2
                         )
                 );
+    }
+
+    /**
+     * Planilha para o cliente preencher o custo: A = item, B = custo (já preenchido quando houver),
+     * C = código do item (escondida; usada para devolver o custo ao item certo mesmo se o nome mudar).
+     */
+    public byte[] planilhaCustos(Long lojaId) {
+        lojaRepository.findById(lojaId).orElseThrow(() -> new RuntimeException("Loja não encontrada"));
+        List<Item> itens = new java.util.ArrayList<>(itemRepository.findByLojaIdAndAtivoTrue(lojaId));
+        itens.sort((a, b) -> a.getNomeItem().compareToIgnoreCase(b.getNomeItem()));
+        try (XSSFWorkbook wb = new XSSFWorkbook(); java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            Sheet sheet = wb.createSheet("Custos");
+            CellStyle titulo = wb.createCellStyle();
+            Font negrito = wb.createFont();
+            negrito.setBold(true);
+            titulo.setFont(negrito);
+            titulo.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            titulo.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            CellStyle dinheiro = wb.createCellStyle();
+            dinheiro.setDataFormat(wb.createDataFormat().getFormat("#,##0.00"));
+            CellStyle preencher = wb.createCellStyle();
+            preencher.cloneStyleFrom(dinheiro);
+            preencher.setFillForegroundColor(IndexedColors.LIGHT_YELLOW.getIndex());
+            preencher.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            Row cab = sheet.createRow(0);
+            String[] nomes = {"Item", "Custo (R$)", "Código (não mexer)"};
+            for (int c = 0; c < nomes.length; c++) {
+                Cell cell = cab.createCell(c);
+                cell.setCellValue(nomes[c]);
+                cell.setCellStyle(titulo);
+            }
+            int r = 1;
+            for (Item i : itens) {
+                Row row = sheet.createRow(r++);
+                row.createCell(0).setCellValue(i.getNomeItem());
+                Cell custo = row.createCell(1);
+                if (i.getCmv() != null && i.getCmv().signum() > 0) {
+                    custo.setCellValue(i.getCmv().doubleValue());
+                }
+                custo.setCellStyle(preencher);
+                row.createCell(2).setCellValue(i.getId());
+            }
+            sheet.setColumnWidth(0, 50 * 256);
+            sheet.setColumnWidth(1, 16 * 256);
+            sheet.setColumnHidden(2, true);
+            sheet.createFreezePane(0, 1);
+            wb.write(out);
+            return out.toByteArray();
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Erro ao gerar a planilha", e);
+        }
     }
 }

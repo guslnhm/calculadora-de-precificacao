@@ -53,6 +53,18 @@ public class ItemController {
         return itemService.importarPlanilha(lojaId, arquivo);
     }
 
+    /** Planilha .xlsx com os itens da loja para o cliente preencher o custo. */
+    @GetMapping("/planilha-custos")
+    public org.springframework.http.ResponseEntity<byte[]> planilhaCustos(@RequestParam Long lojaId) {
+        byte[] xlsx = itemService.planilhaCustos(lojaId);
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"custos-loja-" + lojaId + ".xlsx\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(xlsx);
+    }
+
     @PutMapping("/{id}")
     public ItemResponseDTO atualizar(
             @PathVariable Long id,

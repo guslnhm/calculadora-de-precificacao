@@ -231,6 +231,158 @@ public class ReajusteService {
         return n;
     }
 
+    // ------------------------------------------------------------------ importar itens do iFood
+
+    public record Importacao(int criados, int ligadosAExistentes, int jaLigados, List<String> lojas) {
+    }
+
+    /**
+     * Traz para a calculadora os itens (não complementos) do cardápio das lojas do iFood ligadas a esta loja.
+     * Cada item já fica ligado ao item do iFood; item com o mesmo nome (rede, ou o mesmo produto em duas categorias)
+     * usa o mesmo item da calculadora. O preço atual do iFood vira o ponto de partida; o custo fica para a planilha.
+     */
+    public Importacao importarDoIfood(long lojaId, String merchantId, String usuario) {
+        Loja loja = loja(lojaId);
+        List<LojaIfood> ligadas = repo.lojasIfoodDaLoja(lojaId);
+        if (merchantId != null && !merchantId.isBlank()
+                && ligadas.stream().noneMatch(l -> l.merchantId().equals(merchantId))) {
+            List<String> ids = new ArrayList<>(ligadas.stream().map(LojaIfood::merchantId).toList());
+            ids.add(merchantId);
+            repo.vincularLojas(lojaId, ids);
+            ligadas = repo.lojasIfoodDaLoja(lojaId);
+        }
+        if (ligadas.isEmpty()) {
+            throw new Recusado("Ligue pelo menos uma loja do iFood a esta loja antes de importar");
+        }
+        Map<String, Long> porNome = new LinkedHashMap<>();
+        itens.findByLojaIdAndAtivoTrue(lojaId)
+                .forEach(i -> porNome.putIfAbsent(NomesParecidos.normalizar(i.getNomeItem()), i.getId()));
+        int criados = 0;
+        int ligados = 0;
+        int jaLigados = 0;
+        OffsetDateTime agora = agora();
+        for (LojaIfood li : ligadas) {
+            Cardapio c = cardapioService.cardapio(li.merchantId(), false);
+            Map<String, Vinculo> salvos = repo.vinculos(li.merchantId());
+            for (EntidadeIfood e : entidades(c)) {
+                if (!CardapioModelos.ITEM.equals(e.tipo())) {
+                    continue;
+                }
+                if (salvos.containsKey(li.merchantId() + "|" + e.tipo() + "|" + e.ifoodId())) {
+                    jaLigados++;
+                    continue;
+                }
+                String chaveNome = NomesParecidos.normalizar(e.nome());
+                Long itemId = porNome.get(chaveNome);
+                if (itemId == null) {
+                    var item = new com.precificacao.precificacao.entity.Item();
+                    item.setLoja(loja);
+                    item.setNomeItem(e.nome().length() > 150 ? e.nome().substring(0, 150) : e.nome());
+                    item.setCmv(BigDecimal.ZERO); // sem custo ainda: vem da planilha
+                    item.setPrecoVendaInicial(e.preco());
+                    item.setPrecoVendaAtualIfood(e.preco());
+                    item.setObservacao("Importado do iFood");
+                    item.setAtivo(true);
+                    item.setCriadoEm(java.time.LocalDateTime.now());
+                    item.setAtualizadoEm(java.time.LocalDateTime.now());
+                    itemId = itens.save(item).getId();
+                    porNome.put(chaveNome, itemId);
+                    criados++;
+                } else {
+                    ligados++;
+                }
+                repo.salvarVinculo(li.merchantId(), e.tipo(), e.ifoodId(), e.nome(), itemId, false, "IMPORTADO",
+                        BigDecimal.ONE, usuario, agora);
+            }
+        }
+        return new Importacao(criados, ligados, jaLigados, ligadas.stream().map(LojaIfood::nome).toList());
+    }
+
+    // ------------------------------------------------------------------ calcular e salvar preços em massa
+
+    public record PrecoItem(long itemId, String nome, BigDecimal cmv, BigDecimal frete, BigDecimal precoSalvo,
+                            BigDecimal precoIfood, BigDecimal valorBase, Map<String, BigDecimal> opcoes,
+                            Map<String, BigDecimal> margens, String sugerido, boolean semCusto) {
+    }
+
+    public record Precos(RegrasLoja regras, List<PrecoItem> itens) {
+    }
+
+    public record SalvarPreco(Long itemId, BigDecimal preco) {
+    }
+
+    /** Para cada item da loja: o preço da calculadora com cada cupom (base, +5, +8, +10), já com o arredondamento. */
+    public Precos precos(long lojaId) {
+        Loja loja = loja(lojaId);
+        Percentuais p = Percentuais.daLoja(loja);
+        if (p.somaTotal().compareTo(BigDecimal.valueOf(100)) >= 0) {
+            throw new Recusado("A soma dos percentuais da loja passa de 100%: confira os percentuais na calculadora");
+        }
+        Map<Long, BigDecimal> noIfood = precoAtualNoIfood(lojaId);
+        List<PrecoItem> out = new ArrayList<>();
+        for (var i : itens.findByLojaIdAndAtivoTrue(lojaId)) {
+            boolean semCusto = i.getCmv() == null || i.getCmv().signum() <= 0;
+            BigDecimal frete = i.getFrete() != null ? i.getFrete() : loja.getIfoodFretePadrao();
+            Map<String, BigDecimal> opcoes = new LinkedHashMap<>();
+            Map<String, BigDecimal> margens = new LinkedHashMap<>();
+            BigDecimal base = null;
+            if (!semCusto) {
+                for (ModoCupomIfood modo : ModoCupomIfood.values()) {
+                    var r = CalculadoraPrecoIfood.calcular(i.getCmv(), i.getFrete(), p,
+                            new Regras(loja.getIfoodFretePadrao(), modo, loja.getIfoodArredondamento()));
+                    base = r.valorBase();
+                    opcoes.put(modo.name(), r.precoFinal());
+                    margens.put(modo.name(), CalculadoraPrecoIfood.margemPercentual(r.precoFinal(), i.getCmv(), frete, p));
+                }
+            }
+            out.add(new PrecoItem(i.getId(), i.getNomeItem(), i.getCmv(), i.getFrete(), i.getPrecoVendaAtualIfood(),
+                    noIfood.get(i.getId()), base, opcoes, margens, loja.getIfoodModoCupom().name(), semCusto));
+        }
+        out.sort((a, b) -> a.nome().compareToIgnoreCase(b.nome()));
+        return new Precos(regras(lojaId), out);
+    }
+
+    /** Salva o "preço de venda iFood" dos itens escolhidos (é ele que a revisão compara com o iFood). */
+    public int salvarPrecos(long lojaId, List<SalvarPreco> lista) {
+        loja(lojaId);
+        Set<Long> daLoja = new LinkedHashSet<>();
+        itens.findByLojaIdAndAtivoTrue(lojaId).forEach(i -> daLoja.add(i.getId()));
+        int n = 0;
+        for (SalvarPreco s : lista == null ? List.<SalvarPreco>of() : lista) {
+            if (s.itemId() == null || !daLoja.contains(s.itemId())) {
+                throw new Recusado("Item " + s.itemId() + " não é desta loja");
+            }
+            if (s.preco() == null || s.preco().signum() <= 0) {
+                throw new Recusado("Preço inválido para o item " + s.itemId());
+            }
+            n += jdbc.update("UPDATE itens SET preco_venda_atual_ifood = ?, data_precificacao = now(), atualizado_em = now() "
+                    + "WHERE id = ?", s.preco().setScale(2, RoundingMode.HALF_UP), s.itemId());
+        }
+        return n;
+    }
+
+    /** Preço atual no iFood de cada item da calculadora (pela 1ª loja do iFood ligada que tiver o item). */
+    private Map<Long, BigDecimal> precoAtualNoIfood(long lojaId) {
+        Map<Long, BigDecimal> out = new LinkedHashMap<>();
+        for (LojaIfood li : repo.lojasIfoodDaLoja(lojaId)) {
+            Optional<Cardapio> c = cardapios.cardapio(li.merchantId());
+            if (c.isEmpty()) {
+                continue;
+            }
+            Map<String, BigDecimal> precos = new LinkedHashMap<>();
+            entidades(c.get()).forEach(e -> precos.put(e.tipo() + "|" + e.ifoodId(), e.preco()));
+            for (Vinculo v : repo.vinculos(li.merchantId()).values()) {
+                if (v.itemId() != null && !v.ignorado() && CardapioModelos.ITEM.equals(v.tipo())) {
+                    BigDecimal preco = precos.get(v.tipo() + "|" + v.ifoodId());
+                    if (preco != null) {
+                        out.putIfAbsent(v.itemId(), preco);
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
     // ------------------------------------------------------------------ prévia e publicação
 
     public Previa previa(long lojaId, String fonte) {
@@ -270,6 +422,10 @@ public class ReajusteService {
                 }
                 BigDecimal novo = SALVO.equals(f) ? item.precoSalvo() : item.precoCalculado();
                 String aviso = novo == null ? "Sem preço de venda iFood salvo na calculadora" : null;
+                if (CALCULADO.equals(f) && (item.cmv() == null || item.cmv().signum() <= 0)) {
+                    aviso = "Sem custo na calculadora (preencha pela planilha)";
+                    novo = null;
+                }
                 if (novo != null && novo.signum() == 0 && CardapioModelos.ITEM.equals(e.tipo())) {
                     aviso = "Preço calculado R$ 0,00 (CMV zerado?)";
                     novo = null;
@@ -291,7 +447,7 @@ public class ReajusteService {
                 }
             }
             if (semVinculo > 0) {
-                avisos.add(li.nome() + ": " + semVinculo + " item(ns) do iFood sem vínculo com a calculadora (não entram no reajuste).");
+                avisos.add(li.nome() + ": " + semVinculo + " item(ns) do iFood ainda fora da calculadora (não entram no reajuste): use “Importar itens do iFood” na aba 1.");
             }
         }
         linhas.sort((a, b) -> {
