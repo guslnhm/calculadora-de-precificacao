@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Cardápio: leitura no formato real do Catalog v2, monitor de itens pausados e alterações pela tela. */
 @SpringBootTest
-class CardapioTest {
+public class CardapioTest {
 
     static final String LOJA = "loja-1";
 

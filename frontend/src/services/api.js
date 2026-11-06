@@ -434,3 +434,20 @@ export const cardapioApi = {
   alteracoes: (merchantId) => requisicao("GET", `/cardapio/${encodeURIComponent(merchantId)}/alteracoes`),
   desfazer: (id) => requisicao("POST", `/cardapio/alteracoes/${id}/desfazer`),
 };
+
+export const reajusteApi = {
+  todasLojasIfood: () => requisicao("GET", "/reajuste/lojas-ifood"),
+  loja: (lojaId) => requisicao("GET", `/reajuste/${lojaId}`),
+  salvarRegras: (lojaId, regras) => requisicao("PUT", `/reajuste/${lojaId}/regras`, regras),
+  salvarLojasIfood: (lojaId, merchantIds) => requisicao("PUT", `/reajuste/${lojaId}/lojas-ifood`, { merchantIds }),
+  vinculos: (lojaId, merchantId) => requisicao("GET", `/reajuste/${lojaId}/vinculos/${encodeURIComponent(merchantId)}`),
+  salvarVinculos: (lojaId, merchantId, lista) =>
+    requisicao("PUT", `/reajuste/${lojaId}/vinculos/${encodeURIComponent(merchantId)}`, lista),
+  aceitarSugestoes: (lojaId, merchantId, minimo) =>
+    requisicao("POST", `/reajuste/${lojaId}/vinculos/${encodeURIComponent(merchantId)}/aceitar-sugestoes${query({ minimo })}`),
+  previa: (lojaId, fonte) => requisicao("GET", `/reajuste/${lojaId}/previa${query({ fonte })}`),
+  publicar: (lojaId, fonte, chaves) => requisicao("POST", `/reajuste/${lojaId}/publicar`, { fonte, chaves }),
+  lotes: (lojaId) => requisicao("GET", `/reajuste/${lojaId}/lotes`),
+  lote: (id) => requisicao("GET", `/reajuste/lotes/${id}`),
+  desfazerLote: (id) => requisicao("POST", `/reajuste/lotes/${id}/desfazer`),
+};
