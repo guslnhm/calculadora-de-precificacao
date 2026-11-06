@@ -44,7 +44,7 @@ class ZapiSenderTest {
 
     @Test
     void limpaEspacosEAspasDasVariaveis() {
-        var p = new WhatsappProperties(" zapi\n", " \"INST123\" ", "TOK456 \n", "'CT789'", "  ");
+        var p = new WhatsappProperties(" zapi\n", " \"INST123\" ", "TOK456 \n", "'CT789'", "  ", "", "", "");
         assertThat(p.provider()).isEqualTo("zapi");
         assertThat(p.zapiInstanceId()).isEqualTo("INST123");
         assertThat(p.zapiToken()).isEqualTo("TOK456");
@@ -56,7 +56,7 @@ class ZapiSenderTest {
     @Test
     void situacaoComCredenciaisColadasComEspaco() throws IOException {
         String url = subir(200, "{\"connected\":true,\"smartphoneConnected\":true}");
-        var z = new ZapiSender(new WhatsappProperties("zapi", "INST \n", " TOK", "CT ", url), new ObjectMapper());
+        var z = new ZapiSender(new WhatsappProperties("zapi", "INST \n", " TOK", "CT ", url, "", "", ""), new ObjectMapper());
         Map<String, Object> s = z.situacao();
         assertThat(s).containsEntry("connected", true).containsEntry("provider", "zapi").doesNotContainKey("erro");
         assertThat(caminhos).containsExactly("/instances/INST/token/TOK/status");
@@ -66,7 +66,7 @@ class ZapiSenderTest {
     @Test
     void situacaoMostraOErroDaZapiEmVezDeExplodir() throws IOException {
         String url = subir(400, "{\"error\":\"your client-token is not configured\"}");
-        var z = new ZapiSender(new WhatsappProperties("zapi", "INST", "TOK", "", url), new ObjectMapper());
+        var z = new ZapiSender(new WhatsappProperties("zapi", "INST", "TOK", "", url, "", "", ""), new ObjectMapper());
         assertThat(z.situacao().get("erro").toString())
                 .contains("HTTP 400").contains("client-token is not configured");
     }
@@ -74,7 +74,7 @@ class ZapiSenderTest {
     @Test
     void enviarFalhaComMensagemClara() throws IOException {
         String url = subir(401, "{\"error\":\"unauthorized\"}");
-        var z = new ZapiSender(new WhatsappProperties("zapi", "INST", "TOK", "", url), new ObjectMapper());
+        var z = new ZapiSender(new WhatsappProperties("zapi", "INST", "TOK", "", url, "", "", ""), new ObjectMapper());
         assertThatThrownBy(() -> z.enviar("123-group", "oi"))
                 .isInstanceOf(WhatsappSender.FalhaEnvio.class)
                 .hasMessageContaining("HTTP 401");

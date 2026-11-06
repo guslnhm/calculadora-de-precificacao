@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { monitorApi, whatsappApi } from "../../services/api";
 import { cores, pilula, s } from "./ui";
+import ConexaoWhatsapp from "./ConexaoWhatsapp";
 
 const VAZIO = {
   id: null,
@@ -352,7 +353,6 @@ export default function AbaGrupos() {
   const [lojas, setLojas] = useState([]);
   const [erro, setErro] = useState("");
   const [editando, setEditando] = useState(null);
-  const [situacao, setSituacao] = useState(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -367,10 +367,6 @@ export default function AbaGrupos() {
 
   useEffect(() => {
     carregar();
-    whatsappApi
-      .situacao()
-      .then(setSituacao)
-      .catch((e) => setSituacao({ erro: e.message }));
   }, [carregar]);
 
   const nomes = useMemo(() => Object.fromEntries(lojas.map((l) => [l.merchantId, l.nome])), [lojas]);
@@ -383,23 +379,9 @@ export default function AbaGrupos() {
     return lojas.filter((l) => !mapeadas.has(l.merchantId));
   }, [ativos, lojas]);
 
-  const zapiConectada = situacao && !situacao.erro && (situacao.connected === true || situacao.conectado === true);
-  const soConsole = situacao && situacao.provider === "console";
-
   return (
     <div>
-      {situacao?.erro && <div style={s.erro}>Não consegui falar com a Z-API: {situacao.erro}</div>}
-      {soConsole && (
-        <div style={s.aviso}>
-          A Z-API não está configurada no servidor: as mensagens só vão para o log. Confira as variáveis ZAPI_* no
-          Railway.
-        </div>
-      )}
-      {situacao && !situacao.erro && !soConsole && !zapiConectada && (
-        <div style={s.aviso}>
-          O número da Z-API parece desconectado. Abra o painel da Z-API e leia o QR Code de novo.
-        </div>
-      )}
+      <ConexaoWhatsapp />
       {grupos !== null && !temAdmin && (
         <div style={s.aviso}>
           Cadastre um <strong>grupo admin</strong> primeiro: é para ele que vão os avisos do monitor e os alertas das

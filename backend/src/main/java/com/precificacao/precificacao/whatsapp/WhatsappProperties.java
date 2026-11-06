@@ -14,7 +14,10 @@ public record WhatsappProperties(
         @DefaultValue("") String zapiInstanceId,
         @DefaultValue("") String zapiToken,
         @DefaultValue("") String zapiClientToken,
-        @DefaultValue("https://api.z-api.io") String zapiBaseUrl
+        @DefaultValue("https://api.z-api.io") String zapiBaseUrl,
+        @DefaultValue("") String evolutionUrl,
+        @DefaultValue("") String evolutionApiKey,
+        @DefaultValue("monitor") String evolutionInstancia
 ) {
     public WhatsappProperties {
         provider = limpar(provider);
@@ -22,6 +25,19 @@ public record WhatsappProperties(
         zapiToken = limpar(zapiToken);
         zapiClientToken = limpar(zapiClientToken);
         zapiBaseUrl = limpar(zapiBaseUrl).isEmpty() ? "https://api.z-api.io" : limpar(zapiBaseUrl);
+        evolutionUrl = limpar(evolutionUrl);
+        if (!evolutionUrl.isEmpty() && !evolutionUrl.contains("://")) {
+            evolutionUrl = "https://" + evolutionUrl; // colaram só o domínio do Railway
+        }
+        while (evolutionUrl.endsWith("/")) {
+            evolutionUrl = evolutionUrl.substring(0, evolutionUrl.length() - 1);
+        }
+        evolutionApiKey = limpar(evolutionApiKey);
+        evolutionInstancia = limpar(evolutionInstancia).isEmpty() ? "monitor" : limpar(evolutionInstancia);
+    }
+
+    public boolean evolutionConfigurada() {
+        return !evolutionUrl.isBlank() && !evolutionApiKey.isBlank();
     }
 
     /** Tira espaços, quebras de linha e aspas que costumam vir junto ao colar a variável no Railway. */
