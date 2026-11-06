@@ -36,12 +36,6 @@ public record WhatsappProperties(
         evolutionInstancia = limpar(evolutionInstancia).isEmpty() ? "monitor" : limpar(evolutionInstancia);
     }
 
-    /** Compatível com quem só usa Z-API. */
-    public WhatsappProperties(String provider, String zapiInstanceId, String zapiToken, String zapiClientToken,
-                              String zapiBaseUrl) {
-        this(provider, zapiInstanceId, zapiToken, zapiClientToken, zapiBaseUrl, "", "", "monitor");
-    }
-
     public boolean evolutionConfigurada() {
         return !evolutionUrl.isBlank() && !evolutionApiKey.isBlank();
     }
