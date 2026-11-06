@@ -34,12 +34,76 @@ public class CardapioController {
     public record PrecoRequest(String tipo, String id, BigDecimal preco) {
     }
 
+    public record CategoriaRequest(String nome) {
+    }
+
+    public record ItemRequest(String categoriaId, String nome, String descricao, BigDecimal preco, String imagePath) {
+    }
+
+    public record EdicaoRequest(String nome, String descricao, String imagePath) {
+    }
+
+    public record ComplementosRequest(String grupo, Integer minimo, Integer maximo,
+                                      List<com.precificacao.precificacao.cardapio.CatalogoEscrita.NovoComplemento> complementos) {
+    }
+
     private final CardapioService service;
     private final CardapioRepository repo;
+    private final com.precificacao.precificacao.cardapio.CatalogoEscrita escrita;
 
-    public CardapioController(CardapioService service, CardapioRepository repo) {
+    public CardapioController(CardapioService service, CardapioRepository repo,
+                              com.precificacao.precificacao.cardapio.CatalogoEscrita escrita) {
         this.service = service;
         this.repo = repo;
+        this.escrita = escrita;
+    }
+
+    // ------------------------------------------------------------------ cadastro no cardápio
+
+    /** Envia uma foto ao iFood e devolve o caminho para usar no item/complemento. */
+    @PostMapping(value = "/{merchantId}/fotos", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, Object> foto(@PathVariable String merchantId,
+                                    @org.springframework.web.bind.annotation.RequestParam("arquivo")
+                                    org.springframework.web.multipart.MultipartFile arquivo) throws java.io.IOException {
+        return Map.of("imagePath", escrita.enviarFoto(merchantId, arquivo.getBytes(), arquivo.getContentType()));
+    }
+
+    @PostMapping("/{merchantId}/categorias")
+    public Map<String, Object> criarCategoria(@PathVariable String merchantId, @RequestBody CategoriaRequest req) {
+        return resposta(merchantId, escrita.criarCategoria(merchantId, req.nome()));
+    }
+
+    @PostMapping("/{merchantId}/itens")
+    public Map<String, Object> criarItem(@PathVariable String merchantId, @RequestBody ItemRequest req) {
+        return resposta(merchantId, escrita.criarItem(merchantId, req.categoriaId(), req.nome(), req.descricao(),
+                req.preco(), req.imagePath()));
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/{merchantId}/itens/{itemId}")
+    public Map<String, Object> editarItem(@PathVariable String merchantId, @PathVariable String itemId,
+                                          @RequestBody EdicaoRequest req) {
+        return resposta(merchantId, escrita.editarItem(merchantId, itemId, req.nome(), req.descricao(), req.imagePath()));
+    }
+
+    @PostMapping("/{merchantId}/itens/{itemId}/complementos")
+    public Map<String, Object> criarComplementos(@PathVariable String merchantId, @PathVariable String itemId,
+                                                 @RequestBody ComplementosRequest req) {
+        return resposta(merchantId, escrita.criarComplementos(merchantId, itemId, req.grupo(), req.minimo(),
+                req.maximo(), req.complementos()));
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/{merchantId}/itens/{itemId}/complementos/{optionId}")
+    public Map<String, Object> editarComplemento(@PathVariable String merchantId, @PathVariable String itemId,
+                                                 @PathVariable String optionId, @RequestBody EdicaoRequest req) {
+        return resposta(merchantId, escrita.editarComplemento(merchantId, itemId, optionId, req.nome(), req.imagePath()));
+    }
+
+    private Map<String, Object> resposta(String merchantId, Cardapio c) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("cardapio", c);
+        m.put("itens", c.totalItens());
+        m.put("pausados", c.totalPausados());
+        return m;
     }
 
     /** Lojas com quantos itens têm e quantos estão parados. */

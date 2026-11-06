@@ -258,7 +258,8 @@ public class CardapioService {
                         for (Opcao o : g.opcoes()) {
                             if (CardapioModelos.COMPLEMENTO.equals(tipo) && o.id().equals(id)) {
                                 o = new Opcao(o.id(), o.productId(), o.nome(), status ? novo : o.status(),
-                                        status ? o.preco() : preco, status ? o.precoOriginal() : preco, o.codigoExterno());
+                                        status ? o.preco() : preco, status ? o.precoOriginal() : preco, o.codigoExterno(),
+                                        o.imagem());
                             }
                             os.add(o);
                         }
