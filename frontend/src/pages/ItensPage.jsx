@@ -286,8 +286,14 @@ async function handleDesativarItem(item) {
     </form>
 
     {/* ITENS DO IFOOD + PLANILHA DE CUSTOS */}
-    <div style={styles.formCard}>
+    <div style={{ ...styles.formCard, alignContent: "start" }}>
       <h3 style={styles.cardTitle}>Itens do iFood e planilha de custos</h3>
+      {!lojaIfoodId && (
+        <p style={styles.helperText}>
+          Para um cliente novo: escolha a loja para trazer os itens do cardápio do iFood e gerar a planilha que o
+          cliente preenche com o custo de cada item.
+        </p>
+      )}
       <div style={styles.field}>
         <label style={styles.label}>Loja</label>
         <select value={lojaIfoodId} onChange={(e) => setLojaIfoodId(e.target.value)} style={styles.input}>
