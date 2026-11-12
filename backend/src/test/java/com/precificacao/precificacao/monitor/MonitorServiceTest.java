@@ -218,6 +218,22 @@ class MonitorServiceTest {
     }
 
     @Test
+    void lojaTiradaDasPermissoesSaiDoMonitorSemAviso() {
+        MonitorService mon = monitor(2, 3, true);
+        mon.ciclo();
+        wpp.enviadas.clear();
+        ifood.removidas.add(B);
+        ifood.falhas.put(B, new IfoodException(403, "GET status", "{\"message\":\"Forbidden\"}"));
+        for (int i = 0; i < 12; i++) {
+            relogio.passar(30);
+            mon.ciclo();
+        }
+        assertThat(wpp.para("admin-group")).isEmpty();
+        assertThat(mon.lojasMonitoradas()).containsExactlyInAnyOrder(A, C);
+        assertThat(repo.lojasAtivas()).extracting(LojaMerchant::merchantId).doesNotContain(B);
+    }
+
+    @Test
     void falhaGeralGeraUmAvisoSo() {
         MonitorService mon = monitor();
         mon.ciclo();
@@ -324,6 +340,7 @@ class MonitorServiceTest {
         final Map<String, List<StatusOperacao>> status = new HashMap<>();
         final Map<String, RuntimeException> falhas = new HashMap<>();
         final Map<String, List<Pausa>> pausas = new HashMap<>();
+        final java.util.Set<String> removidas = new java.util.HashSet<>();
 
         IfoodFalso() {
             status.put(A, ok());
@@ -333,8 +350,9 @@ class MonitorServiceTest {
 
         @Override
         public List<LojaMerchant> listarLojas() {
-            return List.of(new LojaMerchant(A, "Pizzaria Central", null), new LojaMerchant(B, "Burger Moema", null),
-                    new LojaMerchant(C, "Poke Sem Grupo", null));
+            return java.util.stream.Stream.of(new LojaMerchant(A, "Pizzaria Central", null),
+                    new LojaMerchant(B, "Burger Moema", null), new LojaMerchant(C, "Poke Sem Grupo", null))
+                    .filter(l -> !removidas.contains(l.merchantId())).toList();
         }
 
         @Override

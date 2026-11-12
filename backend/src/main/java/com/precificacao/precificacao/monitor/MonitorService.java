@@ -71,6 +71,7 @@ public class MonitorService {
     private final Set<String> semGrupoAvisadas = new HashSet<>();
     private boolean falhaGeralAvisada = false;
     private OffsetDateTime lojasAtualizadasEm = null;
+    private OffsetDateTime conferidoPor403Em = null;
 
     public MonitorService(MonitorProperties cfg, FonteIfood ifood, MonitorRepository repo,
                           GrupoWhatsappRepository grupos, WhatsappSender whatsapp, Clock clock,
@@ -118,6 +119,7 @@ public class MonitorService {
         }
         merchantIds = lojas.stream().map(LojaMerchant::merchantId).toList();
         lojasAtualizadasEm = agora;
+        esquecerRemovidas(new HashSet<>(merchantIds), agora);
         log.info("{} lojas vinculadas ao aplicativo", merchantIds.size());
 
         List<Grupo> todos = grupos.listar(true);
@@ -150,6 +152,7 @@ public class MonitorService {
 
         Map<String, Object> resultados = lerTodas(merchantIds);
         OffsetDateTime agora = agora();
+        resultados = semLojasRemovidas(resultados, agora);
         List<Evento> eventos = new ArrayList<>();
 
         long qtdFalhas = resultados.values().stream().filter(r -> r instanceof Exception).count();
@@ -320,6 +323,45 @@ public class MonitorService {
             log.warn("Não consegui listar as pausas de {}: {}", merchantId, e.getMessage());
             return List.of();
         }
+    }
+
+    // ------------------------------------------------------------- lojas removidas
+
+    /**
+     * 403/404 costuma ser loja tirada das permissões do aplicativo. Antes de contar como falha,
+     * confere na hora a lista de lojas do iFood (no máximo a cada 5 min); as que saíram somem do monitor sem aviso.
+     */
+    private Map<String, Object> semLojasRemovidas(Map<String, Object> resultados, OffsetDateTime agora) {
+        boolean algum403 = resultados.values().stream()
+                .anyMatch(r -> r instanceof IfoodException ie && ie.semPermissao());
+        if (!algum403 || (conferidoPor403Em != null && Duration.between(conferidoPor403Em, agora).toMinutes() < 5)) {
+            return resultados;
+        }
+        conferidoPor403Em = agora;
+        try {
+            atualizarLojas(true);
+        } catch (RuntimeException e) {
+            log.warn("Não consegui reconferir a lista de lojas: {}", e.getMessage());
+            return resultados;
+        }
+        Set<String> ativas = new HashSet<>(merchantIds);
+        Map<String, Object> out = new LinkedHashMap<>(resultados);
+        out.keySet().removeIf(m -> !ativas.contains(m));
+        return out;
+    }
+
+    /** Lojas que saíram do aplicativo: encerra incidentes abertos e esquece as falhas, sem mandar mensagem. */
+    private void esquecerRemovidas(Set<String> ativas, OffsetDateTime agora) {
+        for (Chave k : new ArrayList<>(abertos.keySet())) {
+            if (!ativas.contains(k.merchantId())) {
+                Incidente inc = abertos.remove(k);
+                repo.fecharIncidente(inc.id, agora, "REMOVIDA");
+            }
+        }
+        ciclosRuins.keySet().removeIf(k -> !ativas.contains(k.merchantId()));
+        ruimDesde.keySet().removeIf(k -> !ativas.contains(k.merchantId()));
+        falhas.keySet().removeIf(m -> !ativas.contains(m));
+        falhaAvisada.removeIf(m -> !ativas.contains(m));
     }
 
     // ------------------------------------------------------------- falhas
