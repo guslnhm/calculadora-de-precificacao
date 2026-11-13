@@ -259,7 +259,7 @@ class MonitorServiceTest {
         assertThat(envios).anySatisfy(e -> {
             assertThat(e.get("situacao")).isEqualTo("SOMBRA");
             assertThat(e.get("grupo")).isEqualTo("Zona Sul");
-            assertThat((String) e.get("corpo")).startsWith("🔴 *Burger Moema* fechou");
+            assertThat((String) e.get("corpo")).startsWith("🚨 *Burger Moema*\n🔴 *FECHADA*");
         });
     }
 
