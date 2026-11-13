@@ -82,7 +82,7 @@ class MonitorServiceTest {
         var eventos = mon.ciclo();
         assertThat(eventos).extracting(e -> e.tipo()).containsExactly(TipoEvento.ABERTO);
         assertThat(wpp.para("zs-group")).containsExactly(
-                "⏸️ *Burger Moema* pausada \"Falta de motoboy\" até 18:00 · desde 17:00");
+                "⚠️ *Burger Moema*\n⏸️ *PAUSADA* desde 17:00\nMotivo: Falta de motoboy\nPrevisão de volta: 18:00");
         assertThat(wpp.para("admin-group")).isEmpty(); // B não é do admin
         assertThat(repo.incidentesAbertos()).singleElement().satisfies(i -> assertThat(i.merchantId).isEqualTo(B));
         wpp.enviadas.clear();
@@ -92,7 +92,7 @@ class MonitorServiceTest {
         relogio.passar(30);
         assertThat(mon.ciclo()).extracting(e -> e.tipo()).containsExactly(TipoEvento.MUDOU);
         assertThat(wpp.para("zs-group")).containsExactly(
-                "🔁 *Burger Moema* agora fechada — penalidade do iFood (não dá para reabrir) · desde 17:00");
+                "🔁 *Burger Moema* mudou de situação\n🔴 *FECHADA* desde 17:00\nMotivo: penalidade do iFood (não dá para reabrir)");
         // mesmo motivo de novo: silêncio
         relogio.passar(30);
         assertThat(mon.ciclo()).isEmpty();
@@ -101,15 +101,15 @@ class MonitorServiceTest {
         // 30 min depois: lembrete
         relogio.passar(30 * 60);
         assertThat(mon.ciclo()).extracting(e -> e.tipo()).containsExactly(TipoEvento.LEMBRETE);
-        assertThat(wpp.para("zs-group").get(0)).startsWith("⏰ *Burger Moema* ainda fechada — penalidade do iFood")
-                .endsWith("(há 31 min)");
+        assertThat(wpp.para("zs-group").get(0)).isEqualTo("⏰ *Burger Moema* continua com problema\n"
+                + "🔴 *FECHADA* há 31 min (desde 17:00)\nMotivo: penalidade do iFood (não dá para reabrir)");
         wpp.enviadas.clear();
 
         // volta ao normal
         ifood.status.put(B, ok());
         relogio.passar(30);
         assertThat(mon.ciclo()).extracting(e -> e.tipo()).containsExactly(TipoEvento.NORMALIZADO);
-        assertThat(wpp.para("zs-group")).containsExactly("✅ *Burger Moema* voltou (ficou 32 min fechada)");
+        assertThat(wpp.para("zs-group")).containsExactly("✅ *Burger Moema*\n🟢 *ABERTA* de novo · ficou 32 min fechada");
         assertThat(repo.incidentesAbertos()).isEmpty();
 
         OffsetDateTime agora = OffsetDateTime.now(relogio);
@@ -130,7 +130,7 @@ class MonitorServiceTest {
         ifood.status.put(B, desconectada());
         mon.ciclo();
         assertThat(wpp.para("zs-group")).containsExactly(
-                "🔴 *Burger Moema* fechou — PDV/gestor de pedidos desconectado · desde 17:00");
+                "🚨 *Burger Moema*\n🔴 *FECHADA* desde 17:00\nMotivo: PDV/gestor de pedidos desconectado");
 
         ifood.status.put(B, real("CLOSED",
                 "{\"code\":\"is.not.connected.config\",\"state\":\"CLOSED\"},{\"code\":\"has.unavailabilities.active\",\"state\":\"CLOSED\"}",
@@ -139,14 +139,15 @@ class MonitorServiceTest {
         relogio.passar(30);
         mon.ciclo();
         assertThat(ultima("zs-group")).isEqualTo(
-                "🔁 *Burger Moema* agora pausada \"Teste de homologação\" até 17:10 + PDV/gestor de pedidos desconectado · desde 17:00");
+                "🔁 *Burger Moema* mudou de situação\n⏸️ *PAUSADA* desde 17:00\n"
+                        + "Motivo: Teste de homologação + PDV/gestor de pedidos desconectado\nPrevisão de volta: 17:10");
         assertThat(repo.incidentesAbertos()).hasSize(1); // o mesmo incidente
 
         ifood.status.put(B, desconectada());
         relogio.passar(30);
         mon.ciclo();
         assertThat(ultima("zs-group")).isEqualTo(
-                "🔁 *Burger Moema* agora fechada — PDV/gestor de pedidos desconectado · desde 17:00");
+                "🔁 *Burger Moema* mudou de situação\n🔴 *FECHADA* desde 17:00\nMotivo: PDV/gestor de pedidos desconectado");
     }
 
     @Test
@@ -160,9 +161,9 @@ class MonitorServiceTest {
         mon.ciclo();
         List<String> admin = wpp.para("admin-group");
         assertThat(admin).hasSize(1);
-        assertThat(admin.get(0).split("\n")).hasSize(2)
-                .anyMatch(l -> l.startsWith("⏸️ *Pizzaria Central* pausada"))
-                .anyMatch(l -> l.startsWith("🔴 *Poke Sem Grupo* fechou"));
+        assertThat(admin.get(0).split("\n\n")).hasSize(2)
+                .anyMatch(b -> b.startsWith("⚠️ *Pizzaria Central*\n⏸️ *PAUSADA*"))
+                .anyMatch(b -> b.startsWith("🚨 *Poke Sem Grupo*\n🔴 *FECHADA*"));
         assertThat(wpp.para("zs-group")).singleElement().satisfies(t -> {
             assertThat(t).contains("Pizzaria Central");
             assertThat(t).doesNotContain("Poke");
@@ -174,14 +175,14 @@ class MonitorServiceTest {
         MonitorService mon = monitor(1, 10, true);
         ifood.status.put(A, foraDoHorario());
         mon.ciclo();
-        assertThat(wpp.enviadas).noneMatch(e -> e.texto().contains("fechou"));
+        assertThat(wpp.enviadas).noneMatch(e -> e.texto().contains("FECHADA"));
         ifood.status.put(A, desconectada());
         relogio.passar(30);
         mon.ciclo();
         ifood.status.put(A, foraDoHorario());
         relogio.passar(60);
         assertThat(mon.ciclo()).extracting(e -> e.tipo()).containsExactly(TipoEvento.NORMALIZADO);
-        assertThat(ultima("zs-group")).isEqualTo("⚪ *Pizzaria Central* agora fora do horário (ficou 1 min fechada antes)");
+        assertThat(ultima("zs-group")).isEqualTo("⚪ *Pizzaria Central*\nSaiu do horário de funcionamento · ficou 1 min fechada antes");
     }
 
     @Test
