@@ -23,18 +23,28 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Textos do WhatsApp no formato curto: uma linha por loja. Ex.:
+ * Textos do WhatsApp: um bloco por loja, separados por uma linha em branco. Ex.:
  * <pre>
- * 🔴 *Burger Moema* fechou — PDV/gestor de pedidos desconectado · desde 17:00
- * ⏸️ *Pizzaria Central* pausada "Falta de motoboy" até 18:00 · desde 17:30
- * ✅ *Burger Moema* voltou (ficou 32 min fechada)
+ * 🚨 *Burger Moema*
+ * 🔴 *FECHADA* desde 17:00
+ * Motivo: PDV/gestor de pedidos desconectado
+ *
+ * ⚠️ *Pizzaria Central*
+ * ⏸️ *PAUSADA* desde 17:30
+ * Motivo: Falta de motoboy
+ * Previsão de volta: 18:00
+ *
+ * ✅ *Burger Moema*
+ * 🟢 *ABERTA* de novo · ficou 32 min fechada
  * </pre>
  */
 public final class Mensagens {
 
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter DD_MM_HH_MM = DateTimeFormatter.ofPattern("dd/MM HH:mm");
-    private static final int MAX_LINHAS = 30;
+    private static final int MAX_LOJAS = 30;
+    /** Espaço entre o bloco de uma loja e o da próxima. */
+    public static final String SEPARADOR = "\n\n";
 
     private Mensagens() {
     }
@@ -51,66 +61,107 @@ public final class Mensagens {
         return (h / 24) + "d " + (h % 24) + "h" + String.format("%02d", m);
     }
 
-    /** Uma mensagem com uma linha por evento: aberturas, mudanças, lembretes e retornos. */
+    /** Uma mensagem com um bloco por evento: aberturas, mudanças, lembretes e retornos. */
     public static String mensagemDoGrupo(List<Evento> eventos, ZoneId zona) {
         List<Evento> ordenados = new ArrayList<>(eventos);
         ordenados.sort(Comparator.comparingInt(e -> e.tipo().ordinal()));
-        List<String> linhas = new ArrayList<>();
+        List<String> blocos = new ArrayList<>();
         for (Evento e : ordenados) {
-            linhas.add(linha(e, zona));
+            blocos.add(linha(e, zona));
         }
-        if (linhas.size() > MAX_LINHAS) {
-            int resto = linhas.size() - MAX_LINHAS;
-            linhas = new ArrayList<>(linhas.subList(0, MAX_LINHAS));
-            linhas.add("… e mais " + resto + " loja(s).");
+        if (blocos.size() > MAX_LOJAS) {
+            int resto = blocos.size() - MAX_LOJAS;
+            blocos = new ArrayList<>(blocos.subList(0, MAX_LOJAS));
+            blocos.add("… e mais " + resto + " loja(s).");
         }
-        return String.join("\n", linhas);
+        return String.join(SEPARADOR, blocos);
     }
 
+    /** O bloco de uma loja (várias linhas). */
     static String linha(Evento ev, ZoneId zona) {
         StatusOperacao st = ev.status();
         String estado = st != null ? st.estado() : ev.incidente().estado;
         OffsetDateTime inicio = ev.incidente().inicio != null ? ev.incidente().inicio : ev.agora();
         String nome = "*" + ev.nomeLoja() + "*" + sufixoOperacao(ev);
         String desde = "desde " + hora(inicio, zona);
+        List<String> l = new ArrayList<>();
 
-        if (ev.tipo() == TipoEvento.ABERTO) {
-            if ("PAUSED".equals(estado)) {
-                return "⏸️ " + nome + " " + frase(ev, estado, zona) + " · " + desde;
+        switch (ev.tipo()) {
+            case ABERTO -> {
+                l.add(("ERROR".equals(estado) || "CLOSED".equals(estado) ? "🚨 " : "⚠️ ") + nome);
+                l.add(situacao(estado) + " " + desde);
+                detalhes(ev, estado, zona, l);
             }
-            if ("WARNING".equals(estado)) {
-                return "🟡 " + nome + " " + frase(ev, estado, zona) + " · " + desde;
+            case MUDOU -> {
+                l.add("🔁 " + nome + " mudou de situação");
+                l.add(situacao(estado) + " " + desde);
+                detalhes(ev, estado, zona, l);
             }
-            return "🔴 " + nome + " fechou — " + motivo(ev, zona, false) + " · " + desde;
+            case LEMBRETE -> {
+                l.add("⏰ " + nome + " continua com problema");
+                l.add(situacao(estado) + " há " + duracao(Duration.between(inicio, ev.agora())) + " (" + desde + ")");
+                detalhes(ev, estado, zona, l);
+            }
+            default -> {
+                String dur = duracao(Duration.between(inicio, ev.agora()));
+                String era = "PAUSED".equals(ev.incidente().estado) ? "pausada" : "fechada";
+                if ("OK".equals(ev.estadoFinal()) || "WARNING".equals(ev.estadoFinal())) {
+                    l.add("✅ " + nome);
+                    l.add("🟢 *ABERTA* de novo · ficou " + dur + " " + era);
+                } else {
+                    l.add("⚪ " + nome);
+                    l.add("Saiu do horário de funcionamento · ficou " + dur + " " + era + " antes");
+                }
+            }
         }
-        if (ev.tipo() == TipoEvento.MUDOU) {
-            return "🔁 " + nome + " agora " + frase(ev, estado, zona) + " · " + desde;
-        }
-        if (ev.tipo() == TipoEvento.LEMBRETE) {
-            return "⏰ " + nome + " ainda " + frase(ev, estado, zona) + " · " + desde
-                    + " (há " + duracao(Duration.between(inicio, ev.agora())) + ")";
-        }
-        String dur = duracao(Duration.between(inicio, ev.agora()));
-        String era = "PAUSED".equals(ev.incidente().estado) ? "pausada" : "fechada";
-        if ("OK".equals(ev.estadoFinal()) || "WARNING".equals(ev.estadoFinal())) {
-            return "✅ " + nome + " voltou (ficou " + dur + " " + era + ")";
-        }
-        return "⚪ " + nome + " agora fora do horário (ficou " + dur + " " + era + " antes)";
+        return String.join("\n", l);
     }
 
-    /** "pausada "Falta de motoboy" até 18:00 + PDV desconectado" ou "fechada — pendência financeira". */
-    private static String frase(Evento ev, String estado, ZoneId zona) {
-        if ("PAUSED".equals(estado)) {
-            String resto = motivo(ev, zona, true);
-            String pausa = textoPausa(ev.pausas(), ev.agora(), zona);
-            return "pausada" + (pausa.isEmpty() ? "" : " " + pausa) + (resto.isEmpty() ? "" : " + " + resto);
-        }
-        String palavra = switch (estado) {
-            case "WARNING" -> "com restrição";
-            case "ERROR", "CLOSED" -> "fechada";
-            default -> estado.toLowerCase();
+    /** "⏸️ *PAUSADA*", "🔴 *FECHADA*"... */
+    private static String situacao(String estado) {
+        return switch (estado == null ? "" : estado) {
+            case "PAUSED" -> "⏸️ *PAUSADA*";
+            case "WARNING" -> "🟡 *COM RESTRIÇÃO*";
+            case "ERROR", "CLOSED" -> "🔴 *FECHADA*";
+            default -> "*" + (estado == null ? "?" : estado.toUpperCase()) + "*";
         };
-        return palavra + " — " + motivo(ev, zona, false);
+    }
+
+    /** Linhas "Motivo: ..." e, na pausa, "Previsão de volta: 18:00". */
+    private static void detalhes(Evento ev, String estado, ZoneId zona, List<String> l) {
+        if ("PAUSED".equals(estado)) {
+            List<String> partes = new ArrayList<>();
+            Pausa p = ev.pausas() == null || ev.pausas().isEmpty() ? null : ev.pausas().get(0);
+            if (p != null && p.descricao() != null && !p.descricao().isBlank()) {
+                partes.add(p.descricao().trim());
+            }
+            String resto = motivo(ev, zona, true);
+            if (!resto.isEmpty()) {
+                partes.add(resto);
+            }
+            if (!partes.isEmpty()) {
+                l.add("Motivo: " + String.join(" + ", partes));
+            }
+            String volta = fimDaPausa(ev.pausas(), ev.agora(), zona);
+            if (!volta.isEmpty()) {
+                l.add("Previsão de volta: " + volta);
+            }
+            return;
+        }
+        l.add("Motivo: " + motivo(ev, zona, false));
+    }
+
+    /** Hora em que a pausa acaba (só se ainda não passou). */
+    static String fimDaPausa(List<Pausa> pausas, OffsetDateTime agora, ZoneId zona) {
+        if (pausas == null || pausas.isEmpty()) {
+            return "";
+        }
+        LocalDateTime fim = horaLocal(pausas.get(0).fim(), zona);
+        LocalDateTime agoraLocal = agora.atZoneSameInstant(zona).toLocalDateTime();
+        if (fim == null || !fim.isAfter(agoraLocal)) {
+            return "";
+        }
+        return fim.format(fim.toLocalDate().equals(agoraLocal.toLocalDate()) ? HH_MM : DD_MM_HH_MM);
     }
 
     private static String motivo(Evento ev, ZoneId zona, boolean semPausa) {
@@ -158,10 +209,9 @@ public final class Mensagens {
         if (p.descricao() != null && !p.descricao().isBlank()) {
             partes.add("\"" + p.descricao().trim() + "\"");
         }
-        LocalDateTime fim = horaLocal(p.fim(), zona);
-        if (fim != null) {
-            boolean outroDia = !fim.toLocalDate().equals(agora.atZoneSameInstant(zona).toLocalDate());
-            partes.add("até " + fim.format(outroDia ? DD_MM_HH_MM : HH_MM));
+        String fim = fimDaPausa(pausas, agora, zona);
+        if (!fim.isEmpty()) {
+            partes.add("até " + fim);
         }
         return String.join(" ", partes);
     }

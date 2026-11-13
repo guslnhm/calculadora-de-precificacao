@@ -113,12 +113,12 @@ public class CardapioTest {
         ifood.statusOpcao("o-coca", "UNAVAILABLE");
         monitor.ciclo();
         assertThat(wpp.para("zs-group")).containsExactly(
-                "🍔 *Burger Moema*: X-Bacon e Coca 350ml (complemento) pausados");
+                "⚠️ *Burger Moema*\n⏸️ *2 itens pausados*:\n• X-Bacon\n• Coca 350ml (complemento)");
 
         relogio.passar(Duration.ofMinutes(45));
         ifood.statusItem("i-xbacon", "AVAILABLE");
         monitor.ciclo();
-        assertThat(ultima()).isEqualTo("▶️ *Burger Moema*: X-Bacon (45 min) voltou");
+        assertThat(ultima()).isEqualTo("✅ *Burger Moema*\n▶️ *Item voltou:* X-Bacon (ficou 45 min pausado)");
 
         // o burger que já estava pausado volta: não avisa (nunca foi avisado)
         wpp.enviadas.clear();
@@ -140,7 +140,7 @@ public class CardapioTest {
         relogio.passar(Duration.ofMinutes(50));
         lojaAberta(true);
         monitor.ciclo();
-        assertThat(wpp.para("zs-group")).containsExactly("🍔 *Burger Moema*: X-Bacon pausado · desde 12:10");
+        assertThat(wpp.para("zs-group")).containsExactly("⚠️ *Burger Moema*\n⏸️ *Item pausado:* X-Bacon desde 12:10");
     }
 
     @Test
@@ -150,7 +150,7 @@ public class CardapioTest {
         ifood.statusCategoria("cat-lanches", "UNAVAILABLE");
         ifood.statusItem("i-promo", "UNAVAILABLE"); // categoria ignorada pela configuração
         monitor.ciclo();
-        assertThat(wpp.para("zs-group")).containsExactly("🍔 *Burger Moema*: categoria Lanches pausado");
+        assertThat(wpp.para("zs-group")).containsExactly("⚠️ *Burger Moema*\n⏸️ *Categoria pausada:* Lanches");
     }
 
     // ------------------------------------------------------------------ alterações pela tela

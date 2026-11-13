@@ -11,17 +11,22 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 
 /**
- * Mensagens curtas do monitor de itens (uma linha por loja), no mesmo estilo das de status:
- * "🍔 *Burger Moema*: X-Bacon e Coca 2L pausados · desde 17:00"
- * "▶️ *Burger Moema*: X-Bacon voltou (45 min)"
+ * Mensagens do monitor de itens: um bloco por loja, separados por uma linha em branco. Ex.:
+ * <pre>
+ * ⚠️ *Burger Moema*
+ * ⏸️ *2 itens pausados* desde 17:00:
+ * • X-Bacon
+ * • Coca 350ml (complemento)
+ *
+ * ✅ *Pizzaria Central*
+ * ▶️ *Item voltou:* Calabresa (ficou 45 min pausado)
+ * </pre>
  */
 public final class MensagensItens {
 
-    static final int MAX_NOMES = 6;
+    static final int MAX_NOMES = 10;
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
     static final Map<String, String> CONTEXTOS = Map.of("DEFAULT", "Delivery", "INDOOR", "Salão",
             "WHITELABEL", "Cardápio digital");
@@ -41,33 +46,58 @@ public final class MensagensItens {
     }
 
     public static String mensagem(List<Mudancas> lojas, boolean incluirRetornos, ZoneId zona, OffsetDateTime agora) {
-        List<String> linhas = new ArrayList<>();
+        List<String> blocos = new ArrayList<>();
         for (Mudancas m : lojas) {
-            String loja = "*" + m.loja() + "*";
-            if (!m.pausados().isEmpty()) {
-                List<String> nomes = m.pausados().stream().map(MensagensItens::nomeCurto).toList();
-                int n = new LinkedHashSet<>(nomes).size();
+            boolean temPausa = !m.pausados().isEmpty();
+            boolean temVolta = incluirRetornos && !m.voltaram().isEmpty();
+            if (!temPausa && !temVolta) {
+                continue;
+            }
+            List<String> l = new ArrayList<>();
+            l.add((temPausa ? "⚠️ *" : "✅ *") + m.loja() + "*");
+            if (temPausa) {
+                boolean soCategorias = m.pausados().stream().allMatch(p -> "CATEGORIA".equals(p.problema()));
+                List<String> nomes = m.pausados().stream()
+                        .map(p -> (soCategorias ? p.categoria() : nomeCurto(p)) + contexto(p.contexto())).toList();
                 OffsetDateTime inicio = m.pausados().stream().map(Pausa::inicio).min(OffsetDateTime::compareTo).orElse(agora);
                 String desde = Duration.between(inicio, agora).toMinutes() > 15
-                        ? " · desde " + inicio.atZoneSameInstant(zona).format(HH_MM) : "";
-                linhas.add("🍔 " + loja + ": " + juntar(nomes) + (n == 1 ? " pausado" : " pausados")
-                        + contextos(m.pausados().stream().map(Pausa::contexto).toList()) + desde);
+                        ? " desde " + inicio.atZoneSameInstant(zona).format(HH_MM) : "";
+                lista(l, "⏸️ ", nomes, soCategorias ? "Categoria pausada" : "Item pausado",
+                        soCategorias ? "categorias pausadas" : "itens pausados", desde);
             }
-            if (incluirRetornos && !m.voltaram().isEmpty()) {
-                List<String> partes = m.voltaram().stream()
-                        .map(r -> nomeCurto(r.pausa()) + " (" + Mensagens.duracao(Duration.between(r.pausa().inicio(), r.fim())) + ")")
+            if (temVolta) {
+                boolean soCategorias = m.voltaram().stream().allMatch(r -> "CATEGORIA".equals(r.pausa().problema()));
+                List<String> nomes = m.voltaram().stream()
+                        .map(r -> (soCategorias ? r.pausa().categoria() : nomeCurto(r.pausa())) + contexto(r.pausa().contexto())
+                                + " (ficou " + Mensagens.duracao(Duration.between(r.pausa().inicio(), r.fim()))
+                                + (soCategorias ? " pausada)" : " pausado)"))
                         .toList();
-                int n = new LinkedHashSet<>(partes).size();
-                linhas.add("▶️ " + loja + ": " + juntar(partes) + (n == 1 ? " voltou" : " voltaram")
-                        + contextos(m.voltaram().stream().map(r -> r.pausa().contexto()).toList()));
+                lista(l, "▶️ ", nomes, soCategorias ? "Categoria voltou" : "Item voltou",
+                        soCategorias ? "categorias voltaram" : "itens voltaram", "");
             }
+            blocos.add(String.join("\n", l));
         }
-        return String.join("\n", linhas);
+        return String.join(Mensagens.SEPARADOR, blocos);
+    }
+
+    /** Um nome: "⏸️ *Item pausado:* X-Bacon". Vários: título com a quantidade e uma lista com "•". */
+    private static void lista(List<String> l, String emoji, List<String> nomes, String umTitulo, String variosTitulo,
+                              String desde) {
+        List<String> unicos = new ArrayList<>(new LinkedHashSet<>(nomes.stream().filter(s -> s != null && !s.isBlank()).toList()));
+        if (unicos.size() == 1) {
+            l.add(emoji + "*" + umTitulo + ":* " + unicos.get(0) + desde);
+            return;
+        }
+        l.add(emoji + "*" + unicos.size() + " " + variosTitulo + "*" + desde + ":");
+        unicos.stream().limit(MAX_NOMES).forEach(n -> l.add("• " + n));
+        if (unicos.size() > MAX_NOMES) {
+            l.add("• … e mais " + (unicos.size() - MAX_NOMES));
+        }
     }
 
     static String nomeCurto(Pausa p) {
         if ("CATEGORIA".equals(p.problema())) {
-            return "categoria " + p.categoria();
+            return p.categoria() + " (categoria inteira)";
         }
         String nome = p.nome() == null ? "?" : p.nome();
         if (CardapioModelos.COMPLEMENTO.equals(p.tipo())) {
@@ -79,25 +109,11 @@ public final class MensagensItens {
         return nome;
     }
 
-    static String juntar(List<String> nomes) {
-        List<String> l = new ArrayList<>(new LinkedHashSet<>(nomes.stream().filter(s -> s != null && !s.isBlank()).toList()));
-        if (l.size() > MAX_NOMES) {
-            return String.join(", ", l.subList(0, MAX_NOMES)) + " e mais " + (l.size() - MAX_NOMES);
+    /** " [Salão]" quando a pausa não é no Delivery. */
+    static String contexto(String c) {
+        if (c == null || "DEFAULT".equalsIgnoreCase(c)) {
+            return "";
         }
-        if (l.size() > 1) {
-            return String.join(", ", l.subList(0, l.size() - 1)) + " e " + l.get(l.size() - 1);
-        }
-        return l.isEmpty() ? "" : l.get(0);
-    }
-
-    /** " [Salão]" quando a pausa não é (só) no Delivery. */
-    static String contextos(List<String> ctxs) {
-        Set<String> s = new TreeSet<>();
-        for (String c : ctxs) {
-            if (c != null && !"DEFAULT".equalsIgnoreCase(c)) {
-                s.add(CONTEXTOS.getOrDefault(c.toUpperCase(), c));
-            }
-        }
-        return s.isEmpty() ? "" : " [" + String.join(", ", s) + "]";
+        return " [" + CONTEXTOS.getOrDefault(c.toUpperCase(), c) + "]";
     }
 }
