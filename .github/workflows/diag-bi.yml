@@ -14,23 +14,18 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === TIPOS ===
-          SELECT column_name, data_type, numeric_precision, numeric_scale FROM information_schema.columns
-           WHERE table_schema='gold' AND table_name='financeiro_periodo' ORDER BY ordinal_position;
-          \echo === EXTREMOS ===
-          SELECT count(*) total, count(*) FILTER (WHERE periodo_tipo IS NULL) sem_tipo,
-                 count(*) FILTER (WHERE data_inicio IS NULL) sem_inicio,
-                 max(abs(valor_itens)) itens, max(abs(ticket_medio)) ticket, max(abs(repasse)) repasse,
-                 max(abs(taxa_repasse)) taxa_rep, max(abs(conversao)) conv, max(abs(tempo_entrega)) tempo_ent,
-                 max(abs(tempo_aberto)) tempo_ab, max(qtd_pedidos) ped, max(novos_clientes) novos,
-                 max(abs(incentivos_ifood)) inc_if, max(abs(incentivos_loja)) inc_lj, max(abs(valor_bruto)) bruto,
-                 max(abs(valor_liquido)) liq, max(qtd_cancelamentos) canc
-          FROM gold.financeiro_periodo;
-          \echo === TIPOS DE PERIODO E PLATAFORMAS ===
-          SELECT periodo_tipo, id_plataforma, count(*) FROM gold.financeiro_periodo GROUP BY 1,2 ORDER BY 1,2;
-          SELECT * FROM silver.dim_plataforma;
-          \echo === DUPLICADOS id_financeiro ===
-          SELECT count(*) - count(DISTINCT id_financeiro) FROM gold.financeiro_periodo;
+          \echo === ALIAS COLUNAS ===
+          SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='silver' AND table_name IN ('dim_operacao_alias','dim_operacao') ORDER BY table_name, ordinal_position;
+          \echo === ALIAS AMOSTRA ===
+          SELECT * FROM silver.dim_operacao_alias ORDER BY id_operacao LIMIT 25;
+          \echo === ALIAS CONTAGEM ===
+          SELECT id_plataforma, count(*), count(DISTINCT id_operacao), count(id_loja_origem) FROM silver.dim_operacao_alias GROUP BY 1;
+          \echo === DATAS ===
+          SELECT periodo_tipo, extract(isodow FROM data_inicio) dow, count(*), min(data_inicio), max(data_inicio), max(data_fim) FROM gold.financeiro_periodo GROUP BY 1,2 ORDER BY 1,2;
+          SELECT data_inicio, data_fim, count(*) FROM gold.financeiro_periodo WHERE periodo_tipo='SEMANAL' GROUP BY 1,2 ORDER BY 1 DESC LIMIT 6;
+          \echo === CONFIG MERCHANTS ===
+          SELECT column_name FROM information_schema.columns WHERE table_schema='config' AND table_name='ifood_merchants';
+          SELECT * FROM config.ifood_merchants LIMIT 5;
           SQL
           export BI_DATABASE_URL="$(printf '%s' "$BI_DATABASE_URL" | sed -E 's#/railway(\?|$)#/pedidos\1#')"
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
