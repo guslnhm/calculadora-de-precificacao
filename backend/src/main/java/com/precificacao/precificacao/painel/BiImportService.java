@@ -94,8 +94,19 @@ public class BiImportService {
             log.warn("[painel] falha ao ler o banco do BI: {}", e.getMessage());
             return new Resultado(0, 0, 0, 0, "Falha ao ler o banco do BI: " + e.getMessage());
         }
-        int n = repo.salvarBi(linhas, agora);
-        int[] v = vincular(origens, agora);
+        int n;
+        int[] v;
+        try {
+            n = repo.salvarBi(linhas, agora);
+            v = vincular(origens, agora);
+        } catch (RuntimeException e) {
+            Throwable causa = e;
+            while (causa.getCause() != null) {
+                causa = causa.getCause();
+            }
+            log.warn("[painel] falha ao gravar o histórico do BI", e);
+            return new Resultado(0, 0, 0, 0, "Falha ao gravar o histórico do BI: " + causa.getMessage());
+        }
         log.info("[painel] BI importado: {} linhas, {} operações vinculadas, {} sem vínculo", n, v[0], v[1]);
         return new Resultado(n, v[0] + v[1], v[0], v[1], null);
     }
