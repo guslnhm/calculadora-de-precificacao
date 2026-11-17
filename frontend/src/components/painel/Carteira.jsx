@@ -90,7 +90,7 @@ export default function Carteira({ dados, onAbrirLoja }) {
   const plataformas = [...new Set((dados.linhas || []).map((l) => l.plataforma))];
 
   return (
-    <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
+    <div style={{ display: "grid", gap: 16, minWidth: 0, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))", gap: 12 }}>
         <Cartao titulo="Faturamento" valor={reaisCurto(t.faturamento)} delta={variacao(t.variacaoFaturamento)} nota="vs período anterior" />
         <Cartao titulo="Pedidos" valor={inteiro(t.pedidos)} delta={variacao(t.variacaoPedidos)} nota="vs período anterior" />

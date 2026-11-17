@@ -66,7 +66,7 @@ export default function BoletimLoja({ dados, onAtualizar }) {
   const rec = dados.recordes || {};
 
   return (
-    <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
+    <div style={{ display: "grid", gap: 16, minWidth: 0, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <h2 style={{ margin: 0, fontSize: 22 }}>{dados.nome}</h2>
         {dados.plataforma !== "IFOOD" && <span style={{ color: cor.amarelo, fontSize: 12 }}>{dados.plataforma}</span>}
