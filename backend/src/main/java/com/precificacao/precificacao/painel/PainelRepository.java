@@ -179,6 +179,47 @@ public class PainelRepository {
         return n;
     }
 
+    public record Alias(int idOperacao, String shortId, String nomeOrigem) {
+    }
+
+    @Transactional
+    public void salvarAliases(List<Alias> aliases) {
+        jdbc.update("DELETE FROM painel_operacao_alias");
+        for (Alias a : aliases) {
+            jdbc.update("""
+                    INSERT INTO painel_operacao_alias (id_operacao, short_id, nome_origem) VALUES (?,?,?)
+                    ON CONFLICT (id_operacao, short_id) DO UPDATE SET nome_origem = EXCLUDED.nome_origem
+                    """, a.idOperacao(), a.shortId() == null ? "" : a.shortId(), a.nomeOrigem());
+        }
+    }
+
+    public List<Alias> aliases() {
+        return jdbc.query("SELECT id_operacao, short_id, nome_origem FROM painel_operacao_alias",
+                (rs, i) -> new Alias(rs.getInt(1), rs.getString(2), rs.getString(3)));
+    }
+
+    public void salvarShortId(String merchantId, String shortId, OffsetDateTime agora) {
+        jdbc.update("""
+                INSERT INTO painel_short_id (merchant_id, short_id, atualizado_em) VALUES (?,?,?)
+                ON CONFLICT (merchant_id) DO UPDATE SET short_id = EXCLUDED.short_id, atualizado_em = EXCLUDED.atualizado_em
+                """, merchantId, shortId, agora);
+    }
+
+    /** short id -> merchant id. */
+    public Map<String, String> shortIds() {
+        Map<String, String> out = new HashMap<>();
+        jdbc.query("SELECT short_id, merchant_id FROM painel_short_id", rs -> {
+            out.put(rs.getString(1), rs.getString(2));
+        });
+        return out;
+    }
+
+    public boolean temShortId(String merchantId) {
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM painel_short_id WHERE merchant_id = ?", Integer.class,
+                merchantId);
+        return n != null && n > 0;
+    }
+
     public record OperacaoBi(int idOperacao, String plataforma, String operacao, String loja, String merchantId,
                              String metodo) {
     }

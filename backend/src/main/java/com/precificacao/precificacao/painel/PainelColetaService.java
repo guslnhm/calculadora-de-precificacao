@@ -94,6 +94,12 @@ public class PainelColetaService {
                 LocalDate fim = ini.plusDays(BLOCO_DIAS - 1L).isAfter(ontem) ? ontem : ini.plusDays(BLOCO_DIAS - 1L);
                 coletarBloco(merchantId, ini, fim);
             }
+            if (!repo.temShortId(merchantId)) {
+                String sid = LeitorKpis.lerShortId(fonte.kpis(merchantId, LeitorKpis.consultaShortId(ontem.minusDays(59), ontem)));
+                if (sid != null) {
+                    repo.salvarShortId(merchantId, sid, agora());
+                }
+            }
             OffsetDateTime curva = repo.curvaAtualizadaEm(merchantId);
             if (curva == null || curva.isBefore(agora().minusDays(7))) {
                 atualizarCurva(merchantId, ontem);

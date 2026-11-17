@@ -139,4 +139,20 @@ class PainelCalculosTest {
         assertThat(BiImportService.porNome(lojas, "Chicken Lovers Jk Shopping", null)).isEqualTo("m1");
         assertThat(BiImportService.porNome(lojas, "Pizzaria Qualquer", null)).isNull();
     }
+
+    @Test
+    void vinculoPeloAliasDoIfood() {
+        Map<String, String> lojas = Map.of("u1", "Açaí Puríssimo - Águas Claras Norte", "u2", "Açaí Puríssimo - Águas Claras Norte",
+                "u3", "Qg - Asa Norte", "u4", "Bravo Hamburgueria");
+        // nome igual em duas lojas: o short id decide
+        List<PainelRepository.Alias> dup = List.of(new PainelRepository.Alias(7, "2278457", "Açaí Puríssimo - Águas Claras Norte"));
+        assertThat(BiImportService.escolher(dup, lojas, Map.of("2278457", "u2"))).containsExactly("u2", "ID");
+        assertThat(BiImportService.escolher(dup, lojas, Map.of())[0]).isNull();
+        // nome do iFood igual (ignorando acento/espaço)
+        List<PainelRepository.Alias> qg = List.of(new PainelRepository.Alias(30, "1325742", "QG -  Asa Norte"));
+        assertThat(BiImportService.escolher(qg, lojas, Map.of())).containsExactly("u3", "NOME_IFOOD");
+        // nome genérico da operação não liga a loja errada
+        List<PainelRepository.Alias> nada = List.of(new PainelRepository.Alias(40, "999", "Asa Sul"));
+        assertThat(BiImportService.escolher(nada, lojas, Map.of())).containsExactly(null, "NENHUM");
+    }
 }

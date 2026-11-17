@@ -31,20 +31,25 @@ public class BiImportService {
 
     private static final Logger log = LoggerFactory.getLogger(BiImportService.class);
     static final String BANCO_BI = "pedidos";
-    static final double SEMELHANCA_MINIMA = 0.82;
+    static final double SEMELHANCA_MINIMA = 0.9;
 
     private static final String SQL = """
             SELECT f.id_financeiro, f.id_operacao, COALESCE(p.nome_plataforma, f.id_plataforma::text) AS plataforma,
                    o.nome_operacao AS operacao, l.nome_loja AS loja, upper(f.periodo_tipo) AS periodo_tipo,
                    f.data_inicio, f.data_fim, f.qtd_pedidos, f.valor_itens, f.ticket_medio, f.incentivos_ifood,
                    f.incentivos_loja, f.valor_bruto, f.valor_liquido, f.repasse, f.taxa_repasse, f.conversao,
-                   f.novos_clientes, f.tempo_entrega, f.qtd_cancelamentos, f.tempo_aberto,
-                   (SELECT string_agg(DISTINCT a.id_loja_origem, ',') FROM silver.dim_operacao_alias a
-                     WHERE a.id_operacao = f.id_operacao AND a.id_loja_origem IS NOT NULL) AS ids_origem
+                   f.novos_clientes, f.tempo_entrega, f.qtd_cancelamentos, f.tempo_aberto
             FROM gold.financeiro_periodo f
             LEFT JOIN silver.dim_operacao o ON o.id_operacao = f.id_operacao
             LEFT JOIN silver.dim_loja l ON l.id_loja = o.id_loja
             LEFT JOIN silver.dim_plataforma p ON p.id_plataforma = f.id_plataforma
+            """;
+
+    private static final String SQL_ALIAS = """
+            SELECT a.id_operacao, a.id_loja_origem, a.nome_origem
+            FROM silver.dim_operacao_alias a
+            LEFT JOIN silver.dim_plataforma p ON p.id_plataforma = a.id_plataforma
+            WHERE a.id_operacao IS NOT NULL AND (p.nome_plataforma ILIKE '%ifood%' OR a.id_plataforma = 1)
             """;
 
     public record Resultado(int linhas, int operacoes, int vinculadas, int semVinculo, String erro) {
@@ -66,7 +71,7 @@ public class BiImportService {
         }
         OffsetDateTime agora = OffsetDateTime.now(clock);
         List<Map<String, Object>> linhas = new ArrayList<>();
-        Map<Integer, String> origens = new LinkedHashMap<>();
+        List<PainelRepository.Alias> aliases = new ArrayList<>();
         Jdbc j = jdbc(cfg.biDatabaseUrl(), BANCO_BI);
         Properties p = new Properties();
         p.setProperty("user", j.usuario());
@@ -84,10 +89,12 @@ public class BiImportService {
                         r.put(md.getColumnLabel(i), rs.getObject(i));
                     }
                     r.put("plataforma", plataforma((String) r.get("plataforma")));
-                    if (r.get("id_operacao") != null && r.get("ids_origem") != null) {
-                        origens.put(((Number) r.get("id_operacao")).intValue(), (String) r.get("ids_origem"));
-                    }
                     linhas.add(r);
+                }
+            }
+            try (ResultSet rs = st.executeQuery(SQL_ALIAS)) {
+                while (rs.next()) {
+                    aliases.add(new PainelRepository.Alias(rs.getInt(1), rs.getString(2), rs.getString(3)));
                 }
             }
         } catch (SQLException e) {
@@ -98,7 +105,8 @@ public class BiImportService {
         int[] v;
         try {
             n = repo.salvarBi(linhas, agora);
-            v = vincular(origens, agora);
+            repo.salvarAliases(aliases);
+            v = vincular(agora);
         } catch (RuntimeException e) {
             Throwable causa = e;
             while (causa.getCause() != null) {
@@ -111,9 +119,23 @@ public class BiImportService {
         return new Resultado(n, v[0] + v[1], v[0], v[1], null);
     }
 
-    /** Liga operações iFood do BI às lojas do monitor. Devolve {vinculadas, semVinculo}. */
-    int[] vincular(Map<Integer, String> origens, OffsetDateTime agora) {
+    /** Refaz o vínculo das operações (por exemplo depois que a coleta descobriu os short ids). */
+    public synchronized int[] revincular() {
+        return vincular(OffsetDateTime.now(clock));
+    }
+
+    /**
+     * Liga as operações iFood do BI às lojas, usando silver.dim_operacao_alias (nome e short id como estão
+     * no iFood): 1) short id igual; 2) nome igual (normalizado); 3) nome muito parecido.
+     * Vínculos feitos à mão não são trocados. Devolve {vinculadas, semVinculo}.
+     */
+    int[] vincular(OffsetDateTime agora) {
         Map<String, String> lojas = repo.nomesLojas();
+        Map<String, String> porShort = repo.shortIds();
+        Map<Integer, List<PainelRepository.Alias>> aliases = new LinkedHashMap<>();
+        for (PainelRepository.Alias a : repo.aliases()) {
+            aliases.computeIfAbsent(a.idOperacao(), k -> new ArrayList<>()).add(a);
+        }
         int ok = 0, sem = 0;
         for (PainelRepository.OperacaoBi op : repo.operacoesBi()) {
             if (!"IFOOD".equals(op.plataforma())) {
@@ -123,24 +145,9 @@ public class BiImportService {
                 ok++;
                 continue;
             }
-            String merchant = null;
-            String metodo = "NENHUM";
-            String ids = origens.getOrDefault(op.idOperacao(), "");
-            for (String id : ids.split(",")) {
-                if (lojas.containsKey(id.trim())) {
-                    merchant = id.trim();
-                    metodo = "ID";
-                    break;
-                }
-            }
-            if (merchant == null) {
-                merchant = porNome(lojas, op.operacao(), op.loja());
-                if (merchant != null) {
-                    metodo = "NOME";
-                }
-            }
-            repo.vincular(op.idOperacao(), merchant, metodo, agora);
-            if (merchant != null) {
+            String[] r = escolher(aliases.getOrDefault(op.idOperacao(), List.of()), lojas, porShort);
+            repo.vincular(op.idOperacao(), r[0], r[1], agora);
+            if (r[0] != null) {
                 ok++;
             } else {
                 sem++;
@@ -149,25 +156,58 @@ public class BiImportService {
         return new int[]{ok, sem};
     }
 
+    /** {merchantId ou null, método}. */
+    static String[] escolher(List<PainelRepository.Alias> aliases, Map<String, String> lojas, Map<String, String> porShort) {
+        for (PainelRepository.Alias a : aliases) {
+            String m = a.shortId() == null ? null : porShort.get(a.shortId().trim());
+            if (m != null && lojas.containsKey(m)) {
+                return new String[]{m, "ID"};
+            }
+        }
+        for (PainelRepository.Alias a : aliases) {
+            String alvo = NomesParecidos.normalizar(a.nomeOrigem());
+            if (alvo.isBlank()) {
+                continue;
+            }
+            List<String> iguais = lojas.entrySet().stream()
+                    .filter(e -> alvo.equals(NomesParecidos.normalizar(e.getValue()))).map(Map.Entry::getKey).toList();
+            if (iguais.size() == 1) {
+                return new String[]{iguais.get(0), "NOME_IFOOD"};
+            }
+        }
+        for (PainelRepository.Alias a : aliases) {
+            String m = porNome(lojas, a.nomeOrigem(), null);
+            if (m != null) {
+                return new String[]{m, "NOME"};
+            }
+        }
+        return new String[]{null, "NENHUM"};
+    }
+
+    /** Loja com o nome mais parecido; null se nenhuma passa do mínimo ou se há empate (nome ambíguo). */
     static String porNome(Map<String, String> lojas, String operacao, String loja) {
         String melhor = null;
         double nota = 0;
+        boolean empate = false;
         for (Map.Entry<String, String> e : lojas.entrySet()) {
             if (e.getValue() == null) {
                 continue;
             }
+            double s = 0;
             for (String nome : new String[]{operacao, loja}) {
-                if (nome == null || nome.isBlank()) {
-                    continue;
-                }
-                double s = NomesParecidos.semelhanca(nome, e.getValue());
-                if (s > nota) {
-                    nota = s;
-                    melhor = e.getKey();
+                if (nome != null && !nome.isBlank()) {
+                    s = Math.max(s, NomesParecidos.semelhanca(nome, e.getValue()));
                 }
             }
+            if (s > nota + 1e-9) {
+                nota = s;
+                melhor = e.getKey();
+                empate = false;
+            } else if (Math.abs(s - nota) <= 1e-9 && s > 0) {
+                empate = true;
+            }
         }
-        return nota >= SEMELHANCA_MINIMA ? melhor : null;
+        return nota >= SEMELHANCA_MINIMA && !empate ? melhor : null;
     }
 
     static String plataforma(String nome) {
