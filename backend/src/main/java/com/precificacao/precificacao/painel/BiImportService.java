@@ -184,25 +184,30 @@ public class BiImportService {
         return new String[]{null, "NENHUM"};
     }
 
+    /** Loja com o nome mais parecido; null se nenhuma passa do mínimo ou se há empate (nome ambíguo). */
     static String porNome(Map<String, String> lojas, String operacao, String loja) {
         String melhor = null;
         double nota = 0;
+        boolean empate = false;
         for (Map.Entry<String, String> e : lojas.entrySet()) {
             if (e.getValue() == null) {
                 continue;
             }
+            double s = 0;
             for (String nome : new String[]{operacao, loja}) {
-                if (nome == null || nome.isBlank()) {
-                    continue;
-                }
-                double s = NomesParecidos.semelhanca(nome, e.getValue());
-                if (s > nota) {
-                    nota = s;
-                    melhor = e.getKey();
+                if (nome != null && !nome.isBlank()) {
+                    s = Math.max(s, NomesParecidos.semelhanca(nome, e.getValue()));
                 }
             }
+            if (s > nota + 1e-9) {
+                nota = s;
+                melhor = e.getKey();
+                empate = false;
+            } else if (Math.abs(s - nota) <= 1e-9 && s > 0) {
+                empate = true;
+            }
         }
-        return nota >= SEMELHANCA_MINIMA ? melhor : null;
+        return nota >= SEMELHANCA_MINIMA && !empate ? melhor : null;
     }
 
     static String plataforma(String nome) {
