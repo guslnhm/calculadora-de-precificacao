@@ -37,9 +37,9 @@ jobs:
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
           openssl rand -hex 32 > k.txt
-          openssl enc -aes-256-cbc -pbkdf2 -salt -in saida.txt -out saida.enc -pass file:k.txt
+          gzip -9 -k saida.txt; openssl enc -aes-256-cbc -pbkdf2 -salt -in saida.txt.gz -out saida.enc -pass file:k.txt
           openssl pkeyutl -encrypt -pubin -inkey .github/diag/diag-pub.pem -in k.txt -out k.enc
           echo "=== K ==="; base64 -w0 k.enc; echo
-          echo "=== D ==="; base64 -w0 saida.enc; echo
+          echo "=== D ==="; base64 -w 3000 saida.enc; echo "=== FIMD ==="
           echo "=== FIM ==="
           wc -c saida.txt
