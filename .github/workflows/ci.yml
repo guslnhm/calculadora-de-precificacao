@@ -73,7 +73,3 @@ jobs:
         run: npm run build
 
 
-      - name: TEMP dist para conferência visual
-        run: |
-          npx eslint src/pages/PainelPage.jsx src/components/painel || true
-          tar czf /tmp/dist.tgz dist && echo "=== DIST ===" && base64 -w 3000 /tmp/dist.tgz && echo "=== FIMDIST ==="
