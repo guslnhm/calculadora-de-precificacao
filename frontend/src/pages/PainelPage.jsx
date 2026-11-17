@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { painelApi } from "../services/api";
 import BoletimLoja from "../components/painel/BoletimLoja";
-import Carteira, { campo } from "../components/painel/Carteira";
+import Carteira from "../components/painel/Carteira";
 import Coleta from "../components/painel/Coleta";
 import Lancamentos from "../components/painel/Lancamentos";
-import { cor, moverPeriodo, rotuloPeriodo } from "../components/painel/fmt";
+import { campo, cor, moverPeriodo, rotuloPeriodo } from "../components/painel/fmt";
 
 const ABAS = [
   { id: "carteira", rotulo: "Carteira" },

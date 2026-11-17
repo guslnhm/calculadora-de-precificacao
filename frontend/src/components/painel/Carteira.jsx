@@ -1,12 +1,5 @@
 import { useMemo, useState } from "react";
-import { cor, FONTES, inteiro, minutos, percentual, reais, reaisCurto, variacao, vazio } from "./fmt";
-
-export const caixa = {
-  background: cor.card,
-  border: `1px solid ${cor.borda}`,
-  borderRadius: 12,
-  padding: 16,
-};
+import { caixa, campo, cor, FONTES, inteiro, minutos, percentual, reais, reaisCurto, variacao, vazio } from "./fmt";
 
 /** Cartão de número grande com variação. */
 export function Cartao({ titulo, valor, delta, nota, destaque }) {
@@ -178,14 +171,5 @@ export default function Carteira({ dados, onAbrirLoja }) {
     </div>
   );
 }
-
-export const campo = {
-  background: cor.campo,
-  border: `1px solid ${cor.bordaCampo}`,
-  color: cor.texto,
-  borderRadius: 8,
-  padding: "8px 10px",
-  fontSize: 13,
-};
 
 const td = { padding: "8px 10px", textAlign: "right", whiteSpace: "nowrap" };

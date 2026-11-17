@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { painelApi } from "../../services/api";
-import { botao } from "./BoletimLoja";
-import { caixa, campo } from "./Carteira";
-import { cor, percentual, reais, rotuloPeriodo } from "./fmt";
+import { botao, caixa, campo, cor, percentual, reais, rotuloPeriodo } from "./fmt";
 
 const num = (s) => (s.trim() === "" ? null : Number(s.replace(/\./g, "").replace(",", ".")));
 const texto = (v, mult = 1) => (v == null ? "" : String(+(v * mult).toFixed(2)).replace(".", ","));

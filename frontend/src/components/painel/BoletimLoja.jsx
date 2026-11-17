@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { painelApi } from "../../services/api";
 import { dataHora } from "../monitor/ui";
-import { caixa, campo, Cartao, Selo } from "./Carteira";
-import { cor, dataCurta, inteiro, minutos, percentual, reais, reaisCurto, rotuloPeriodo, variacao } from "./fmt";
+import { Cartao, Selo } from "./Carteira";
+import { botao, caixa, campo, cor, dataCurta, inteiro, minutos, percentual, reais, reaisCurto, rotuloPeriodo, variacao } from "./fmt";
 import { GraficoBarras, GraficoLinha, MapaCalor } from "./Graficos";
 
 const META_CONVERSAO = 0.15;
@@ -147,14 +147,3 @@ export default function BoletimLoja({ dados, onAtualizar }) {
     </div>
   );
 }
-
-export const botao = {
-  background: cor.destaque,
-  border: "none",
-  color: "#fff",
-  borderRadius: 8,
-  padding: "8px 14px",
-  fontWeight: 600,
-  cursor: "pointer",
-  fontSize: 13,
-};

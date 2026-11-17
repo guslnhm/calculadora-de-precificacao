@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { painelApi } from "../../services/api";
 import { dataHora } from "../monitor/ui";
-import { botao } from "./BoletimLoja";
-import { caixa, campo } from "./Carteira";
-import { cor } from "./fmt";
+import { botao, caixa, campo, cor } from "./fmt";
 
 /** Situação da coleta do Analytics, importação do BI antigo e vínculo das operações do BI com as lojas. */
 export default function Coleta() {
@@ -22,8 +20,19 @@ export default function Coleta() {
   }, []);
 
   useEffect(() => {
-    carregar();
-  }, [carregar]);
+    let vivo = true;
+    Promise.all([painelApi.status(), painelApi.operacoesBi()])
+      .then(([s, o]) => {
+        if (vivo) {
+          setStatus(s);
+          setOps(o);
+        }
+      })
+      .catch((e) => vivo && setMsg(e.message));
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   async function acao(fn, texto) {
     setMsg(texto);

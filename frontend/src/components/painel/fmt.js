@@ -89,3 +89,30 @@ export const FONTES = {
   ANALYTICS: { rotulo: "iFood API", dica: "Dados do Analytics do iFood (D-1)" },
   BI: { rotulo: "BI antigo", dica: "Histórico importado do Power BI" },
 };
+
+export const caixa = {
+  background: cor.card,
+  border: `1px solid ${cor.borda}`,
+  borderRadius: 12,
+  padding: 16,
+};
+
+export const campo = {
+  background: cor.campo,
+  border: `1px solid ${cor.bordaCampo}`,
+  color: cor.texto,
+  borderRadius: 8,
+  padding: "8px 10px",
+  fontSize: 13,
+};
+
+export const botao = {
+  background: cor.destaque,
+  border: "none",
+  color: "#fff",
+  borderRadius: 8,
+  padding: "8px 14px",
+  fontWeight: 600,
+  cursor: "pointer",
+  fontSize: 13,
+};
