@@ -215,8 +215,9 @@ public class PainelRepository {
     }
 
     public boolean temShortId(String merchantId) {
-        return Boolean.TRUE.equals(jdbc.query("SELECT 1 FROM painel_short_id WHERE merchant_id = ?",
-                rs -> rs.next(), merchantId));
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM painel_short_id WHERE merchant_id = ?", Integer.class,
+                merchantId);
+        return n != null && n > 0;
     }
 
     public record OperacaoBi(int idOperacao, String plataforma, String operacao, String loja, String merchantId,
