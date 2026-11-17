@@ -14,24 +14,23 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === BANCO ===
-          SELECT current_database(), current_user, inet_server_addr();
-          \echo === BANCOS ===
-          SELECT datname FROM pg_database WHERE NOT datistemplate;
-          \echo === SCHEMAS ===
-          SELECT nspname FROM pg_namespace ORDER BY 1;
-          \echo === TABELAS ===
-          SELECT table_schema, table_name, table_type FROM information_schema.tables
-           WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2;
-          \echo === LINHAS (estimativa) ===
-          SELECT schemaname, relname, n_live_tup FROM pg_stat_user_tables ORDER BY 1,2;
-          \echo === COLUNAS gold/silver ===
-          SELECT table_schema, table_name, column_name, data_type FROM information_schema.columns
-           WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2,ordinal_position;
-          \echo === VIEWS gold (definição) ===
-          SELECT schemaname, viewname, definition FROM pg_views WHERE schemaname='gold';
-          \echo === AMOSTRA gold.financeiro_periodo ===
-          SELECT * FROM gold.financeiro_periodo ORDER BY 1 DESC LIMIT 15;
+          \echo === TIPOS ===
+          SELECT column_name, data_type, numeric_precision, numeric_scale FROM information_schema.columns
+           WHERE table_schema='gold' AND table_name='financeiro_periodo' ORDER BY ordinal_position;
+          \echo === EXTREMOS ===
+          SELECT count(*) total, count(*) FILTER (WHERE periodo_tipo IS NULL) sem_tipo,
+                 count(*) FILTER (WHERE data_inicio IS NULL) sem_inicio,
+                 max(abs(valor_itens)) itens, max(abs(ticket_medio)) ticket, max(abs(repasse)) repasse,
+                 max(abs(taxa_repasse)) taxa_rep, max(abs(conversao)) conv, max(abs(tempo_entrega)) tempo_ent,
+                 max(abs(tempo_aberto)) tempo_ab, max(qtd_pedidos) ped, max(novos_clientes) novos,
+                 max(abs(incentivos_ifood)) inc_if, max(abs(incentivos_loja)) inc_lj, max(abs(valor_bruto)) bruto,
+                 max(abs(valor_liquido)) liq, max(qtd_cancelamentos) canc
+          FROM gold.financeiro_periodo;
+          \echo === TIPOS DE PERIODO E PLATAFORMAS ===
+          SELECT periodo_tipo, id_plataforma, count(*) FROM gold.financeiro_periodo GROUP BY 1,2 ORDER BY 1,2;
+          SELECT * FROM silver.dim_plataforma;
+          \echo === DUPLICADOS id_financeiro ===
+          SELECT count(*) - count(DISTINCT id_financeiro) FROM gold.financeiro_periodo;
           SQL
           export BI_DATABASE_URL="$(printf '%s' "$BI_DATABASE_URL" | sed -E 's#/railway(\?|$)#/pedidos\1#')"
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
