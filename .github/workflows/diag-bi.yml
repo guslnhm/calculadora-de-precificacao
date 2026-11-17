@@ -1,0 +1,38 @@
+name: Diag banco do BI
+on:
+  push:
+    branches: [diag/bi-schema]
+jobs:
+  inspecionar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ler estrutura e amostras (saída criptografada)
+        env:
+          BI_DATABASE_URL: ${{ secrets.BI_DATABASE_URL }}
+        run: |
+          test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
+          cat > q.sql <<'SQL'
+          \pset pager off
+          \echo === TABELAS ===
+          SELECT table_schema, table_name, table_type FROM information_schema.tables
+           WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2;
+          \echo === LINHAS (estimativa) ===
+          SELECT schemaname, relname, n_live_tup FROM pg_stat_user_tables ORDER BY 1,2;
+          \echo === COLUNAS gold/silver ===
+          SELECT table_schema, table_name, column_name, data_type FROM information_schema.columns
+           WHERE table_schema IN ('gold','silver','bronze','public') ORDER BY 1,2,ordinal_position;
+          \echo === VIEWS gold (definição) ===
+          SELECT schemaname, viewname, definition FROM pg_views WHERE schemaname='gold';
+          \echo === AMOSTRA gold.financeiro_periodo ===
+          SELECT * FROM gold.financeiro_periodo ORDER BY 1 DESC LIMIT 15;
+          SQL
+          docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
+            sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
+          openssl rand -hex 32 > k.txt
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in saida.txt -out saida.enc -pass file:k.txt
+          openssl pkeyutl -encrypt -pubin -inkey .github/diag/diag-pub.pem -in k.txt -out k.enc
+          echo "=== K ==="; base64 -w0 k.enc; echo
+          echo "=== D ==="; base64 -w0 saida.enc; echo
+          echo "=== FIM ==="
+          wc -c saida.txt
