@@ -55,7 +55,7 @@ export default function Coleta() {
   const ifoodOps = ops.filter((o) => o.plataforma === "IFOOD");
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
       <div style={caixa}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ fontSize: 13, lineHeight: 1.7 }}>

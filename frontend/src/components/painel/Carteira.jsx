@@ -90,8 +90,8 @@ export default function Carteira({ dados, onAbrirLoja }) {
   const plataformas = [...new Set((dados.linhas || []).map((l) => l.plataforma))];
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
+    <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))", gap: 12 }}>
         <Cartao titulo="Faturamento" valor={reaisCurto(t.faturamento)} delta={variacao(t.variacaoFaturamento)} nota="vs período anterior" />
         <Cartao titulo="Pedidos" valor={inteiro(t.pedidos)} delta={variacao(t.variacaoPedidos)} nota="vs período anterior" />
         <Cartao titulo="Ticket médio" valor={reais(t.ticket)} />
@@ -100,7 +100,7 @@ export default function Carteira({ dados, onAbrirLoja }) {
         <Cartao titulo="Lojas com dados" valor={inteiro(t.lojas)} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 12 }}>
         <Destaques titulo="▼ Maiores quedas" onAbrir={onAbrirLoja} linhas={quedas} cor={cor.ruim} valor={(l) => variacao(l.variacao.faturamento).texto} />
         <Destaques titulo="▲ Maiores altas" onAbrir={onAbrirLoja} linhas={altas} cor={cor.bom} valor={(l) => variacao(l.variacao.faturamento).texto} />
         <Destaques titulo="Mais vendas perdidas (fechada)" onAbrir={onAbrirLoja} linhas={fechadas} cor={cor.texto} valor={(l) => `${reais(l.atual.perdaEstimada, true)} · ${minutos(l.atual.minutosFechada)}`} />

@@ -66,7 +66,7 @@ export default function BoletimLoja({ dados, onAtualizar }) {
   const rec = dados.recordes || {};
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <h2 style={{ margin: 0, fontSize: 22 }}>{dados.nome}</h2>
         {dados.plataforma !== "IFOOD" && <span style={{ color: cor.amarelo, fontSize: 12 }}>{dados.plataforma}</span>}
@@ -74,7 +74,7 @@ export default function BoletimLoja({ dados, onAtualizar }) {
         <span style={{ color: cor.textoSuave, fontSize: 13 }}>Período: {rotuloPeriodo(dados.periodo)}</span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))", gap: 12 }}>
         <Cartao titulo="Faturamento" valor={reaisCurto(a.faturamento)} delta={variacao(v.faturamento)} nota="vs anterior" />
         <Cartao titulo="Pedidos" valor={inteiro(a.pedidos)} delta={variacao(v.pedidos)} nota="vs anterior" />
         <Cartao titulo="Ticket médio" valor={reais(a.ticket)} delta={variacao(v.ticket)} />
@@ -98,7 +98,7 @@ export default function BoletimLoja({ dados, onAtualizar }) {
         <Lancamento key={`${dados.chave}-${dados.periodo.inicio}`} dados={dados} onSalvo={onAtualizar} />
       </Bloco>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(380px, 100%), 1fr))", gap: 16 }}>
         <Bloco titulo="Faturamento" subtitulo={`últimos ${serie.length} períodos`}
                direita={<span style={{ fontSize: 12, color: cor.textoSuave }}>média {reaisCurto(rec.mediaFaturamento)} · recorde {reaisCurto(rec.recordeFaturamento)}</span>}>
           <GraficoLinha rotulos={rotulos} formato={(n, eixo) => (eixo ? reaisCurto(n) : reais(n, true))}
@@ -125,7 +125,7 @@ export default function BoletimLoja({ dados, onAtualizar }) {
         </Bloco>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(380px, 100%), 1fr))", gap: 16 }}>
         {dados.curva?.length > 0 && (
           <Bloco titulo="Quando a loja vende" subtitulo="venda média por dia e hora (últimas semanas) — base do cálculo de perdas">
             <MapaCalor dados={dados.curva} formato={(n) => reais(n, true)} />
