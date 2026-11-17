@@ -27,12 +27,13 @@ jobs:
           SELECT schemaname, relname, n_live_tup FROM pg_stat_user_tables ORDER BY 1,2;
           \echo === COLUNAS gold/silver ===
           SELECT table_schema, table_name, column_name, data_type FROM information_schema.columns
-           WHERE table_schema IN ('gold','silver','bronze','public') ORDER BY 1,2,ordinal_position;
+           WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2,ordinal_position;
           \echo === VIEWS gold (definição) ===
           SELECT schemaname, viewname, definition FROM pg_views WHERE schemaname='gold';
           \echo === AMOSTRA gold.financeiro_periodo ===
           SELECT * FROM gold.financeiro_periodo ORDER BY 1 DESC LIMIT 15;
           SQL
+          export BI_DATABASE_URL="$(printf '%s' "$BI_DATABASE_URL" | sed -E 's#/railway(\?|$)#/pedidos\1#')"
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
           openssl rand -hex 32 > k.txt
