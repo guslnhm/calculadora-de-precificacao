@@ -87,13 +87,8 @@ public final class Mensagens {
         List<String> l = new ArrayList<>();
 
         switch (ev.tipo()) {
-            case ABERTO -> {
+            case ABERTO, MUDOU -> {
                 l.add(("ERROR".equals(estado) || "CLOSED".equals(estado) ? "🚨 " : "⚠️ ") + nome);
-                l.add(situacao(estado) + " " + desde);
-                detalhes(ev, estado, zona, l);
-            }
-            case MUDOU -> {
-                l.add("🔁 " + nome + " mudou de situação");
                 l.add(situacao(estado) + " " + desde);
                 detalhes(ev, estado, zona, l);
             }

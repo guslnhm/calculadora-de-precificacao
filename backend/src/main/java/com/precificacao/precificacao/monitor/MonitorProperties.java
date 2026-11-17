@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
  * @param ciclosConfirmacao ciclos seguidos com problema antes de alertar (evita alarme falso)
  * @param estadosAlerta     estados que geram alerta (ERROR; acrescente WARNING se quiser raio reduzido etc.)
  * @param alertarPausas     loja pausada (o iFood marca como CLOSED + pausa ativa) também gera alerta
- * @param lembreteMinutos   reenvia "ainda fechada" a cada N minutos; 0 desliga
+ * @param lembreteMinutos   não é mais usado (lembretes desligados); mantido só para não quebrar a configuração
  * @param resumoDiario      horário do resumo do dia anterior (HH:mm); vazio desliga
  */
 @ConfigurationProperties(prefix = "monitor")

@@ -248,19 +248,14 @@ public class MonitorService {
                     inc.motivos = MonitorModelos.motivosDe(st);
                     inc.mensagem = st.mensagem();
                     inc.reabrivel = st.reabrivel();
-                    // avisa se mudou o estado OU apareceu/sumiu um motivo (ex.: já desconectada e alguém pausou)
-                    if (assinaturaAnterior != null && (!estadoDe(assinaturaAnterior).equals(st.estado())
-                            || !codigos(assinaturaAnterior).equals(codigos(st.assinatura())))) {
+                    // só avisa se apareceu um motivo NOVO (ex.: estava pausada e desconectou, ou estava
+                    // desconectada e pausaram). Motivo que some ou troca de estado sem motivo novo: silêncio.
+                    if (assinaturaAnterior != null
+                            && !codigos(assinaturaAnterior).containsAll(codigos(st.assinatura()))) {
                         return new Evento(TipoEvento.MUDOU, merchantId, nome, st, inc, agora, pausasSe(merchantId, st), null);
                     }
                 }
-                int lembrete = cfg.lembreteMinutos();
-                OffsetDateTime ultimo = inc.ultimoLembreteEm != null ? inc.ultimoLembreteEm : inc.confirmadoEm;
-                if (lembrete > 0 && ultimo != null && Duration.between(ultimo, agora).toMinutes() >= lembrete) {
-                    repo.marcarLembrete(inc.id, agora);
-                    inc.ultimoLembreteEm = agora;
-                    return new Evento(TipoEvento.LEMBRETE, merchantId, nome, st, inc, agora, pausasSe(merchantId, st), null);
-                }
+                // sem lembretes: a loja só recebe mensagem quando fecha/pausa e quando volta
                 return null;
             }
 
