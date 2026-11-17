@@ -64,6 +64,16 @@ monitor:
     workers: ${MONITOR_ITENS_WORKERS:3}
     ignorar-categorias: ${MONITOR_ITENS_IGNORAR_CATEGORIAS:}
 
+# Painel (substitui o Power BI). Credenciais do app de BI (módulo Analytics) e banco do BI antigo.
+painel:
+  bi-client-id: ${IFOOD_BI_CLIENT_ID:}
+  bi-client-secret: ${IFOOD_BI_CLIENT_SECRET:}
+  bi-database-url: ${BI_DATABASE_URL:}
+  coleta-ativa: ${PAINEL_COLETA_ATIVA:true}
+  dias-reprocessar: 15
+  dias-historico: 180
+  semanas-curva: 8
+
 whatsapp:
   provider: ${WHATSAPP_PROVIDER:console}
   zapi-instance-id: ${ZAPI_INSTANCE_ID:}

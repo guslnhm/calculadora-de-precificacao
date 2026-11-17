@@ -523,3 +523,15 @@ export async function baixarPlanilhaCustos(lojaId, nomeArquivo) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+export const painelApi = {
+  carteira: (tipo, inicio) => requisicao("GET", `/painel/carteira${query({ tipo, inicio })}`),
+  loja: (chave, tipo, inicio, quantos) => requisicao("GET", `/painel/loja${query({ chave, tipo, inicio, quantos })}`),
+  salvarManual: (dados) => requisicao("PUT", "/painel/manual", dados),
+  status: () => requisicao("GET", "/painel/status"),
+  coletar: () => requisicao("POST", "/painel/coletar"),
+  coletarLoja: (merchantId) => requisicao("POST", `/painel/coletar/${encodeURIComponent(merchantId)}`),
+  importarBi: () => requisicao("POST", "/painel/importar-bi"),
+  operacoesBi: () => requisicao("GET", "/painel/operacoes-bi"),
+  vincularOperacao: (idOperacao, merchantId) => requisicao("PUT", `/painel/operacoes-bi/${idOperacao}`, { merchantId }),
+};

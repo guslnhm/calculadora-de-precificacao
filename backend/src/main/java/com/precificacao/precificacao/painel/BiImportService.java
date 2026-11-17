@@ -1,0 +1,197 @@
+package com.precificacao.precificacao.painel;
+
+import com.precificacao.precificacao.reajuste.NomesParecidos;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Clock;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+/**
+ * Importa o histórico do Power BI antigo (banco "pedidos", tabela gold.financeiro_periodo) — só leitura.
+ * Depois liga cada operação do BI a uma loja do iFood: pelo id da loja guardado no BI, senão pelo nome.
+ */
+@Service
+public class BiImportService {
+
+    private static final Logger log = LoggerFactory.getLogger(BiImportService.class);
+    static final String BANCO_BI = "pedidos";
+    static final double SEMELHANCA_MINIMA = 0.82;
+
+    private static final String SQL = """
+            SELECT f.id_financeiro, f.id_operacao, COALESCE(p.nome_plataforma, f.id_plataforma::text) AS plataforma,
+                   o.nome_operacao AS operacao, l.nome_loja AS loja, upper(f.periodo_tipo) AS periodo_tipo,
+                   f.data_inicio, f.data_fim, f.qtd_pedidos, f.valor_itens, f.ticket_medio, f.incentivos_ifood,
+                   f.incentivos_loja, f.valor_bruto, f.valor_liquido, f.repasse, f.taxa_repasse, f.conversao,
+                   f.novos_clientes, f.tempo_entrega, f.qtd_cancelamentos, f.tempo_aberto,
+                   (SELECT string_agg(DISTINCT a.id_loja_origem, ',') FROM silver.dim_operacao_alias a
+                     WHERE a.id_operacao = f.id_operacao AND a.id_loja_origem IS NOT NULL) AS ids_origem
+            FROM gold.financeiro_periodo f
+            LEFT JOIN silver.dim_operacao o ON o.id_operacao = f.id_operacao
+            LEFT JOIN silver.dim_loja l ON l.id_loja = o.id_loja
+            LEFT JOIN silver.dim_plataforma p ON p.id_plataforma = f.id_plataforma
+            """;
+
+    public record Resultado(int linhas, int operacoes, int vinculadas, int semVinculo, String erro) {
+    }
+
+    private final PainelRepository repo;
+    private final PainelProperties cfg;
+    private final Clock clock;
+
+    public BiImportService(PainelRepository repo, PainelProperties cfg, Clock clock) {
+        this.repo = repo;
+        this.cfg = cfg;
+        this.clock = clock;
+    }
+
+    public synchronized Resultado importar() {
+        if (!cfg.bancoBiConfigurado()) {
+            return new Resultado(0, 0, 0, 0, "BI_DATABASE_URL não configurada");
+        }
+        OffsetDateTime agora = OffsetDateTime.now(clock);
+        List<Map<String, Object>> linhas = new ArrayList<>();
+        Map<Integer, String> origens = new LinkedHashMap<>();
+        Jdbc j = jdbc(cfg.biDatabaseUrl(), BANCO_BI);
+        Properties p = new Properties();
+        p.setProperty("user", j.usuario());
+        p.setProperty("password", j.senha());
+        p.setProperty("readOnly", "true");
+        p.setProperty("connectTimeout", "15");
+        try (Connection c = DriverManager.getConnection(j.url(), p); Statement st = c.createStatement()) {
+            c.setReadOnly(true);
+            st.setFetchSize(1000);
+            try (ResultSet rs = st.executeQuery(SQL)) {
+                ResultSetMetaData md = rs.getMetaData();
+                while (rs.next()) {
+                    Map<String, Object> r = new LinkedHashMap<>();
+                    for (int i = 1; i <= md.getColumnCount(); i++) {
+                        r.put(md.getColumnLabel(i), rs.getObject(i));
+                    }
+                    r.put("plataforma", plataforma((String) r.get("plataforma")));
+                    if (r.get("id_operacao") != null && r.get("ids_origem") != null) {
+                        origens.put(((Number) r.get("id_operacao")).intValue(), (String) r.get("ids_origem"));
+                    }
+                    linhas.add(r);
+                }
+            }
+        } catch (SQLException e) {
+            log.warn("[painel] falha ao ler o banco do BI: {}", e.getMessage());
+            return new Resultado(0, 0, 0, 0, "Falha ao ler o banco do BI: " + e.getMessage());
+        }
+        int n = repo.salvarBi(linhas, agora);
+        int[] v = vincular(origens, agora);
+        log.info("[painel] BI importado: {} linhas, {} operações vinculadas, {} sem vínculo", n, v[0], v[1]);
+        return new Resultado(n, v[0] + v[1], v[0], v[1], null);
+    }
+
+    /** Liga operações iFood do BI às lojas do monitor. Devolve {vinculadas, semVinculo}. */
+    int[] vincular(Map<Integer, String> origens, OffsetDateTime agora) {
+        Map<String, String> lojas = repo.nomesLojas();
+        int ok = 0, sem = 0;
+        for (PainelRepository.OperacaoBi op : repo.operacoesBi()) {
+            if (!"IFOOD".equals(op.plataforma())) {
+                continue;
+            }
+            if (repo.vinculoManual(op.idOperacao())) {
+                ok++;
+                continue;
+            }
+            String merchant = null;
+            String metodo = "NENHUM";
+            String ids = origens.getOrDefault(op.idOperacao(), "");
+            for (String id : ids.split(",")) {
+                if (lojas.containsKey(id.trim())) {
+                    merchant = id.trim();
+                    metodo = "ID";
+                    break;
+                }
+            }
+            if (merchant == null) {
+                merchant = porNome(lojas, op.operacao(), op.loja());
+                if (merchant != null) {
+                    metodo = "NOME";
+                }
+            }
+            repo.vincular(op.idOperacao(), merchant, metodo, agora);
+            if (merchant != null) {
+                ok++;
+            } else {
+                sem++;
+            }
+        }
+        return new int[]{ok, sem};
+    }
+
+    static String porNome(Map<String, String> lojas, String operacao, String loja) {
+        String melhor = null;
+        double nota = 0;
+        for (Map.Entry<String, String> e : lojas.entrySet()) {
+            if (e.getValue() == null) {
+                continue;
+            }
+            for (String nome : new String[]{operacao, loja}) {
+                if (nome == null || nome.isBlank()) {
+                    continue;
+                }
+                double s = NomesParecidos.semelhanca(nome, e.getValue());
+                if (s > nota) {
+                    nota = s;
+                    melhor = e.getKey();
+                }
+            }
+        }
+        return nota >= SEMELHANCA_MINIMA ? melhor : null;
+    }
+
+    static String plataforma(String nome) {
+        String n = nome == null ? "" : nome.toLowerCase().replaceAll("[^a-z0-9]", "");
+        if (n.contains("ifood") || n.equals("1")) {
+            return "IFOOD";
+        }
+        if (n.contains("99") || n.equals("2")) {
+            return "99FOOD";
+        }
+        return n.isBlank() ? "OUTRA" : n.toUpperCase();
+    }
+
+    public record Jdbc(String url, String usuario, String senha) {
+    }
+
+    /**
+     * Converte "postgresql://usuario:senha@host:porta/banco?x=y" (formato do Railway) para JDBC,
+     * trocando o banco pelo informado.
+     */
+    static Jdbc jdbc(String url, String banco) {
+        String u = url.trim();
+        if (u.startsWith("jdbc:")) {
+            u = u.substring(5);
+        }
+        URI uri = URI.create(u.replaceFirst("^postgres://", "postgresql://"));
+        String usuario = "";
+        String senha = "";
+        if (uri.getRawUserInfo() != null) {
+            String[] partes = uri.getRawUserInfo().split(":", 2);
+            usuario = URLDecoder.decode(partes[0], StandardCharsets.UTF_8);
+            senha = partes.length > 1 ? URLDecoder.decode(partes[1], StandardCharsets.UTF_8) : "";
+        }
+        int porta = uri.getPort() > 0 ? uri.getPort() : 5432;
+        String query = uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery();
+        return new Jdbc("jdbc:postgresql://" + uri.getHost() + ":" + porta + "/" + banco + query, usuario, senha);
+    }
+}

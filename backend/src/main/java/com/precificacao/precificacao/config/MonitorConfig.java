@@ -19,7 +19,8 @@ import java.time.Clock;
 @Configuration
 @EnableScheduling
 @EnableConfigurationProperties({MonitorProperties.class, WhatsappProperties.class,
-        com.precificacao.precificacao.cardapio.ItensProperties.class})
+        com.precificacao.precificacao.cardapio.ItensProperties.class,
+        com.precificacao.precificacao.painel.PainelProperties.class})
 public class MonitorConfig {
 
     private static final Logger log = LoggerFactory.getLogger(MonitorConfig.class);
