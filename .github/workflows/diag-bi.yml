@@ -14,6 +14,12 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
+          \echo === BANCO ===
+          SELECT current_database(), current_user, inet_server_addr();
+          \echo === BANCOS ===
+          SELECT datname FROM pg_database WHERE NOT datistemplate;
+          \echo === SCHEMAS ===
+          SELECT nspname FROM pg_namespace ORDER BY 1;
           \echo === TABELAS ===
           SELECT table_schema, table_name, table_type FROM information_schema.tables
            WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2;
