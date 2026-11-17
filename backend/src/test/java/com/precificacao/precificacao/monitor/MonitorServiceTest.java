@@ -92,18 +92,16 @@ class MonitorServiceTest {
         relogio.passar(30);
         assertThat(mon.ciclo()).extracting(e -> e.tipo()).containsExactly(TipoEvento.MUDOU);
         assertThat(wpp.para("zs-group")).containsExactly(
-                "🔁 *Burger Moema* mudou de situação\n🔴 *FECHADA* desde 17:00\nMotivo: penalidade do iFood (não dá para reabrir)");
+                "🚨 *Burger Moema*\n🔴 *FECHADA* desde 17:00\nMotivo: penalidade do iFood (não dá para reabrir)");
         // mesmo motivo de novo: silêncio
         relogio.passar(30);
         assertThat(mon.ciclo()).isEmpty();
         wpp.enviadas.clear();
 
-        // 30 min depois: lembrete
+        // 30 min depois: nada de lembrete
         relogio.passar(30 * 60);
-        assertThat(mon.ciclo()).extracting(e -> e.tipo()).containsExactly(TipoEvento.LEMBRETE);
-        assertThat(wpp.para("zs-group").get(0)).isEqualTo("⏰ *Burger Moema* continua com problema\n"
-                + "🔴 *FECHADA* há 31 min (desde 17:00)\nMotivo: penalidade do iFood (não dá para reabrir)");
-        wpp.enviadas.clear();
+        assertThat(mon.ciclo()).isEmpty();
+        assertThat(wpp.enviadas).isEmpty();
 
         // volta ao normal
         ifood.status.put(B, ok());
@@ -139,15 +137,16 @@ class MonitorServiceTest {
         relogio.passar(30);
         mon.ciclo();
         assertThat(ultima("zs-group")).isEqualTo(
-                "🔁 *Burger Moema* mudou de situação\n⏸️ *PAUSADA* desde 17:00\n"
+                "⚠️ *Burger Moema*\n⏸️ *PAUSADA* desde 17:00\n"
                         + "Motivo: Teste de homologação + PDV/gestor de pedidos desconectado\nPrevisão de volta: 17:10");
         assertThat(repo.incidentesAbertos()).hasSize(1); // o mesmo incidente
 
+        // a pausa acaba mas continua desconectada: nada novo, não manda mensagem
+        wpp.enviadas.clear();
         ifood.status.put(B, desconectada());
         relogio.passar(30);
         mon.ciclo();
-        assertThat(ultima("zs-group")).isEqualTo(
-                "🔁 *Burger Moema* mudou de situação\n🔴 *FECHADA* desde 17:00\nMotivo: PDV/gestor de pedidos desconectado");
+        assertThat(wpp.enviadas).isEmpty();
     }
 
     @Test
