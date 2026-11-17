@@ -91,6 +91,25 @@ public final class LeitorKpis {
         return c;
     }
 
+    /** Short id da loja (agrupando pedidos pelo merchantShortId). */
+    public static ObjectNode consultaShortId(LocalDate de, LocalDate ate) {
+        ObjectNode agg = F.objectNode();
+        agg.putObject("groupBy").putArray("fields").add("merchantShortId");
+        ObjectNode c = corpo(de, ate, agg, null);
+        c.put("size", 10);
+        return c;
+    }
+
+    public static String lerShortId(JsonNode resp) {
+        for (JsonNode item : resp.path("data")) {
+            JsonNode v = item.path("groupByKey").path("value").path("merchantShortId");
+            if (!v.isMissingNode() && !v.isNull() && !v.asText().isBlank()) {
+                return v.asText();
+            }
+        }
+        return null;
+    }
+
     private static ObjectNode corpo(LocalDate de, LocalDate ate, ObjectNode agg, String status) {
         ObjectNode c = F.objectNode();
         c.put("page", 1);

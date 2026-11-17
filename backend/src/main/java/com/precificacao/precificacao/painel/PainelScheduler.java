@@ -65,7 +65,10 @@ public class PainelScheduler {
         if (coleta.rodando()) {
             return false;
         }
-        disparar(coleta::coletarTodas);
+        disparar(() -> {
+            coleta.coletarTodas();
+            bi.revincular();
+        });
         return true;
     }
 
