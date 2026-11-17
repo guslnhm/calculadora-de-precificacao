@@ -82,7 +82,7 @@ export function Legenda({ series }) {
 export function GraficoLinha({ series, rotulos, formato, altura = 200 }) {
   const [ref, largura] = useLargura();
   const [foco, setFoco] = useState(null);
-  const m = { e: 64, d: 16, t: 14, b: 26 };
+  const m = { e: 76, d: 16, t: 16, b: 26 };
   const w = largura - m.e - m.d;
   const h = altura - m.t - m.b;
   const n = rotulos.length;
@@ -136,7 +136,7 @@ export function GraficoLinha({ series, rotulos, formato, altura = 200 }) {
                 ) : null
               )}
               {ultimo && foco === null && (
-                <text x={Math.min(ultimo[0], largura - m.d)} y={ultimo[1] - 9} textAnchor="end" fontSize={11} fill={cor.texto} fontWeight={600}>
+                <text x={Math.min(ultimo[0], largura - m.d)} y={Math.max(12, ultimo[1] - 9)} textAnchor="end" fontSize={11} fill={cor.texto} fontWeight={600}>
                   {formato(s.valores[iUlt])}
                 </text>
               )}
@@ -160,7 +160,7 @@ export function GraficoLinha({ series, rotulos, formato, altura = 200 }) {
 export function GraficoBarras({ itens, formato, altura = 180, corBarra = cor.serie1 }) {
   const [ref, largura] = useLargura();
   const [foco, setFoco] = useState(null);
-  const m = { e: 64, d: 8, t: 10, b: 26 };
+  const m = { e: 76, d: 8, t: 10, b: 26 };
   const w = largura - m.e - m.d;
   const h = altura - m.t - m.b;
   const { max, passos } = escala(itens.map((i) => i.valor));

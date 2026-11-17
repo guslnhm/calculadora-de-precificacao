@@ -28,7 +28,7 @@ export function reaisCurto(v) {
   const n = Number(v);
   if (Math.abs(n) >= 1e6) return `R$ ${(n / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi`;
   if (Math.abs(n) >= 1e4) return `R$ ${(n / 1e3).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil`;
-  return reais(n);
+  return reais(n, true);
 }
 
 export function inteiro(v) {

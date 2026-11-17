@@ -24,7 +24,7 @@ function Bloco({ titulo, subtitulo, children, direita }) {
 function Lancamento({ dados, onSalvo }) {
   const a = dados.atual || {};
   const [conv, setConv] = useState(a.conversao != null ? String((a.conversao * 100).toFixed(2)).replace(".", ",") : "");
-  const [rep, setRep] = useState(a.repasse != null ? String(a.repasse).replace(".", ",") : "");
+  const [rep, setRep] = useState(a.repasse != null ? Number(a.repasse).toFixed(2).replace(".", ",") : "");
   const [msg, setMsg] = useState("");
   const num = (s) => (s.trim() === "" ? null : Number(s.replace(/\./g, "").replace(",", ".")));
 

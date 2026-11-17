@@ -76,7 +76,8 @@ export default function PainelPage() {
   const opcoesLoja = (carteira?.linhas || []).slice().sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
 
   return (
-    <div style={{ color: cor.texto, display: "grid", gap: 16 }}>
+    <div className="painel" style={{ color: cor.texto, display: "grid", gap: 16 }}>
+      <style>{".painel table, .painel th, .painel td { border: none; background: transparent; }"}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 24 }}>Painel</h1>

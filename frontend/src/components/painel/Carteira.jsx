@@ -6,7 +6,7 @@ export function Cartao({ titulo, valor, delta, nota, destaque }) {
   return (
     <div style={{ ...caixa, padding: "14px 16px", minWidth: 0, borderColor: destaque || cor.borda }}>
       <div style={{ fontSize: 12, color: cor.textoSuave, textTransform: "uppercase", letterSpacing: 0.4 }}>{titulo}</div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: cor.texto, margin: "6px 0 4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: cor.texto, margin: "6px 0 4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {valor}
       </div>
       <div style={{ fontSize: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -41,13 +41,13 @@ const COLUNAS = [
   { id: "perda", rotulo: "Perda est.", valor: (l) => l.atual?.perdaEstimada, num: true },
 ];
 
-function Destaques({ titulo, linhas, valor, cor: c }) {
+function Destaques({ titulo, linhas, valor, cor: c, onAbrir }) {
   return (
     <div style={{ ...caixa, minWidth: 0 }}>
       <div style={{ fontWeight: 700, marginBottom: 10 }}>{titulo}</div>
       {linhas.length === 0 && <div style={{ color: cor.textoSuave, fontSize: 13 }}>Nada a destacar.</div>}
       {linhas.map((l) => (
-        <div key={l.chave} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13, padding: "5px 0", borderTop: `1px solid ${cor.grade}` }}>
+        <div key={l.chave} onClick={() => onAbrir(l)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13, padding: "5px 0", borderTop: `1px solid ${cor.grade}` }}>
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.nome}</span>
           <span style={{ color: c, fontWeight: 600, whiteSpace: "nowrap" }}>{valor(l)}</span>
         </div>
@@ -101,9 +101,9 @@ export default function Carteira({ dados, onAbrirLoja }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
-        <Destaques titulo="▼ Maiores quedas" linhas={quedas} cor={cor.ruim} valor={(l) => variacao(l.variacao.faturamento).texto} />
-        <Destaques titulo="▲ Maiores altas" linhas={altas} cor={cor.bom} valor={(l) => variacao(l.variacao.faturamento).texto} />
-        <Destaques titulo="Mais vendas perdidas (fechada)" linhas={fechadas} cor={cor.texto} valor={(l) => `${reais(l.atual.perdaEstimada, true)} · ${minutos(l.atual.minutosFechada)}`} />
+        <Destaques titulo="▼ Maiores quedas" onAbrir={onAbrirLoja} linhas={quedas} cor={cor.ruim} valor={(l) => variacao(l.variacao.faturamento).texto} />
+        <Destaques titulo="▲ Maiores altas" onAbrir={onAbrirLoja} linhas={altas} cor={cor.bom} valor={(l) => variacao(l.variacao.faturamento).texto} />
+        <Destaques titulo="Mais vendas perdidas (fechada)" onAbrir={onAbrirLoja} linhas={fechadas} cor={cor.texto} valor={(l) => `${reais(l.atual.perdaEstimada, true)} · ${minutos(l.atual.minutosFechada)}`} />
       </div>
 
       <div style={caixa}>
@@ -125,7 +125,7 @@ export default function Carteira({ dados, onAbrirLoja }) {
                   <th
                     key={c.id}
                     onClick={() => setOrdem((o) => ({ id: c.id, desc: o.id === c.id ? !o.desc : c.num }))}
-                    style={{ textAlign: c.num ? "right" : "left", padding: "8px 10px", color: cor.textoSuave, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", borderBottom: `1px solid ${cor.borda}` }}
+                    style={{ border: "none", textAlign: c.num ? "right" : "left", padding: "8px 10px", color: cor.textoSuave, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", borderBottom: `1px solid ${cor.borda}` }}
                   >
                     {c.rotulo} {ordem.id === c.id ? (ordem.desc ? "↓" : "↑") : ""}
                   </th>
@@ -141,7 +141,7 @@ export default function Carteira({ dados, onAbrirLoja }) {
                   <tr key={l.chave} onClick={() => onAbrirLoja(l)} style={{ cursor: "pointer", borderBottom: `1px solid ${cor.grade}` }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = "#1c232c")}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                    <td style={{ padding: "8px 10px", maxWidth: 280 }}>
+                    <td style={{ border: "none", padding: "8px 10px", maxWidth: 280 }}>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.nome}</span>
                         {l.plataforma !== "IFOOD" && <span style={{ fontSize: 10, color: cor.amarelo }}>{l.plataforma === "99FOOD" ? "99Food" : l.plataforma}</span>}
@@ -162,7 +162,7 @@ export default function Carteira({ dados, onAbrirLoja }) {
                 );
               })}
               {linhas.length === 0 && (
-                <tr><td colSpan={COLUNAS.length} style={{ padding: 20, textAlign: "center", color: cor.textoSuave }}>Sem dados neste período.</td></tr>
+                <tr><td colSpan={COLUNAS.length} style={{ border: "none", padding: 20, textAlign: "center", color: cor.textoSuave }}>Sem dados neste período.</td></tr>
               )}
             </tbody>
           </table>
@@ -172,4 +172,4 @@ export default function Carteira({ dados, onAbrirLoja }) {
   );
 }
 
-const td = { padding: "8px 10px", textAlign: "right", whiteSpace: "nowrap" };
+const td = { border: "none", padding: "8px 10px", textAlign: "right", whiteSpace: "nowrap" };
