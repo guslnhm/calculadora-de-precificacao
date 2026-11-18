@@ -174,10 +174,10 @@ class MonitorServiceTest {
         MonitorService mon = monitor(1, 10, true);
         ifood.status.put(B, real("ERROR", "{\"code\":\"terms-service-violation\",\"state\":\"ERROR\"}", false));
         mon.ciclo();
-        relogio.passar(Duration.ofMinutes(20));
+        relogio.passar(20 * 60);
         mon.ciclo();
         assertThat(wpp.para("zs-group")).isEmpty();       // 17:20: loja ainda não abriu
-        relogio.passar(Duration.ofMinutes(11));
+        relogio.passar(11 * 60);
         mon.ciclo();                                       // 17:31: deveria estar aberta e continua fechada
         assertThat(wpp.para("zs-group")).singleElement().asString().startsWith("🚨 *Burger Moema*");
     }
