@@ -93,9 +93,11 @@ public class ResumoDiarioService {
         if (!painelCfg.analyticsConfigurado() || !painelCfg.coletaAtiva()) {
             return true;
         }
+        // coleta de hoje concluída (pela memória ou, depois de um deploy, pelo banco)
+        OffsetDateTime inicioHoje = hoje.atStartOfDay(zona).toOffsetDateTime();
         OffsetDateTime terminou = coleta.terminouEm();
-        boolean coletouHoje = !coleta.rodando() && terminou != null
-                && !terminou.isBefore(hoje.atStartOfDay(zona).toOffsetDateTime());
+        boolean coletouHoje = !coleta.rodando() && ((terminou != null && !terminou.isBefore(inicioHoje))
+                || repo.coletouDiaDesde(hoje.minusDays(1), inicioHoje));
         return coletouHoje || !agora.isBefore(hoje.atTime(LIMITE_ESPERA).atZone(zona).toOffsetDateTime());
     }
 
@@ -199,9 +201,7 @@ public class ResumoDiarioService {
     static String bloco(Loja l) {
         List<String> linhas = new ArrayList<>();
         linhas.add("*" + l.nome() + "*");
-        if (l.pedidos() == null) {
-            linhas.add("🧾 sem dados de vendas do iFood");
-        } else {
+        if (l.pedidos() != null) {   // sem dados de vendas (loja sem acesso ao app de BI): mostra só os fechamentos
             String ticket = l.pedidos() > 0 && l.faturamento() != null
                     ? " · ticket " + reaisCentavos(l.faturamento().divide(BigDecimal.valueOf(l.pedidos()), 2, RoundingMode.HALF_UP))
                     : "";

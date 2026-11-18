@@ -47,6 +47,13 @@ public class PainelRepository {
         }
     }
 
+    /** Já há números do dia coletados a partir de "desde"? */
+    public boolean coletouDiaDesde(LocalDate dia, OffsetDateTime desde) {
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM painel_dia WHERE dia = ? AND coletado_em >= ?", Integer.class,
+                Date.valueOf(dia), desde);
+        return n != null && n > 0;
+    }
+
     public LocalDate primeiroDia(String merchantId) {
         return jdbc.query("SELECT min(dia) FROM painel_dia WHERE merchant_id = ?",
                 rs -> rs.next() && rs.getDate(1) != null ? rs.getDate(1).toLocalDate() : null, merchantId);
