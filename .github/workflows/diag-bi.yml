@@ -14,18 +14,21 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === INCIDENTES VO NO BOX ASA NORTE ===
-          SELECT i.id, i.estado, i.inicio AT TIME ZONE 'America/Sao_Paulo' ini, i.fim AT TIME ZONE 'America/Sao_Paulo' fim, i.estado_final, i.operacao, i.canal, i.motivos::text, left(i.mensagem,120)
-          FROM ifood_incidente i JOIN ifood_merchant m ON m.merchant_id=i.merchant_id
-          WHERE m.nome ILIKE 'Vo no Box - Asa Norte%' ORDER BY i.inicio DESC LIMIT 8;
-          \echo === HISTORICO VO NO BOX ASA NORTE (ultimas 30h) ===
-          SELECT h.mudou_em AT TIME ZONE 'America/Sao_Paulo' quando, h.operacao, h.estado, h.estado_ifood, h.disponivel, h.motivos::text, left(h.mensagem,100) FROM ifood_status_historico h JOIN ifood_merchant m ON m.merchant_id=h.merchant_id
-          WHERE m.nome ILIKE 'Vo no Box - Asa Norte%' AND h.mudou_em > now() - interval '30 hours' ORDER BY h.mudou_em DESC LIMIT 30;
-          \echo === ENVIOS FORA DO HORARIO (2 dias) ===
-          SELECT enviado_em AT TIME ZONE 'America/Sao_Paulo', grupo, left(replace(texto,E'\n',' / '),160) FROM whatsapp_envio
-          WHERE corpo LIKE '%horário de funcionamento%' AND enviado_em > now() - interval '2 days' ORDER BY 1 DESC LIMIT 15;
-          \echo === CONTAGEM INCIDENTES POR estado_final (7 dias) ===
-          SELECT estado, estado_final, count(*) FROM ifood_incidente WHERE inicio > now() - interval '7 days' GROUP BY 1,2 ORDER BY 3 DESC;
+          \echo === COLETA ===
+          SELECT count(*) lojas, count(ultima_coleta) com_coleta, count(ultimo_erro) com_erro, max(ultima_coleta) AT TIME ZONE 'America/Sao_Paulo' ultima,
+                 max(erro_em) AT TIME ZONE 'America/Sao_Paulo' ultimo_erro_em, count(*) FILTER (WHERE historico_ok) hist_ok FROM painel_coleta;
+          SELECT left(ultimo_erro,200) erro, count(*) FROM painel_coleta WHERE ultimo_erro IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 8;
+          \echo === PAINEL_DIA ===
+          SELECT count(*), count(DISTINCT merchant_id), min(dia), max(dia), sum(pedidos), max(coletado_em) AT TIME ZONE 'America/Sao_Paulo' FROM painel_dia;
+          SELECT dia, count(*), sum(pedidos), sum(gmv) FROM painel_dia WHERE dia >= current_date - 4 GROUP BY 1 ORDER BY 1;
+          \echo === NUTRY ===
+          SELECT m.merchant_id, m.nome, c.ultima_coleta AT TIME ZONE 'America/Sao_Paulo', left(c.ultimo_erro,300), c.historico_ok
+          FROM ifood_merchant m LEFT JOIN painel_coleta c ON c.merchant_id=m.merchant_id WHERE m.nome ILIKE 'Nutry%';
+          SELECT d.dia, d.pedidos, d.gmv, d.coletado_em FROM painel_dia d JOIN ifood_merchant m ON m.merchant_id=d.merchant_id WHERE m.nome ILIKE 'Nutry%' ORDER BY dia DESC LIMIT 5;
+          \echo === SHORT IDS ===
+          SELECT count(*) FROM painel_short_id;
+          \echo === RESUMOS ENVIADOS HOJE ===
+          SELECT tipo, situacao, count(*), min(enviado_em) AT TIME ZONE 'America/Sao_Paulo' FROM whatsapp_envio WHERE enviado_em > current_date GROUP BY 1,2 ORDER BY 1;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
