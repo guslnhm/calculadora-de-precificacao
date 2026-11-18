@@ -91,7 +91,7 @@ class MonitorServiceTest {
         ifood.status.put(B, real("ERROR", "{\"code\":\"terms-service-violation\",\"state\":\"ERROR\"}", false));
         relogio.passar(30);
         assertThat(mon.ciclo()).isEmpty();
-        assertThat(wpp.para("zs-group")).hasSize(1);
+        assertThat(wpp.para("zs-group")).isEmpty();
         // mesmo motivo de novo: silêncio
         relogio.passar(30);
         assertThat(mon.ciclo()).isEmpty();
