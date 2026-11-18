@@ -230,6 +230,19 @@ public class MonitorItensService {
         });
     }
 
+    /** Item/complemento pausado pela calculadora: avisa os grupos da loja com quem pausou. */
+    public void avisarPausaPeloSite(String merchantId, String nome, boolean complemento, String usuario) {
+        if (!ligado()) {
+            return;
+        }
+        String loja = monitorRepo.nomesDasLojas().getOrDefault(merchantId, merchantId);
+        String texto = MensagensItens.pausaPeloSite(loja, nome, complemento, usuario);
+        List<Grupo> todos = grupos.listar(true);
+        for (Grupo g : GrupoWhatsappRepository.gruposDaLoja(todos, merchantId)) {
+            envio.enviar("itens", g, texto);
+        }
+    }
+
     // ------------------------------------------------------------- resumo do início do dia
 
     /** Já passou do horário do resumo e ele ainda não saiu hoje? */
