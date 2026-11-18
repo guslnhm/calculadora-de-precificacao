@@ -38,6 +38,7 @@ public class PainelColetaService {
     private final ZoneId zona;
     private final AtomicBoolean rodando = new AtomicBoolean(false);
     private volatile String ultimaExecucao;
+    private volatile OffsetDateTime terminouEm;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PainelColetaService(AnalyticsClient fonte, PainelRepository repo, PainelProperties cfg, Clock clock,
@@ -56,6 +57,10 @@ public class PainelColetaService {
 
     public boolean rodando() {
         return rodando.get();
+    }
+
+    public OffsetDateTime terminouEm() {
+        return terminouEm;
     }
 
     public String ultimaExecucao() {
@@ -77,6 +82,7 @@ public class PainelColetaService {
                 }
             }
         } finally {
+            terminouEm = agora();
             rodando.set(false);
             ultimaExecucao = agora() + ": " + ok + " loja(s) ok, " + erro + " com erro";
             log.info("[painel] coleta: {}", ultimaExecucao);

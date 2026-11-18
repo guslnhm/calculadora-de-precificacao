@@ -54,7 +54,7 @@ monitor:
   lembrete-minutos: ${MONITOR_LEMBRETE_MINUTOS:30}
   avisar-recuperacao: true
   workers: ${MONITOR_WORKERS:8}
-  resumo-diario: "${MONITOR_RESUMO_DIARIO:08:00}"
+  resumo-diario: "${MONITOR_RESUMO_DIARIO:10:00}"
   itens:
     ativo: ${MONITOR_ITENS_ATIVO:true}
     intervalo-minutos: ${MONITOR_ITENS_INTERVALO_MINUTOS:10}

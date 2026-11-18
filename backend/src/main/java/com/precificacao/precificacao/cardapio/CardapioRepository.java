@@ -191,6 +191,11 @@ public class CardapioRepository {
                 + "AND NOT ja_estava ORDER BY inicio, id", PAUSA, merchantId);
     }
 
+    /** Tudo que está pausado agora (para o resumo do início do dia). */
+    public List<Pausa> pausasAbertas() {
+        return jdbc.query("SELECT * FROM ifood_item_pausa WHERE fim IS NULL ORDER BY merchant_id, categoria, nome, id", PAUSA);
+    }
+
     public void marcarAvisadas(Collection<Long> ids) {
         ids.forEach(id -> jdbc.update("UPDATE ifood_item_pausa SET avisado = true WHERE id = ?", id));
     }

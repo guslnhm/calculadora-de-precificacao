@@ -23,6 +23,11 @@ public interface FonteIfood {
 
     List<Pausa> pausas(String merchantId);
 
+    /** Turnos de funcionamento da loja. Padrão vazio = sem informação (loja tratada como aberta). */
+    default List<HorarioFuncionamento.Turno> horarios(String merchantId) {
+        return List.of();
+    }
+
     /** Refaz o token na próxima chamada (pega lojas recém-autorizadas). */
     void renovarAcesso();
 
@@ -59,6 +64,11 @@ public interface FonteIfood {
                         p.path("start").asText(null), p.path("end").asText(null)));
             }
             return out;
+        }
+
+        @Override
+        public List<HorarioFuncionamento.Turno> horarios(String merchantId) {
+            return HorarioFuncionamento.ler(merchant.horarios(merchantId));
         }
 
         @Override

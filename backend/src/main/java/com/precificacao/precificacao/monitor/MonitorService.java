@@ -72,6 +72,9 @@ public class MonitorService {
     private boolean falhaGeralAvisada = false;
     private OffsetDateTime lojasAtualizadasEm = null;
     private OffsetDateTime conferidoPor403Em = null;
+    /** Horário de funcionamento por loja, relido a cada 6 h. */
+    private final Map<String, List<HorarioFuncionamento.Turno>> horarios = new HashMap<>();
+    private final Map<String, OffsetDateTime> horariosLidosEm = new HashMap<>();
 
     public MonitorService(MonitorProperties cfg, FonteIfood ifood, MonitorRepository repo,
                           GrupoWhatsappRepository grupos, WhatsappSender whatsapp, Clock clock,
@@ -248,17 +251,19 @@ public class MonitorService {
                     inc.motivos = MonitorModelos.motivosDe(st);
                     inc.mensagem = st.mensagem();
                     inc.reabrivel = st.reabrivel();
-                    // só avisa se apareceu um motivo NOVO (ex.: estava pausada e desconectou, ou estava
-                    // desconectada e pausaram). Motivo que some ou troca de estado sem motivo novo: silêncio.
-                    if (assinaturaAnterior != null
-                            && !codigos(assinaturaAnterior).containsAll(codigos(st.assinatura()))) {
-                        return new Evento(TipoEvento.MUDOU, merchantId, nome, st, inc, agora, pausasSe(merchantId, st), null);
-                    }
+                    // mudança de motivo durante o incidente não gera mensagem (só pausou/fechou e voltou)
                 }
                 // sem lembretes: a loja só recebe mensagem quando fecha/pausa e quando volta
                 return null;
             }
 
+            // fora do horário de funcionamento (ex.: penalidade aplicada depois de a loja fechar): não alerta.
+            // Se o problema continuar quando a loja deveria abrir, o alerta sai nessa hora.
+            if (!deveriaEstarAberta(merchantId, agora)) {
+                ciclosRuins.remove(k);
+                ruimDesde.remove(k);
+                return null;
+            }
             int n = ciclosRuins.merge(k, 1, Integer::sum);
             ruimDesde.putIfAbsent(k, agora);
             if (n < cfg.ciclosConfirmacao()) {
@@ -281,6 +286,21 @@ public class MonitorService {
             return new Evento(TipoEvento.NORMALIZADO, merchantId, nome, st, inc, agora, List.of(), st.estado());
         }
         return null;
+    }
+
+    /** A loja deveria estar aberta agora, pelo horário de funcionamento do iFood? Sem horário: sim. */
+    boolean deveriaEstarAberta(String merchantId, OffsetDateTime agora) {
+        OffsetDateTime lido = horariosLidosEm.get(merchantId);
+        if (lido == null || lido.isBefore(agora.minusHours(6))) {
+            try {
+                horarios.put(merchantId, ifood.horarios(merchantId));
+            } catch (RuntimeException e) {
+                log.debug("Horário de {} indisponível: {}", merchantId, e.getMessage());
+                horarios.putIfAbsent(merchantId, List.of());
+            }
+            horariosLidosEm.put(merchantId, agora);
+        }
+        return HorarioFuncionamento.aberta(horarios.get(merchantId), agora.atZoneSameInstant(zona));
     }
 
     private static String estadoDe(String assinatura) {
@@ -394,8 +414,9 @@ public class MonitorService {
         Map<Long, Grupo> gruposPorId = new HashMap<>();
         for (Evento ev : eventos) {
             for (Grupo g : GrupoWhatsappRepository.gruposDaLoja(todos, ev.merchantId())) {
-                if (ev.tipo() == TipoEvento.NORMALIZADO && !(cfg.avisarRecuperacao() && g.avisarRetorno())) {
-                    continue;
+                if (ev.tipo() == TipoEvento.NORMALIZADO && !(cfg.avisarRecuperacao() && g.avisarRetorno()
+                        && ("OK".equals(ev.estadoFinal()) || "WARNING".equals(ev.estadoFinal())))) {
+                    continue;   // voltou para "fora do horário": encerra sem mensagem
                 }
                 porGrupo.computeIfAbsent(g.id(), x -> new ArrayList<>()).add(ev);
                 gruposPorId.put(g.id(), g);

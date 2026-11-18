@@ -155,4 +155,14 @@ class PainelCalculosTest {
         List<PainelRepository.Alias> nada = List.of(new PainelRepository.Alias(40, "999", "Asa Sul"));
         assertThat(BiImportService.escolher(nada, lojas, Map.of())).containsExactly(null, "NENHUM");
     }
+
+    @Test
+    void resumoDoDiaAnterior() {
+        var a = new ResumoDiarioService.Loja("Vo no Box - Asa Norte", 152, new BigDecimal("9870.00"), 3, 2, 80, new BigDecimal("640.40"));
+        var b = new ResumoDiarioService.Loja("Qg - Asa Norte", null, null, null, 0, 0, BigDecimal.ZERO);
+        String t = ResumoDiarioService.mensagem(LocalDate.parse("2026-11-16"), List.of(b, a));
+        assertThat(t).startsWith("📊 *Resumo iFood — segunda, 16/11*\n2 lojas · 152 pedidos · R$ 9.870 · 3 cancelados\n⏸️ 1 loja teve fechamento");
+        assertThat(t).contains("*Vo no Box - Asa Norte*\n🧾 152 pedidos · R$ 9.870 · ticket R$ 64,93\n❌ 3 cancelados (1,9%)\n⏸️ 2 fechamentos · 1h20 · ≈ R$ 640 em vendas");
+        assertThat(t).endsWith("*Qg - Asa Norte*\n🧾 sem dados de vendas do iFood\n✅ sem fechamentos");
+    }
 }

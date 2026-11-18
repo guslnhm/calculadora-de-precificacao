@@ -40,4 +40,13 @@ class MensagensItensTest {
         assertThat(blocos[1]).isEqualTo(
                 "✅ *La Boulangerie Sudoeste*\n▶️ *Item voltou:* Baguette Tradition (ficou 2h24 pausado)");
     }
+
+    @Test
+    void resumoDoDiaListaOQueEstaPausadoPorLoja() {
+        Pausa velha = item("Baguette", AGORA.minusDays(3));
+        Pausa hoje = item("Croissant", AGORA.minusHours(2));
+        String t = MensagensItens.resumoDoDia(java.util.Map.of("La Boulangerie 306 sul", List.of(velha, hoje)), SP, AGORA);
+        assertThat(t).isEqualTo("☀️ *Itens pausados agora* · 12/11\n\n"
+                + "⚠️ *La Boulangerie 306 sul* · 2 pausados\n• Baguette (desde 09/11)\n• Croissant (desde 17:22)");
+    }
 }

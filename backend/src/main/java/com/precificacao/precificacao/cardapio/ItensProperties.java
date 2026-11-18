@@ -15,6 +15,7 @@ import java.util.TreeSet;
  * @param alertarNaoVendavel   avisa item "disponível" que o iFood não deixa vender (fora do turno, complemento obrigatório vazio…)
  * @param somenteComLojaAberta com a loja fechada só registra; avisa quando ela abrir com a pausa ainda ativa
  * @param ignorarCategorias    nomes exatos de categorias que não devem ser monitoradas
+ * @param resumoHorario        horário (HH:mm) do resumo de itens pausados do início do dia; vazio desliga
  */
 @ConfigurationProperties(prefix = "monitor.itens")
 public record ItensProperties(
@@ -24,7 +25,8 @@ public record ItensProperties(
         @DefaultValue("true") boolean alertarNaoVendavel,
         @DefaultValue("true") boolean somenteComLojaAberta,
         @DefaultValue("3") int workers,
-        @DefaultValue("") List<String> ignorarCategorias
+        @DefaultValue("") List<String> ignorarCategorias,
+        @DefaultValue("10:00") String resumoHorario
 ) {
     public Set<String> categoriasIgnoradas() {
         Set<String> s = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);

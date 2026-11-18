@@ -74,7 +74,7 @@ class ReajusteTest {
 
         MonitorProperties mcfg = new MonitorProperties(true, true, 30, 2, List.of("ERROR"), true, 30, true, List.of(),
                 4, 60, 10, "08:00");
-        MonitorItensService monitor = new MonitorItensService(new ItensProperties(true, 10, true, true, true, 2, List.of()),
+        MonitorItensService monitor = new MonitorItensService(new ItensProperties(true, 10, true, true, true, 2, List.of(), "10:00"),
                 mcfg, new LeitorCardapio(ifood, relogio), cardapioRepo, monitorRepo, grupos,
                 new EnvioWhatsapp(mcfg, new ConsoleSender(), monitorRepo, relogio), relogio,
                 new IfoodProperties("", "", "http://x", "America/Sao_Paulo", 5, 4));

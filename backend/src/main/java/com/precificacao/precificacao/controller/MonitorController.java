@@ -35,9 +35,11 @@ public class MonitorController {
     private final MonitorProperties cfg;
     private final Clock clock;
     private final ZoneId zona;
+    private final com.precificacao.precificacao.painel.ResumoDiarioService resumo;
 
     public MonitorController(MonitorService monitor, MonitorRepository repo, MonitorProperties cfg, Clock clock,
-                             IfoodProperties ifood) {
+                             IfoodProperties ifood, com.precificacao.precificacao.painel.ResumoDiarioService resumo) {
+        this.resumo = resumo;
         this.monitor = monitor;
         this.repo = repo;
         this.cfg = cfg;
@@ -115,7 +117,7 @@ public class MonitorController {
     @PostMapping("/resumo")
     public Map<String, String> resumo(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dia) {
-        return monitor.enviarResumo(dia);
+        return resumo.enviar(dia);
     }
 
     /** Mostra na tela o motivo real do erro (em vez de "erro inesperado"). */
