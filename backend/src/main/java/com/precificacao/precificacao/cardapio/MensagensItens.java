@@ -80,6 +80,45 @@ public final class MensagensItens {
         return String.join(Mensagens.SEPARADOR, blocos);
     }
 
+    static final int MAX_NOMES_RESUMO = 15;
+
+    /**
+     * Resumo do início do dia: o que está pausado agora em cada loja do grupo.
+     * <pre>
+     * ☀️ *Itens pausados agora* · 18/11
+     *
+     * ⚠️ *Burger Moema* · 2 pausados
+     * • X-Bacon (desde 15/11)
+     * • Bebidas (categoria inteira)
+     * </pre>
+     */
+    public static String resumoDoDia(Map<String, List<Pausa>> porLoja, ZoneId zona, OffsetDateTime agora) {
+        java.time.LocalDate hoje = agora.atZoneSameInstant(zona).toLocalDate();
+        List<String> blocos = new ArrayList<>();
+        blocos.add("☀️ *Itens pausados agora* · " + hoje.format(DateTimeFormatter.ofPattern("dd/MM")));
+        porLoja.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e -> {
+            List<String> l = new ArrayList<>();
+            List<String> nomes = new ArrayList<>(new LinkedHashSet<>(e.getValue().stream()
+                    .map(p -> nomeCurto(p) + contexto(p.contexto()) + desde(p.inicio(), hoje, zona)).toList()));
+            l.add("⚠️ *" + e.getKey() + "* · " + nomes.size() + (nomes.size() == 1 ? " pausado" : " pausados"));
+            nomes.stream().limit(MAX_NOMES_RESUMO).forEach(n -> l.add("• " + n));
+            if (nomes.size() > MAX_NOMES_RESUMO) {
+                l.add("• … e mais " + (nomes.size() - MAX_NOMES_RESUMO));
+            }
+            blocos.add(String.join("\n", l));
+        });
+        return String.join(Mensagens.SEPARADOR, blocos);
+    }
+
+    private static String desde(OffsetDateTime inicio, java.time.LocalDate hoje, ZoneId zona) {
+        if (inicio == null) {
+            return "";
+        }
+        java.time.ZonedDateTime z = inicio.atZoneSameInstant(zona);
+        return z.toLocalDate().equals(hoje) ? " (desde " + z.format(HH_MM) + ")"
+                : " (desde " + z.format(DateTimeFormatter.ofPattern("dd/MM")) + ")";
+    }
+
     /** Um nome: "⏸️ *Item pausado:* X-Bacon". Vários: título com a quantidade e uma lista com "•". */
     private static void lista(List<String> l, String emoji, List<String> nomes, String umTitulo, String variosTitulo,
                               String desde) {

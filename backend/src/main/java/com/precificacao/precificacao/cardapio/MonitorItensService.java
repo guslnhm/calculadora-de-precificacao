@@ -218,15 +218,67 @@ public class MonitorItensService {
             }
         }
         if (porGrupo.isEmpty()) {
-            log.warn("[itens sem grupo] {}", MensagensItens.mensagem(mudancas, true, zona, agora()));
+            log.warn("[itens sem grupo] {}", MensagensItens.mensagem(mudancas, false, zona, agora()));
         }
         porGrupo.forEach((id, lista) -> {
             Grupo g = grupoPorId.get(id);
-            String texto = MensagensItens.mensagem(lista, g.avisarRetorno(), zona, agora());
+            // só "item pausado": retorno de item não gera mensagem
+            String texto = MensagensItens.mensagem(lista, false, zona, agora());
             if (!texto.isBlank()) {
                 envio.enviar("itens", g, texto);
             }
         });
+    }
+
+    // ------------------------------------------------------------- resumo do início do dia
+
+    /** Já passou do horário do resumo e ele ainda não saiu hoje? */
+    public boolean resumoPendente() {
+        String h = cfg.resumoHorario();
+        if (!ligado() || h == null || h.isBlank()) {
+            return false;
+        }
+        OffsetDateTime agora = agora();
+        OffsetDateTime alvo = agora.atZoneSameInstant(zona).toLocalDate().atTime(java.time.LocalTime.parse(h))
+                .atZone(zona).toOffsetDateTime();
+        if (agora.isBefore(alvo)) {
+            return false;
+        }
+        OffsetDateTime ultimo = monitorRepo.ultimoEnvio("itens-resumo");
+        return ultimo == null || ultimo.isBefore(alvo);
+    }
+
+    /** Uma mensagem por grupo com os itens pausados agora em cada loja. Grupo sem nada pausado não recebe. */
+    public synchronized Map<String, String> enviarResumo() {
+        List<Pausa> abertas = repo.pausasAbertas();
+        Map<String, String> nomes = monitorRepo.nomesDasLojas();
+        Map<String, List<Pausa>> porLoja = new LinkedHashMap<>();
+        for (Pausa p : abertas) {
+            porLoja.computeIfAbsent(p.merchantId(), k -> new ArrayList<>()).add(p);
+        }
+        List<Grupo> todos = grupos.listar(true);
+        Map<String, String> enviados = new LinkedHashMap<>();
+        for (Grupo g : todos) {
+            Map<String, List<Pausa>> doGrupo = new LinkedHashMap<>();
+            porLoja.forEach((m, lista) -> {
+                if (GrupoWhatsappRepository.gruposDaLoja(todos, m).stream().anyMatch(x -> x.id() == g.id())) {
+                    doGrupo.put(nomes.getOrDefault(m, m), lista);
+                }
+            });
+            if (doGrupo.isEmpty()) {
+                continue;
+            }
+            String texto = MensagensItens.resumoDoDia(doGrupo, zona, agora());
+            envio.enviar("itens-resumo", g, texto);
+            enviados.put(g.nome(), texto);
+        }
+        if (enviados.isEmpty()) {
+            // registra para não tentar de novo hoje
+            monitorRepo.registrarEnvio("itens-resumo", null, null, List.of(), "(nenhum item pausado)", "SOMBRA", null, agora());
+        }
+        // o que entrou no resumo não é avisado de novo quando a loja abrir
+        repo.marcarAvisadas(abertas.stream().map(Pausa::id).toList());
+        return enviados;
     }
 
     /** Loja aberta = alguma operação OK ou com restrição. Sem leitura de status, considera aberta. */

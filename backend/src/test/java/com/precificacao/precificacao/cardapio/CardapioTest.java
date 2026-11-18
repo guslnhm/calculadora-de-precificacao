@@ -68,7 +68,7 @@ public class CardapioTest {
 
         MonitorProperties mcfg = new MonitorProperties(true, true, 30, 2, List.of("ERROR"), true, 30, true, List.of(),
                 4, 60, 10, "08:00");
-        ItensProperties icfg = new ItensProperties(true, 10, true, true, true, 2, List.of("Promoções da casa"));
+        ItensProperties icfg = new ItensProperties(true, 10, true, true, true, 2, List.of("Promoções da casa"), "10:00");
         IfoodProperties ifp = new IfoodProperties("", "", "http://x", "America/Sao_Paulo", 5, 4);
         monitor = new MonitorItensService(icfg, mcfg, new LeitorCardapio(ifood, relogio), repo, monitorRepo, grupos,
                 new EnvioWhatsapp(mcfg, wpp, monitorRepo, relogio), relogio, ifp);
@@ -116,9 +116,10 @@ public class CardapioTest {
                 "⚠️ *Burger Moema*\n⏸️ *2 itens pausados*:\n• X-Bacon\n• Coca 350ml (complemento)");
 
         relogio.passar(Duration.ofMinutes(45));
+        wpp.enviadas.clear();
         ifood.statusItem("i-xbacon", "AVAILABLE");
         monitor.ciclo();
-        assertThat(ultima()).isEqualTo("✅ *Burger Moema*\n▶️ *Item voltou:* X-Bacon (ficou 45 min pausado)");
+        assertThat(wpp.enviadas).isEmpty(); // item que voltou não gera mensagem
 
         // o burger que já estava pausado volta: não avisa (nunca foi avisado)
         wpp.enviadas.clear();

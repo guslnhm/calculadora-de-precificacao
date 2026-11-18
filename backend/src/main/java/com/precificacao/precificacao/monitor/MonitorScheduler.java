@@ -16,10 +16,13 @@ public class MonitorScheduler {
 
     private final MonitorService monitor;
     private final MonitorProperties cfg;
+    private final com.precificacao.precificacao.painel.ResumoDiarioService resumo;
 
-    public MonitorScheduler(MonitorService monitor, MonitorProperties cfg) {
+    public MonitorScheduler(MonitorService monitor, MonitorProperties cfg,
+                            com.precificacao.precificacao.painel.ResumoDiarioService resumo) {
         this.monitor = monitor;
         this.cfg = cfg;
+        this.resumo = resumo;
     }
 
     @Scheduled(initialDelayString = "PT20S", fixedDelayString = "#{${monitor.intervalo-segundos:30} * 1000}")
@@ -30,8 +33,8 @@ public class MonitorScheduler {
         long t0 = System.currentTimeMillis();
         try {
             monitor.ciclo();
-            if (monitor.resumoPendente()) {
-                monitor.enviarResumo(null);
+            if (resumo.pendente()) {
+                resumo.enviar(null);
             }
         } catch (RuntimeException e) {
             log.error("Erro inesperado no ciclo do monitor", e);

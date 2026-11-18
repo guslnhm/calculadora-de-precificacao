@@ -30,4 +30,15 @@ public class MonitorItensScheduler {
             log.error("Erro inesperado no monitor de itens", e);
         }
     }
+
+    @Scheduled(initialDelayString = "PT3M", fixedDelayString = "PT1M")
+    public void resumoDoDia() {
+        try {
+            if (monitor.resumoPendente()) {
+                monitor.enviarResumo();
+            }
+        } catch (RuntimeException e) {
+            log.error("Erro no resumo de itens pausados", e);
+        }
+    }
 }

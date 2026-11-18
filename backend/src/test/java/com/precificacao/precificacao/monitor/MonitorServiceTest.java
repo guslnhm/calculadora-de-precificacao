@@ -87,12 +87,11 @@ class MonitorServiceTest {
         assertThat(repo.incidentesAbertos()).singleElement().satisfies(i -> assertThat(i.merchantId).isEqualTo(B));
         wpp.enviadas.clear();
 
-        // o motivo muda para penalidade: avisa a mudança
+        // o motivo muda para penalidade: não avisa (só pausou/fechou e voltou)
         ifood.status.put(B, real("ERROR", "{\"code\":\"terms-service-violation\",\"state\":\"ERROR\"}", false));
         relogio.passar(30);
-        assertThat(mon.ciclo()).extracting(e -> e.tipo()).containsExactly(TipoEvento.MUDOU);
-        assertThat(wpp.para("zs-group")).containsExactly(
-                "🚨 *Burger Moema*\n🔴 *FECHADA* desde 17:00\nMotivo: penalidade do iFood (não dá para reabrir)");
+        assertThat(mon.ciclo()).isEmpty();
+        assertThat(wpp.para("zs-group")).isEmpty();
         // mesmo motivo de novo: silêncio
         relogio.passar(30);
         assertThat(mon.ciclo()).isEmpty();
@@ -136,9 +135,7 @@ class MonitorServiceTest {
         ifood.pausas.put(B, List.of(new Pausa("p1", "Teste de homologação", "2026-10-29T17:00:05", "2026-10-29T17:10:05")));
         relogio.passar(30);
         mon.ciclo();
-        assertThat(ultima("zs-group")).isEqualTo(
-                "⚠️ *Burger Moema*\n⏸️ *PAUSADA* desde 17:00\n"
-                        + "Motivo: Teste de homologação + PDV/gestor de pedidos desconectado\nPrevisão de volta: 17:10");
+        assertThat(wpp.para("zs-group")).hasSize(1); // pausa durante o incidente: sem mensagem nova
         assertThat(repo.incidentesAbertos()).hasSize(1); // o mesmo incidente
 
         // a pausa acaba mas continua desconectada: nada novo, não manda mensagem
@@ -170,6 +167,32 @@ class MonitorServiceTest {
     }
 
     @Test
+    void problemaForaDoHorarioDeFuncionamentoSoAlertaQuandoALojaDeveriaAbrir() {
+        // quinta 29/10: B abre às 17:30 (o relógio começa às 17:00)
+        ifood.horarios.put(B, List.of(new HorarioFuncionamento.Turno(java.time.DayOfWeek.THURSDAY,
+                java.time.LocalTime.of(17, 30), 300)));
+        MonitorService mon = monitor(1, 10, true);
+        ifood.status.put(B, real("ERROR", "{\"code\":\"terms-service-violation\",\"state\":\"ERROR\"}", false));
+        mon.ciclo();
+        relogio.passar(20 * 60);
+        mon.ciclo();
+        assertThat(wpp.para("zs-group")).isEmpty();       // 17:20: loja ainda não abriu
+        relogio.passar(11 * 60);
+        mon.ciclo();                                       // 17:31: deveria estar aberta e continua fechada
+        assertThat(wpp.para("zs-group")).singleElement().asString().startsWith("🚨 *Burger Moema*");
+    }
+
+    @Test
+    void horarioQuePassaDaMeiaNoite() {
+        var turnos = List.of(new HorarioFuncionamento.Turno(java.time.DayOfWeek.FRIDAY, java.time.LocalTime.of(18, 0), 420));
+        java.time.ZoneId sp = java.time.ZoneId.of("America/Sao_Paulo");
+        assertThat(HorarioFuncionamento.aberta(turnos, java.time.ZonedDateTime.of(2026, 10, 31, 0, 30, 0, 0, sp))).isTrue();  // sáb 00:30
+        assertThat(HorarioFuncionamento.aberta(turnos, java.time.ZonedDateTime.of(2026, 10, 31, 1, 30, 0, 0, sp))).isFalse(); // sáb 01:30
+        assertThat(HorarioFuncionamento.aberta(turnos, java.time.ZonedDateTime.of(2026, 10, 30, 17, 0, 0, 0, sp))).isFalse(); // sex 17:00
+        assertThat(HorarioFuncionamento.aberta(List.of(), java.time.ZonedDateTime.of(2026, 10, 30, 3, 0, 0, 0, sp))).isTrue();
+    }
+
+    @Test
     void foraDoHorarioNaoAlertaEEncerraOIncidente() {
         MonitorService mon = monitor(1, 10, true);
         ifood.status.put(A, foraDoHorario());
@@ -180,8 +203,9 @@ class MonitorServiceTest {
         mon.ciclo();
         ifood.status.put(A, foraDoHorario());
         relogio.passar(60);
+        wpp.enviadas.clear();
         assertThat(mon.ciclo()).extracting(e -> e.tipo()).containsExactly(TipoEvento.NORMALIZADO);
-        assertThat(ultima("zs-group")).isEqualTo("⚪ *Pizzaria Central*\nSaiu do horário de funcionamento · ficou 1 min fechada antes");
+        assertThat(wpp.enviadas).isEmpty(); // voltou para "fora do horário": encerra sem mensagem
     }
 
     @Test
@@ -341,6 +365,12 @@ class MonitorServiceTest {
         final Map<String, RuntimeException> falhas = new HashMap<>();
         final Map<String, List<Pausa>> pausas = new HashMap<>();
         final java.util.Set<String> removidas = new java.util.HashSet<>();
+        final Map<String, List<HorarioFuncionamento.Turno>> horarios = new HashMap<>();
+
+        @Override
+        public List<HorarioFuncionamento.Turno> horarios(String merchantId) {
+            return horarios.getOrDefault(merchantId, List.of());
+        }
 
         IfoodFalso() {
             status.put(A, ok());
