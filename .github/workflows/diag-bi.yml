@@ -9,25 +9,24 @@ jobs:
       - uses: actions/checkout@v4
       - name: Ler estrutura e amostras (saída criptografada)
         env:
-          BI_DATABASE_URL: ${{ secrets.BI_DATABASE_URL }}
+          BI_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL }}
         run: |
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === ALIAS COLUNAS ===
-          SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='silver' AND table_name IN ('dim_operacao_alias','dim_operacao') ORDER BY table_name, ordinal_position;
-          \echo === ALIAS AMOSTRA ===
-          SELECT * FROM silver.dim_operacao_alias ORDER BY id_operacao LIMIT 25;
-          \echo === ALIAS CONTAGEM ===
-          SELECT id_plataforma, count(*), count(DISTINCT id_operacao), count(id_loja_origem) FROM silver.dim_operacao_alias GROUP BY 1;
-          \echo === DATAS ===
-          SELECT periodo_tipo, extract(isodow FROM data_inicio) dow, count(*), min(data_inicio), max(data_inicio), max(data_fim) FROM gold.financeiro_periodo GROUP BY 1,2 ORDER BY 1,2;
-          SELECT data_inicio, data_fim, count(*) FROM gold.financeiro_periodo WHERE periodo_tipo='SEMANAL' GROUP BY 1,2 ORDER BY 1 DESC LIMIT 6;
-          \echo === CONFIG MERCHANTS ===
-          SELECT column_name FROM information_schema.columns WHERE table_schema='config' AND table_name='ifood_merchants';
-          SELECT * FROM config.ifood_merchants LIMIT 5;
+          \echo === INCIDENTES VO NO BOX ASA NORTE ===
+          SELECT i.id, i.estado, i.inicio AT TIME ZONE 'America/Sao_Paulo' ini, i.fim AT TIME ZONE 'America/Sao_Paulo' fim, i.estado_final, i.operacao, i.canal, i.motivos::text, left(i.mensagem,120)
+          FROM ifood_incidente i JOIN ifood_merchant m ON m.merchant_id=i.merchant_id
+          WHERE m.nome ILIKE 'Vo no Box - Asa Norte%' ORDER BY i.inicio DESC LIMIT 8;
+          \echo === HISTORICO VO NO BOX ASA NORTE (ultimas 30h) ===
+          SELECT h.mudou_em AT TIME ZONE 'America/Sao_Paulo' quando, h.operacao, h.estado, h.estado_ifood, h.disponivel, h.motivos::text, left(h.mensagem,100) FROM ifood_status_historico h JOIN ifood_merchant m ON m.merchant_id=h.merchant_id
+          WHERE m.nome ILIKE 'Vo no Box - Asa Norte%' AND h.mudou_em > now() - interval '30 hours' ORDER BY h.mudou_em DESC LIMIT 30;
+          \echo === ENVIOS FORA DO HORARIO (2 dias) ===
+          SELECT enviado_em AT TIME ZONE 'America/Sao_Paulo', grupo, left(replace(texto,E'\n',' / '),160) FROM whatsapp_envio
+          WHERE corpo LIKE '%horário de funcionamento%' AND enviado_em > now() - interval '2 days' ORDER BY 1 DESC LIMIT 15;
+          \echo === CONTAGEM INCIDENTES POR estado_final (7 dias) ===
+          SELECT estado, estado_final, count(*) FROM ifood_incidente WHERE inicio > now() - interval '7 days' GROUP BY 1,2 ORDER BY 3 DESC;
           SQL
-          export BI_DATABASE_URL="$(printf '%s' "$BI_DATABASE_URL" | sed -E 's#/railway(\?|$)#/pedidos\1#')"
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
           openssl rand -hex 32 > k.txt
