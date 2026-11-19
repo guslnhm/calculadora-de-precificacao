@@ -93,17 +93,58 @@ public class ResumoDiarioService {
         if (!painelCfg.analyticsConfigurado() || !painelCfg.coletaAtiva()) {
             return true;
         }
+        // coleta de hoje concluída (pela memória ou, depois de um deploy, pelo banco)
+        OffsetDateTime inicioHoje = hoje.atStartOfDay(zona).toOffsetDateTime();
         OffsetDateTime terminou = coleta.terminouEm();
-        boolean coletouHoje = !coleta.rodando() && terminou != null
-                && !terminou.isBefore(hoje.atStartOfDay(zona).toOffsetDateTime());
+        boolean coletouHoje = !coleta.rodando() && ((terminou != null && !terminou.isBefore(inicioHoje))
+                || repo.coletouDiaDesde(hoje.minusDays(1), inicioHoje));
+        // o iFood às vezes libera o D-1 depois das 9h: dia de ontem todo zerado = dado ainda não chegou
+        boolean diaChegou = repo.pedidosDoDia(hoje.minusDays(1)) > 0;
+        coletouHoje = coletouHoje && diaChegou;
         return coletouHoje || !agora.isBefore(hoje.atTime(LIMITE_ESPERA).atZone(zona).toOffsetDateTime());
+    }
+
+    /**
+     * O resumo de hoje saiu sem os números do iFood (atraso do D-1) e agora eles chegaram:
+     * reenvia uma vez, marcado como "atualizado".
+     */
+    public boolean correcaoPendente() {
+        OffsetDateTime agora = OffsetDateTime.now(clock);
+        LocalDate hoje = agora.atZoneSameInstant(zona).toLocalDate();
+        OffsetDateTime inicioHoje = hoje.atStartOfDay(zona).toOffsetDateTime();
+        OffsetDateTime marcado = monitorRepo.ultimoEnvio("resumo-pendente");
+        if (marcado == null || marcado.isBefore(inicioHoje)) {
+            return false;
+        }
+        OffsetDateTime corrigido = monitorRepo.ultimoEnvio("resumo-corrigido");
+        if (corrigido != null && !corrigido.isBefore(inicioHoje)) {
+            return false;
+        }
+        return !coleta.rodando() && repo.pedidosDoDia(hoje.minusDays(1)) > 0;
+    }
+
+    public synchronized Map<String, String> enviarCorrecao() {
+        Map<String, String> r = enviar(null, true);
+        monitorRepo.registrarEnvio("resumo-corrigido", null, null, List.of(), "(resumo reenviado com os números do iFood)",
+                "SOMBRA", null, OffsetDateTime.now(clock));
+        return r;
     }
 
     /** Envia a cada grupo o resumo do dia (padrão: ontem). */
     public synchronized Map<String, String> enviar(LocalDate dia) {
+        return enviar(dia, false);
+    }
+
+    synchronized Map<String, String> enviar(LocalDate dia, boolean atualizado) {
         OffsetDateTime agora = OffsetDateTime.now(clock);
         LocalDate d = dia != null ? dia : agora.atZoneSameInstant(zona).toLocalDate().minusDays(1);
         Map<String, Loja> lojas = numeros(d, agora);
+        boolean semNumeros = lojas.values().stream().allMatch(l -> l.pedidos() == null);
+        if (semNumeros && dia == null && !atualizado && painelCfg.analyticsConfigurado()) {
+            // saiu sem os números do iFood: reenvia quando chegarem
+            monitorRepo.registrarEnvio("resumo-pendente", null, null, List.of(), "(resumo enviado sem os números do iFood)",
+                    "SOMBRA", null, agora);
+        }
         List<Grupo> todos = grupos.listar(true);
         Map<String, String> enviados = new LinkedHashMap<>();
         for (Grupo g : todos) {
@@ -115,6 +156,10 @@ public class ResumoDiarioService {
             }
             List<Loja> doGrupo = ids.stream().map(lojas::get).toList();
             String texto = mensagem(d, doGrupo);
+            if (atualizado) {
+                texto = texto.replaceFirst("\\*\n", " (atualizado)*\n");
+                texto = texto.replaceFirst("^(📊 \\*Resumo iFood — [^*]+)\\*$", "$1 (atualizado)*");
+            }
             envio.enviar("resumo", g, texto);
             enviados.put(g.nome(), texto);
         }
@@ -124,8 +169,12 @@ public class ResumoDiarioService {
     Map<String, Loja> numeros(LocalDate d, OffsetDateTime agora) {
         Map<String, String> nomes = repo.nomesLojas();
         Map<String, LinhaDia> dias = new HashMap<>();
-        for (LinhaDia l : repo.dias(null, d, d)) {
-            dias.put(l.merchantId(), l);
+        List<LinhaDia> doDia = repo.dias(null, d, d);
+        // todas as lojas zeradas = o iFood ainda não liberou o dia: trata como "sem dados", não como zero pedidos
+        if (doDia.stream().anyMatch(l -> l.pedidos() > 0 || l.cancelados() > 0)) {
+            for (LinhaDia l : doDia) {
+                dias.put(l.merchantId(), l);
+            }
         }
         OffsetDateTime de = d.atStartOfDay(zona).toOffsetDateTime();
         OffsetDateTime ate = d.plusDays(1).atStartOfDay(zona).toOffsetDateTime();
@@ -199,9 +248,7 @@ public class ResumoDiarioService {
     static String bloco(Loja l) {
         List<String> linhas = new ArrayList<>();
         linhas.add("*" + l.nome() + "*");
-        if (l.pedidos() == null) {
-            linhas.add("🧾 sem dados de vendas do iFood");
-        } else {
+        if (l.pedidos() != null) {   // sem dados de vendas (loja sem acesso ao app de BI): mostra só os fechamentos
             String ticket = l.pedidos() > 0 && l.faturamento() != null
                     ? " · ticket " + reaisCentavos(l.faturamento().divide(BigDecimal.valueOf(l.pedidos()), 2, RoundingMode.HALF_UP))
                     : "";

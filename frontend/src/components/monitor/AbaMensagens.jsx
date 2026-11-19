@@ -32,6 +32,7 @@ export default function AbaMensagens({ versao }) {
   const [linhas, setLinhas] = useState(null);
   const [erro, setErro] = useState("");
   const [grupo, setGrupo] = useState("");
+  const [reenvio, setReenvio] = useState(""); // "" | "confirmar" | "enviando" | mensagem final
 
   useEffect(() => {
     monitorApi
@@ -41,7 +42,20 @@ export default function AbaMensagens({ versao }) {
   }, [versao]);
 
   const grupos = useMemo(() => [...new Set((linhas || []).map((l) => l.grupo).filter(Boolean))].sort(), [linhas]);
-  const visiveis = (linhas || []).filter((l) => !grupo || l.grupo === grupo);
+  // marcações internas (sem grupo, texto entre parênteses) não aparecem
+  const visiveis = (linhas || [])
+    .filter((l) => l.grupo || !String(l.corpo || "").startsWith("("))
+    .filter((l) => !grupo || l.grupo === grupo);
+
+  async function reenviarResumo() {
+    setReenvio("enviando");
+    try {
+      const r = await monitorApi.enviarResumo();
+      setReenvio(`Resumo de ontem reenviado para ${Object.keys(r || {}).length} grupo(s).`);
+    } catch (e) {
+      setReenvio(`Não consegui reenviar: ${e.message}`);
+    }
+  }
 
   return (
     <div>
@@ -49,6 +63,27 @@ export default function AbaMensagens({ versao }) {
         Tudo o que o monitor mandou (ou mandaria, no modo sombra) para os grupos, da mais recente para a mais antiga.
       </p>
       {erro && <div style={s.erro}>Não consegui carregar as mensagens: {erro}</div>}
+
+      <div style={{ ...s.card, padding: "12px 16px", marginBottom: "12px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+        <span style={s.suave}>📊 Resumo iFood do dia anterior saiu errado (ex.: o iFood atrasou os números)?</span>
+        {reenvio === "" && (
+          <button style={s.botaoSec} onClick={() => setReenvio("confirmar")}>Reenviar resumo de ontem</button>
+        )}
+        {reenvio === "confirmar" && (
+          <>
+            <span>Vai para todos os grupos. Confirmar?</span>
+            <button style={s.botao} onClick={reenviarResumo}>Sim, reenviar</button>
+            <button style={s.botaoSec} onClick={() => setReenvio("")}>Cancelar</button>
+          </>
+        )}
+        {reenvio === "enviando" && <span style={s.suave}>Enviando…</span>}
+        {!["", "confirmar", "enviando"].includes(reenvio) && (
+          <>
+            <span>{reenvio}</span>
+            <button style={s.botaoSec} onClick={() => setReenvio("")}>OK</button>
+          </>
+        )}
+      </div>
 
       {grupos.length > 1 && (
         <div style={{ marginBottom: "12px", maxWidth: "320px" }}>

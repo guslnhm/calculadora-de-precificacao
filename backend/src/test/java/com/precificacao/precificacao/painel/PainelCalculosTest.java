@@ -163,6 +163,6 @@ class PainelCalculosTest {
         String t = ResumoDiarioService.mensagem(LocalDate.parse("2026-11-16"), List.of(b, a));
         assertThat(t).startsWith("📊 *Resumo iFood — segunda, 16/11*\n2 lojas · 152 pedidos · R$ 9.870 · 3 cancelados\n⏸️ 1 loja teve fechamento");
         assertThat(t).contains("*Vo no Box - Asa Norte*\n🧾 152 pedidos · R$ 9.870 · ticket R$ 64,93\n❌ 3 cancelados (1,9%)\n⏸️ 2 fechamentos · 1h20 · ≈ R$ 640 em vendas");
-        assertThat(t).endsWith("*Qg - Asa Norte*\n🧾 sem dados de vendas do iFood\n✅ sem fechamentos");
+        assertThat(t).endsWith("*Qg - Asa Norte*\n✅ sem fechamentos");
     }
 }

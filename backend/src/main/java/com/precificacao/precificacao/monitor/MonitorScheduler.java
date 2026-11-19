@@ -35,6 +35,8 @@ public class MonitorScheduler {
             monitor.ciclo();
             if (resumo.pendente()) {
                 resumo.enviar(null);
+            } else if (resumo.correcaoPendente()) {
+                resumo.enviarCorrecao();
             }
         } catch (RuntimeException e) {
             log.error("Erro inesperado no ciclo do monitor", e);

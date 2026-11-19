@@ -46,6 +46,22 @@ public class PainelScheduler {
         }
     }
 
+    /**
+     * O iFood às vezes libera o dia anterior depois das 9h. Se ontem veio todo zerado, coleta de novo
+     * a cada 20 min até as 13h40 (relê os últimos dias e sobrescreve os zeros).
+     */
+    @Scheduled(cron = "0 0/20 10-13 * * *", zone = "America/Sao_Paulo")
+    public void recoletarSeOntemNaoChegou() {
+        if (!cfg.coletaAtiva() || !cfg.analyticsConfigurado() || coleta.rodando()) {
+            return;
+        }
+        java.time.LocalDate ontem = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).minusDays(1);
+        if (repo.pedidosDoDia(ontem) == 0) {
+            log.info("[painel] dados de {} ainda zerados: coletando de novo", ontem);
+            dispararColeta();
+        }
+    }
+
     @Scheduled(cron = "0 30 10 * * MON", zone = "America/Sao_Paulo")
     public void importacaoSemanal() {
         if (cfg.bancoBiConfigurado()) {

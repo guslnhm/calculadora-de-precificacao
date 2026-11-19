@@ -142,6 +142,12 @@ public class PainelColetaService {
                         fonte.kpis(merchantId, LeitorKpis.consultaNovosClientes(d, d)), d));
             }
         }
+        // resposta toda zerada para um período que já tinha venda: o iFood ainda não liberou (ou falhou); não apaga
+        boolean tudoZero = dias.values().stream().allMatch(d -> d.pedidos == 0 && d.cancelados == 0);
+        if (tudoZero && repo.pedidosNoPeriodo(merchantId, de, ate) > 0) {
+            log.info("[painel] {} {}..{}: resposta zerada, mantendo os números já salvos", merchantId, de, ate);
+            return;
+        }
         // dias sem pedido também ficam gravados (zerados), para distinguir "sem venda" de "sem coleta"
         for (LocalDate d = de; !d.isAfter(ate); d = d.plusDays(1)) {
             dias.computeIfAbsent(d, Dia::new);
