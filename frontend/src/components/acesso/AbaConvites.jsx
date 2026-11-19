@@ -70,29 +70,34 @@ export default function AbaConvites({ lojas, convites, onMudou }) {
         <div style={{ fontWeight: 700, fontSize: 16 }}>Novo link de acesso</div>
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))" }}>
           <label style={rotulo}>Para quem
-            <select style={campo} value={form.perfil} onChange={(e) => setForm({ ...form, perfil: e.target.value })}>
-              <option value="MENTORADO">Mentorado (só o painel das lojas escolhidas)</option>
-              <option value="EQUIPE">Equipe (acesso a tudo)</option>
+            <select style={campoCheio} value={form.perfil} onChange={(e) => setForm({ ...form, perfil: e.target.value })}>
+              <option value="MENTORADO">Mentorado</option>
+              <option value="EQUIPE">Equipe (acesso total)</option>
             </select>
           </label>
           <label style={rotulo}>Nome do link (opcional)
-            <input style={campo} placeholder="ex.: Maria — Brubs" value={form.descricao}
+            <input style={campoCheio} placeholder="ex.: Maria — Brubs" value={form.descricao}
                    onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
           </label>
           <label style={rotulo}>Vale por
-            <select style={campo} value={form.validadeDias} onChange={(e) => setForm({ ...form, validadeDias: e.target.value })}>
+            <select style={campoCheio} value={form.validadeDias} onChange={(e) => setForm({ ...form, validadeDias: e.target.value })}>
               {[1, 3, 7, 15, 30].map((d) => <option key={d} value={d}>{d} {d === 1 ? "dia" : "dias"}</option>)}
             </select>
           </label>
           <label style={rotulo}>Quantas pessoas podem usar
-            <select style={campo} value={form.maxUsos} onChange={(e) => setForm({ ...form, maxUsos: e.target.value })}>
+            <select style={campoCheio} value={form.maxUsos} onChange={(e) => setForm({ ...form, maxUsos: e.target.value })}>
               {[1, 2, 3, 4, 5, 10].map((n) => <option key={n} value={n}>{n === 1 ? "1 pessoa" : `até ${n} pessoas`}</option>)}
             </select>
           </label>
         </div>
+        {!mentorado && (
+          <div style={{ fontSize: 13, color: cor.amarelo }}>
+            Quem entrar por este link vê tudo no site (calculadoras, monitor, cardápio, reajuste e acessos). Use só para a equipe.
+          </div>
+        )}
         {mentorado && (
           <div style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 13, color: cor.textoSuave }}>Lojas que a pessoa vai ver</div>
+            <div style={{ fontSize: 13, color: cor.textoSuave }}>Lojas que a pessoa vai ver (só o Painel, só destas lojas)</div>
             <SeletorLojas lojas={lojas} selecionadas={form.lojas} onMudar={(l) => setForm({ ...form, lojas: l })} />
           </div>
         )}
@@ -162,4 +167,5 @@ export default function AbaConvites({ lojas, convites, onMudou }) {
   );
 }
 
-const rotulo = { display: "grid", gap: 6, fontSize: 13, color: cor.textoSuave };
+const rotulo = { display: "grid", gap: 6, fontSize: 13, color: cor.textoSuave, minWidth: 0 };
+const campoCheio = { ...campo, width: "100%", boxSizing: "border-box" };

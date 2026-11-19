@@ -36,10 +36,10 @@ export default function PainelPage({ mentorado = false }) {
       const c = await painelApi.carteira(tipo, inicio);
       setCarteira(c);
       // mentorado com uma loja só: abre direto o boletim dela
-      if (mentorado && c?.linhas?.length === 1) {
-        setLojaChave((atual) => atual || c.linhas[0].chave);
-        setAba((atual) => (atual === "carteira" && !jaAbriuSozinho.current ? "loja" : atual));
+      if (mentorado && c?.linhas?.length === 1 && !jaAbriuSozinho.current) {
         jaAbriuSozinho.current = true;
+        setLojaChave((atual) => atual || c.linhas[0].chave);
+        setAba("loja");
       }
     } catch (e) {
       setErro(e.message);
