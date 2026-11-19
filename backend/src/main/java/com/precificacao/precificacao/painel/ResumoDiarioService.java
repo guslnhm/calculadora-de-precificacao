@@ -104,11 +104,47 @@ public class ResumoDiarioService {
         return coletouHoje || !agora.isBefore(hoje.atTime(LIMITE_ESPERA).atZone(zona).toOffsetDateTime());
     }
 
+    /**
+     * O resumo de hoje saiu sem os números do iFood (atraso do D-1) e agora eles chegaram:
+     * reenvia uma vez, marcado como "atualizado".
+     */
+    public boolean correcaoPendente() {
+        OffsetDateTime agora = OffsetDateTime.now(clock);
+        LocalDate hoje = agora.atZoneSameInstant(zona).toLocalDate();
+        OffsetDateTime inicioHoje = hoje.atStartOfDay(zona).toOffsetDateTime();
+        OffsetDateTime marcado = monitorRepo.ultimoEnvio("resumo-pendente");
+        if (marcado == null || marcado.isBefore(inicioHoje)) {
+            return false;
+        }
+        OffsetDateTime corrigido = monitorRepo.ultimoEnvio("resumo-corrigido");
+        if (corrigido != null && !corrigido.isBefore(inicioHoje)) {
+            return false;
+        }
+        return !coleta.rodando() && repo.pedidosDoDia(hoje.minusDays(1)) > 0;
+    }
+
+    public synchronized Map<String, String> enviarCorrecao() {
+        Map<String, String> r = enviar(null, true);
+        monitorRepo.registrarEnvio("resumo-corrigido", null, null, List.of(), "(resumo reenviado com os números do iFood)",
+                "SOMBRA", null, OffsetDateTime.now(clock));
+        return r;
+    }
+
     /** Envia a cada grupo o resumo do dia (padrão: ontem). */
     public synchronized Map<String, String> enviar(LocalDate dia) {
+        return enviar(dia, false);
+    }
+
+    synchronized Map<String, String> enviar(LocalDate dia, boolean atualizado) {
         OffsetDateTime agora = OffsetDateTime.now(clock);
         LocalDate d = dia != null ? dia : agora.atZoneSameInstant(zona).toLocalDate().minusDays(1);
         Map<String, Loja> lojas = numeros(d, agora);
+        boolean semNumeros = lojas.values().stream().allMatch(l -> l.pedidos() == null);
+        if (semNumeros && dia == null && !atualizado && painelCfg.analyticsConfigurado()) {
+            // saiu sem os números do iFood: reenvia quando chegarem
+            monitorRepo.registrarEnvio("resumo-pendente", null, null, List.of(), "(resumo enviado sem os números do iFood)",
+                    "SOMBRA", null, agora);
+        }
         List<Grupo> todos = grupos.listar(true);
         Map<String, String> enviados = new LinkedHashMap<>();
         for (Grupo g : todos) {
@@ -120,6 +156,10 @@ public class ResumoDiarioService {
             }
             List<Loja> doGrupo = ids.stream().map(lojas::get).toList();
             String texto = mensagem(d, doGrupo);
+            if (atualizado) {
+                texto = texto.replaceFirst("\\*\n", " (atualizado)*\n");
+                texto = texto.replaceFirst("^(📊 \\*Resumo iFood — [^*]+)\\*$", "$1 (atualizado)*");
+            }
             envio.enviar("resumo", g, texto);
             enviados.put(g.nome(), texto);
         }
