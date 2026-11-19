@@ -29,7 +29,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getServletPath();
+        String path = caminho(request);
         return "OPTIONS".equalsIgnoreCase(request.getMethod())
                 || path.equals("/auth/login")
                 || path.startsWith("/convites/")
@@ -57,7 +57,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     }
 
     static boolean permitidoAoMentorado(HttpServletRequest req, Sessao s) {
-        String path = req.getServletPath();
+        String path = caminho(req);
         String metodo = req.getMethod();
         if ("GET".equals(metodo)) {
             if (path.equals("/painel/carteira") || path.equals("/auth/eu")) {
@@ -71,6 +71,22 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         }
         return ("POST".equals(metodo) && path.equals("/auth/logout"))
                 || ("PUT".equals(metodo) && path.equals("/auth/senha"));
+    }
+
+    /**
+     * Caminho já normalizado pelo servidor (servletPath + pathInfo, sem "../" nem ";..."). Nos testes (MockMvc)
+     * o servletPath vem vazio; aí usa a URI.
+     */
+    static String caminho(HttpServletRequest req) {
+        String sp = req.getServletPath();
+        String pi = req.getPathInfo();
+        String p = (sp == null ? "" : sp) + (pi == null ? "" : pi);
+        if (p.isEmpty()) {
+            String uri = req.getRequestURI();
+            String ctx = req.getContextPath();
+            p = ctx != null && !ctx.isEmpty() && uri.startsWith(ctx) ? uri.substring(ctx.length()) : uri;
+        }
+        return p;
     }
 
     private void erro(HttpServletResponse response, int status, String codigo, String mensagem) throws IOException {

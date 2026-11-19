@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { login } from "../services/api";
+import { login, salvarSessao } from "../services/api";
 import logo from "../assets/ssd_logo.png";
 
 export default function LoginPage({ onLogin }) {
-  const [email, setEmail] = useState("admin");
-  const [senha, setSenha] = useState("admin");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
 
@@ -17,10 +17,8 @@ export default function LoginPage({ onLogin }) {
 
       const data = await login({ email, senha });
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("usuarioNome", data.nome);
-
-      onLogin();
+      salvarSessao(data);
+      onLogin(data);
     } catch (err) {
       setErro(err.message);
     } finally {
@@ -29,36 +27,44 @@ export default function LoginPage({ onLogin }) {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="tela-login">
+      <style>{`
+        @media (max-width: 820px) {
+          .tela-login { grid-template-columns: minmax(0, 1fr) !important; padding: 28px 16px !important; gap: 24px !important; align-content: start; }
+          .tela-login h1 { font-size: 36px !important; }
+          .tela-login .login-lista { display: none !important; }
+          .tela-login form { padding: 22px !important; }
+        }
+      `}</style>
       <div style={styles.backgroundGlowTop}></div>
       <div style={styles.backgroundGlowBottom}></div>
 
       <div style={styles.left}>
         <div style={styles.brandRow}>
           <img src={logo} alt="Seu Sucesso Delivery" style={styles.logo} />
-          <div style={styles.brandBadge}>Sistema interno</div>
+          <div style={styles.brandBadge}>Área restrita</div>
         </div>
 
         <h1 style={styles.title}>
-          Calculadora de
+          Resultados e
           <br />
-          Precificação
+          precificação
         </h1>
 
         <p style={styles.subtitle}>
-          Plataforma interna para cadastrar lojas, itens com CMV e simular preços
-          de forma rápida, padronizada e segura.
+          Acompanhe os resultados das lojas no iFood, atualizados todo dia, e
+          as ferramentas de precificação da equipe.
         </p>
 
-        <div style={styles.infoBox}>
+        <div style={styles.infoBox} className="login-lista">
           <div style={styles.infoItem}>
             <div style={styles.infoDot}></div>
-            <span>Simulação rápida de precificação</span>
+            <span>Faturamento, pedidos e ticket de cada semana</span>
           </div>
 
           <div style={styles.infoItem}>
             <div style={styles.infoDot}></div>
-            <span>Cadastro centralizado por loja</span>
+            <span>Comparação com o período anterior</span>
           </div>
 
           <div style={styles.infoItem}>
@@ -73,15 +79,18 @@ export default function LoginPage({ onLogin }) {
           <div style={styles.cardHeader}>
             <h2 style={styles.cardTitle}>Acessar sistema</h2>
             <p style={styles.cardSubtitle}>
-              Entre com suas credenciais para continuar.
+              Entre com o seu e-mail e senha.
             </p>
           </div>
 
           <div style={styles.field}>
-            <label style={styles.label}>Usuário</label>
+            <label style={styles.label}>E-mail</label>
             <input
               style={styles.input}
               value={email}
+              autoComplete="username"
+              inputMode="email"
+              autoCapitalize="none"
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
@@ -91,6 +100,7 @@ export default function LoginPage({ onLogin }) {
             <input
               style={styles.input}
               type="password"
+              autoComplete="current-password"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
             />
@@ -101,6 +111,10 @@ export default function LoginPage({ onLogin }) {
           <button style={styles.button} disabled={carregando}>
             {carregando ? "Entrando..." : "Entrar"}
           </button>
+
+          <p style={styles.ajuda}>
+            Esqueceu a senha ou ainda não tem acesso? Fale com a sua mentoria.
+          </p>
         </form>
       </div>
     </div>
@@ -279,6 +293,13 @@ const styles = {
     color: "#E63946",
     fontWeight: "bold",
     fontSize: "14px",
+  },
+
+  ajuda: {
+    margin: 0,
+    color: "#9BA7B4",
+    fontSize: "13px",
+    lineHeight: "1.5",
   },
 
   button: {
