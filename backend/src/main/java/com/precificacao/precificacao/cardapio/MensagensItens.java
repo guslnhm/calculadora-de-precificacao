@@ -64,6 +64,7 @@ public final class MensagensItens {
                         ? " desde " + inicio.atZoneSameInstant(zona).format(HH_MM) : "";
                 lista(l, "⏸️ ", nomes, soCategorias ? "Categoria pausada" : "Item pausado",
                         soCategorias ? "categorias pausadas" : "itens pausados", desde);
+                l.add(ORIGEM_IFOOD);
             }
             if (temVolta) {
                 boolean soCategorias = m.voltaram().stream().allMatch(r -> "CATEGORIA".equals(r.pausa().problema()));
@@ -81,6 +82,13 @@ public final class MensagensItens {
     }
 
     static final int MAX_NOMES_RESUMO = 15;
+    static final String ORIGEM_IFOOD = "📲 direto no iFood (Portal, Gestor de Pedidos ou PDV)";
+
+    /** Pausa feita pela calculadora: "⚠️ *Loja*\n⏸️ *Item pausado:* X-Bacon\n👤 pelo site, por Gustavo". */
+    public static String pausaPeloSite(String loja, String nome, boolean complemento, String usuario) {
+        return "⚠️ *" + loja + "*\n⏸️ *" + (complemento ? "Complemento pausado" : "Item pausado") + ":* " + nome
+                + "\n👤 pelo site" + (usuario == null || usuario.isBlank() ? "" : ", por " + usuario);
+    }
 
     /**
      * Resumo do início do dia: o que está pausado agora em cada loja do grupo.
