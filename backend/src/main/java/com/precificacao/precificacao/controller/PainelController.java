@@ -1,6 +1,7 @@
 package com.precificacao.precificacao.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.precificacao.precificacao.acesso.Sessao;
 import com.precificacao.precificacao.ifood.IfoodException;
 import com.precificacao.precificacao.painel.BiImportService;
 import com.precificacao.precificacao.painel.PainelColetaService;
@@ -63,8 +64,10 @@ public class PainelController {
 
     @GetMapping("/carteira")
     public PainelService.Carteira carteira(@RequestParam(defaultValue = "SEMANAL") String tipo,
-                                           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio) {
-        return painel.carteira(tipo, inicio);
+                                           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+                                           HttpServletRequest http) {
+        Sessao s = Sessao.de(http);
+        return painel.carteira(tipo, inicio, s != null && s.mentorado() ? s.lojas() : null);
     }
 
     @GetMapping("/loja")
