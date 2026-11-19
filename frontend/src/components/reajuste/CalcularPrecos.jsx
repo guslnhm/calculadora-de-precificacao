@@ -201,7 +201,7 @@ export default function CalcularPrecos({ lojaId, onSalvo }) {
                   const invalido = l.texto !== "" && (p == null || p <= 0);
                   const mudou = p != null && p > 0 && !iguais(p, i.precoSalvo);
                   return (
-                    <tr key={i.itemId} style={{ background: mudou ? "rgba(230,57,70,0.07)" : "transparent" }}>
+                    <tr key={i.itemId} style={{ background: mudou ? "rgba(45, 115, 172,0.07)" : "transparent" }}>
                       <td style={s.td}>
                         {i.nome}
                         {mudou && <div style={{ color: cores.destaque, fontSize: "12px" }}>alterado, falta salvar</div>}

@@ -252,7 +252,7 @@ export default function AbaLojas({ versao }) {
                   return (
                     <Fragment key={chave}>
                       <tr
-                        style={{ cursor: "pointer", backgroundColor: aberta === chave ? "#1B222B" : "transparent" }}
+                        style={{ cursor: "pointer", backgroundColor: aberta === chave ? "#FBF9F6" : "transparent" }}
                         onClick={() => setAberta(aberta === chave ? null : chave)}
                       >
                         <td style={s.td}>
@@ -276,7 +276,7 @@ export default function AbaLojas({ versao }) {
                       </tr>
                       {aberta === chave && (
                         <tr>
-                          <td colSpan={4} style={{ ...s.td, backgroundColor: "#1B222B" }}>
+                          <td colSpan={4} style={{ ...s.td, backgroundColor: "#FBF9F6" }}>
                             {l.mensagem && l.estado !== "OK" && (
                               <div style={{ marginBottom: "10px", fontSize: "13px" }}>
                                 <span style={s.suave}>Mensagem do iFood: </span>

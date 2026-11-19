@@ -447,7 +447,7 @@ export default function SimulacaoReversaPage() {
 
 const styles = {
   page: {
-    color: "#F6F8FA",
+    color: "#2A2019",
     paddingBottom: "8px",
   },
 
@@ -456,12 +456,12 @@ const styles = {
   },
 
   pageTitle: {
-    color: "#F6F8FA",
+    color: "#2A2019",
     marginBottom: "8px",
   },
 
   pageSubtitle: {
-    color: "#D9D9D9",
+    color: "#5E5046",
     margin: 0,
   },
 
@@ -473,28 +473,28 @@ const styles = {
   },
 
   formCard: {
-    backgroundColor: "#161B22",
-    border: "1px solid #26313B",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E7DFD6",
     borderRadius: "18px",
     padding: "22px",
     display: "grid",
     gap: "14px",
-    boxShadow: "0 14px 40px rgba(0,0,0,0.25)",
+    boxShadow: "0 14px 40px rgba(64, 44, 28, 0.08)",
   },
 
   resultCard: {
-    backgroundColor: "#161B22",
-    border: "1px solid #26313B",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E7DFD6",
     borderRadius: "18px",
     padding: "22px",
     minHeight: "100%",
-    boxShadow: "0 14px 40px rgba(0,0,0,0.25)",
+    boxShadow: "0 14px 40px rgba(64, 44, 28, 0.08)",
   },
 
   resultTitle: {
     marginTop: 0,
     marginBottom: "18px",
-    color: "#F6F8FA",
+    color: "#2A2019",
   },
 
   resultPlaceholder: {
@@ -503,7 +503,7 @@ const styles = {
   },
 
   resultPlaceholderText: {
-    color: "#D9D9D9",
+    color: "#5E5046",
     margin: 0,
   },
 
@@ -513,16 +513,16 @@ const styles = {
   },
 
   label: {
-    color: "#D9D9D9",
+    color: "#5E5046",
     fontSize: "14px",
   },
 
   input: {
-    backgroundColor: "#21262D",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
     padding: "12px 14px",
     borderRadius: "10px",
-    color: "#F6F8FA",
+    color: "#2A2019",
     outline: "none",
     fontSize: "15px",
   },
@@ -537,8 +537,8 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "1fr 52px",
     alignItems: "stretch",
-    backgroundColor: "#21262D",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
     borderRadius: "10px",
     overflow: "hidden",
     minWidth: 0,
@@ -551,15 +551,15 @@ const styles = {
     minWidth: 0,
     padding: "12px 14px",
     backgroundColor: "transparent",
-    color: "#F6F8FA",
+    color: "#2A2019",
     fontSize: "15px",
   },
 
   percentualSuffix: {
-    backgroundColor: "#1B222B",
-    color: "#A9CCE3",
+    backgroundColor: "#FBF9F6",
+    color: "#2D73AC",
     fontWeight: "bold",
-    borderLeft: "1px solid #30363D",
+    borderLeft: "1px solid #DCD3C9",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -567,8 +567,8 @@ const styles = {
   },
 
   itemInfoBox: {
-    backgroundColor: "#1B222B",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
     borderRadius: "12px",
     padding: "14px",
     display: "grid",
@@ -577,13 +577,13 @@ const styles = {
 
   itemInfoText: {
     margin: 0,
-    color: "#D9D9D9",
+    color: "#5E5046",
     lineHeight: "1.5",
   },
 
   percentuaisBox: {
-    backgroundColor: "#1B222B",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
     borderRadius: "12px",
     padding: "14px",
     display: "grid",
@@ -592,23 +592,23 @@ const styles = {
 
   percentuaisBoxText: {
     margin: 0,
-    color: "#D9D9D9",
+    color: "#5E5046",
     lineHeight: "1.5",
   },
 
   resumoPercentuais: {
-    backgroundColor: "#1B222B",
-    color: "#F6F8FA",
+    backgroundColor: "#FBF9F6",
+    color: "#2A2019",
     padding: "12px 14px",
     borderRadius: "10px",
-    border: "1px solid #26313B",
+    border: "1px solid #E7DFD6",
     fontWeight: "bold",
   },
 
   resumoPercentuaisErro: {
-    backgroundColor: "rgba(230, 57, 70, 0.12)",
-    color: "#F6F8FA",
-    border: "1px solid rgba(230, 57, 70, 0.35)",
+    backgroundColor: "rgba(45, 115, 172, 0.12)",
+    color: "#2A2019",
+    border: "1px solid rgba(45, 115, 172, 0.35)",
   },
 
   actions: {
@@ -619,8 +619,8 @@ const styles = {
   },
 
   primaryButton: {
-    backgroundColor: "#E63946",
-    color: "#F6F8FA",
+    backgroundColor: "#2D73AC",
+    color: "#FFFFFF",
     border: "none",
     padding: "12px 18px",
     borderRadius: "10px",
@@ -629,9 +629,9 @@ const styles = {
   },
 
   secondaryButton: {
-    backgroundColor: "#21262D",
-    color: "#F6F8FA",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    color: "#2A2019",
+    border: "1px solid #DCD3C9",
     padding: "12px 18px",
     borderRadius: "10px",
     cursor: "pointer",
@@ -643,13 +643,13 @@ const styles = {
   },
 
   erro: {
-    color: "#E63946",
+    color: "#2D73AC",
     fontWeight: "bold",
     margin: 0,
   },
 
   sucesso: {
-    color: "#A9CCE3",
+    color: "#2D73AC",
     fontWeight: "bold",
     margin: 0,
   },
@@ -657,26 +657,26 @@ const styles = {
   infoSection: {
     display: "grid",
     gap: "8px",
-    color: "#D9D9D9",
+    color: "#5E5046",
     marginBottom: "20px",
   },
 
   highlightCard: {
-    backgroundColor: "rgba(169, 204, 227, 0.10)",
-    border: "1px solid rgba(169, 204, 227, 0.25)",
+    backgroundColor: "rgba(80, 154, 209, 0.10)",
+    border: "1px solid rgba(80, 154, 209, 0.25)",
     borderRadius: "16px",
     padding: "20px",
     marginBottom: "18px",
   },
 
   highlightCardNegative: {
-    backgroundColor: "rgba(230, 57, 70, 0.10)",
-    border: "1px solid rgba(230, 57, 70, 0.35)",
+    backgroundColor: "rgba(45, 115, 172, 0.10)",
+    border: "1px solid rgba(45, 115, 172, 0.35)",
   },
 
   highlightLabel: {
     margin: 0,
-    color: "#A9CCE3",
+    color: "#2D73AC",
     fontWeight: "bold",
   },
 
@@ -684,17 +684,17 @@ const styles = {
     margin: "10px 0",
     fontSize: "38px",
     fontWeight: "bold",
-    color: "#F6F8FA",
+    color: "#2A2019",
     lineHeight: 1,
   },
 
   highlightValueNegative: {
-    color: "#E63946",
+    color: "#2D73AC",
   },
 
   highlightText: {
     margin: 0,
-    color: "#D9D9D9",
+    color: "#5E5046",
     lineHeight: "1.5",
   },
 
@@ -702,13 +702,13 @@ const styles = {
     marginTop: "18px",
     padding: "16px",
     borderRadius: "14px",
-    backgroundColor: "#1B222B",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
   },
 
   resultExplanationText: {
     margin: 0,
-    color: "#D9D9D9",
+    color: "#5E5046",
     lineHeight: "1.5",
   },
 };

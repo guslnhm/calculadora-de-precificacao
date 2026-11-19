@@ -1,14 +1,14 @@
 import { cores } from "../monitor/ui";
 
-// Formatação e cores do painel (mesmo tema escuro do site).
+// Formatação e cores do painel (tema claro RIZQ).
 
 export const cor = {
   ...cores,
-  serie1: "#3987e5", // azul (série principal)
-  serie2: "#d95926", // laranja (comparação)
-  bom: "#3FB950",
-  ruim: "#F85149",
-  grade: "#26313B",
+  serie1: "#509AD1", // azul (série principal)
+  serie2: "#E86E36", // laranja (comparação)
+  bom: "#2E8B57",
+  ruim: "#C9531E",
+  grade: "#E7DFD6",
 };
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });

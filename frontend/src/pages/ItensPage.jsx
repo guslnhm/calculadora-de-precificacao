@@ -660,7 +660,7 @@ async function handleDesativarItem(item) {
 
 const styles = {
   page: {
-    color: "#F6F8FA",
+    color: "#2A2019",
   },
 
   pageHeader: {
@@ -673,7 +673,7 @@ const styles = {
 
   pageSubtitle: {
     margin: 0,
-    color: "#D9D9D9",
+    color: "#5E5046",
   },
 
   layout: {
@@ -684,21 +684,21 @@ const styles = {
   },
 
   formCard: {
-    backgroundColor: "#161B22",
-    border: "1px solid #26313B",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E7DFD6",
     borderRadius: "18px",
     padding: "22px",
     display: "grid",
     gap: "14px",
-    boxShadow: "0 14px 40px rgba(0,0,0,0.25)",
+    boxShadow: "0 14px 40px rgba(64, 44, 28, 0.08)",
   },
 
   tableCard: {
-    backgroundColor: "#161B22",
-    border: "1px solid #26313B",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E7DFD6",
     borderRadius: "18px",
     padding: "22px",
-    boxShadow: "0 14px 40px rgba(0,0,0,0.25)",
+    boxShadow: "0 14px 40px rgba(64, 44, 28, 0.08)",
     width: "100%",
     boxSizing: "border-box",
     minWidth: 0,
@@ -733,26 +733,26 @@ const styles = {
   },
 
   label: {
-    color: "#D9D9D9",
+    color: "#5E5046",
     fontSize: "14px",
   },
 
   input: {
-    backgroundColor: "#21262D",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
     padding: "12px 14px",
     borderRadius: "10px",
-    color: "#F6F8FA",
+    color: "#2A2019",
     outline: "none",
     fontSize: "15px",
   },
 
   textarea: {
-    backgroundColor: "#21262D",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
     padding: "12px 14px",
     borderRadius: "10px",
-    color: "#F6F8FA",
+    color: "#2A2019",
     outline: "none",
     fontSize: "15px",
     minHeight: "110px",
@@ -760,8 +760,8 @@ const styles = {
   },
 
   primaryButton: {
-    backgroundColor: "#E63946",
-    color: "#F6F8FA",
+    backgroundColor: "#2D73AC",
+    color: "#FFFFFF",
     border: "none",
     padding: "12px 18px",
     borderRadius: "10px",
@@ -770,26 +770,26 @@ const styles = {
   },
 
   erro: {
-    color: "#E63946",
+    color: "#2D73AC",
     fontWeight: "bold",
     margin: 0,
   },
 
   sucesso: {
-    color: "#A9CCE3",
+    color: "#2D73AC",
     fontWeight: "bold",
     margin: 0,
   },
 
   emptyText: {
-    color: "#D9D9D9",
+    color: "#5E5046",
     margin: 0,
   },
 
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    color: "#F6F8FA",
+    color: "#2A2019",
     tableLayout: "fixed",
     fontSize: "12px",
   },
@@ -801,17 +801,17 @@ const styles = {
 
   helperText: {
     margin: 0,
-    color: "#D9D9D9",
+    color: "#5E5046",
     fontSize: "14px",
     lineHeight: "1.5",
   },
 
   fileInput: {
-    backgroundColor: "#21262D",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
     padding: "12px 14px",
     borderRadius: "10px",
-    color: "#F6F8FA",
+    color: "#2A2019",
     outline: "none",
     fontSize: "15px",
   },
@@ -827,9 +827,9 @@ const styles = {
     justifyContent: "center",
     padding: "10px 14px",
     borderRadius: "10px",
-    backgroundColor: "#21262D",
-    border: "1px solid #30363D",
-    color: "#A9CCE3",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
+    color: "#2D73AC",
     textDecoration: "none",
     fontSize: "14px",
     fontWeight: "bold",
@@ -837,9 +837,9 @@ const styles = {
   },
 
   secondaryButton: {
-    backgroundColor: "#21262D",
-    color: "#F6F8FA",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    color: "#2A2019",
+    border: "1px solid #DCD3C9",
     padding: "12px 18px",
     borderRadius: "10px",
     fontWeight: "bold",
@@ -855,8 +855,8 @@ const styles = {
 
   editButton: {
     backgroundColor: "transparent",
-    color: "#A9CCE3",
-    border: "1px solid #A9CCE3",
+    color: "#2D73AC",
+    border: "1px solid #2D73AC",
     padding: "6px 10px",
     borderRadius: "6px",
     fontWeight: "600",
@@ -867,8 +867,8 @@ const styles = {
 
   deleteButton: {
     backgroundColor: "transparent",
-    color: "#E63946",
-    border: "1px solid #E63946",
+    color: "#2D73AC",
+    border: "1px solid #2D73AC",
     padding: "6px 10px",
     borderRadius: "6px",
     fontWeight: "600",
@@ -878,18 +878,18 @@ const styles = {
   },
 
   editButtonHover: {
-    backgroundColor: "#A9CCE320",
+    backgroundColor: "#2D73AC20",
   },
 
   deleteButtonHover: {
-    backgroundColor: "#E6394620",
+    backgroundColor: "#2D73AC20",
   },
 
   th: {
     textAlign: "left",
     padding: "10px 12px",
-    color: "#8B949E",
-    borderBottom: "1px solid #30363D",
+    color: "#8A7B70",
+    borderBottom: "1px solid #DCD3C9",
     whiteSpace: "nowrap",
     verticalAlign: "middle",
   },
@@ -897,20 +897,20 @@ const styles = {
   thSub: {
     textAlign: "left",
     padding: "8px 12px",
-    color: "#8B949E",
-    borderBottom: "1px solid #30363D",
+    color: "#8A7B70",
+    borderBottom: "1px solid #DCD3C9",
     fontSize: "12px",
     whiteSpace: "nowrap",
   },
 
   platformHeader: {
     textAlign: "center",
-    color: "#A9CCE3",
+    color: "#2D73AC",
     fontWeight: 700,
   },
 
   food99Header: {
-    color: "#F7D600",
+    color: "#8A6D00",
   },
 
   pageContent: {
@@ -927,7 +927,7 @@ const styles = {
 
   td: {
     padding: "9px 7px",
-    borderBottom: "1px solid #21262D",
+    borderBottom: "1px solid #FBF9F6",
     verticalAlign: "middle",
     overflowWrap: "break-word",
   },

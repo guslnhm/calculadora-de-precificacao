@@ -1,23 +1,28 @@
 import { useEffect, useState } from "react";
 
-// Estilos e funções de apoio das telas do monitor iFood (mesmo tema escuro do resto do site).
+// Estilos e funções de apoio das telas do monitor iFood (tema claro RIZQ, o mesmo do resto do site).
 
 export const FUSO = "America/Sao_Paulo";
 
 export const cores = {
-  fundo: "#0D1117",
-  card: "#161B22",
-  borda: "#26313B",
-  bordaCampo: "#30363D",
-  campo: "#21262D",
-  texto: "#F6F8FA",
-  textoSuave: "#9BA7B4",
-  destaque: "#E63946",
-  vermelho: "#F85149",
-  amarelo: "#D29922",
-  azul: "#58A6FF",
-  verde: "#3FB950",
-  cinza: "#8B949E",
+  // identidade RIZQ: azul céu, laranja, amarelo e marrom sobre fundo off-white
+  fundo: "#F6F3EF",
+  card: "#FFFFFF",
+  borda: "#E7DFD6",
+  bordaCampo: "#DCD3C9",
+  campo: "#FBF9F6",
+  texto: "#2A2019",
+  textoSuave: "#76675C",
+  destaque: "#2D73AC", // azul de botão (Azul Céu um tom abaixo, para o texto branco ler bem)
+  marca: "#509AD1", // Azul Céu
+  laranja: "#E86E36",
+  amareloMarca: "#F4B83F",
+  marrom: "#734F37",
+  vermelho: "#C9531E",
+  amarelo: "#B07A0A",
+  azul: "#2D73AC",
+  verde: "#2E8B57",
+  cinza: "#8A7B70",
 };
 
 export const ESTADOS = {
@@ -213,27 +218,27 @@ export const s = {
   },
   td: { padding: "10px", border: "none", borderBottom: `1px solid ${cores.borda}`, verticalAlign: "top" },
   erro: {
-    backgroundColor: "rgba(248,81,73,0.1)",
+    backgroundColor: "rgba(232, 110, 54,0.1)",
     border: `1px solid ${cores.vermelho}`,
-    color: "#FFA198",
+    color: "#B14A18",
     borderRadius: "10px",
     padding: "10px 14px",
     marginBottom: "14px",
     fontSize: "14px",
   },
   aviso: {
-    backgroundColor: "rgba(210,153,34,0.1)",
+    backgroundColor: "rgba(244, 184, 63, 0.18)",
     border: `1px solid ${cores.amarelo}`,
-    color: "#E3B341",
+    color: "#9A6B07",
     borderRadius: "10px",
     padding: "10px 14px",
     marginBottom: "14px",
     fontSize: "14px",
   },
   ok: {
-    backgroundColor: "rgba(63,185,80,0.1)",
+    backgroundColor: "rgba(46, 139, 87,0.1)",
     border: `1px solid ${cores.verde}`,
-    color: "#7EE787",
+    color: "#2E8B57",
     borderRadius: "10px",
     padding: "10px 14px",
     marginBottom: "14px",

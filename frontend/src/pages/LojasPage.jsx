@@ -607,7 +607,7 @@ export default function LojasPage() {
 
 const styles = {
   page: {
-    color: "#F6F8FA",
+    color: "#2A2019",
   },
 
   pageHeader: {
@@ -620,7 +620,7 @@ const styles = {
 
   pageSubtitle: {
     margin: 0,
-    color: "#D9D9D9",
+    color: "#5E5046",
   },
 
   layout: {
@@ -631,8 +631,8 @@ const styles = {
   },
 
   formCard: {
-    backgroundColor: "#161B22",
-    border: "1px solid #26313B",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E7DFD6",
     borderRadius: "18px",
     padding: "22px",
     display: "grid",
@@ -640,8 +640,8 @@ const styles = {
   },
 
   tableCard: {
-    backgroundColor: "#161B22",
-    border: "1px solid #26313B",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E7DFD6",
     borderRadius: "18px",
     padding: "22px",
   },
@@ -659,9 +659,9 @@ const styles = {
   },
 
   badge: {
-    backgroundColor: "#1B222B",
-    color: "#A9CCE3",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    color: "#2D73AC",
+    border: "1px solid #DCD3C9",
     borderRadius: "999px",
     padding: "6px 12px",
     fontSize: "13px",
@@ -673,33 +673,33 @@ const styles = {
   },
 
   label: {
-    color: "#D9D9D9",
+    color: "#5E5046",
     fontSize: "14px",
   },
 
   input: {
-    backgroundColor: "#21262D",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
     padding: "12px 14px",
     borderRadius: "10px",
-    color: "#F6F8FA",
+    color: "#2A2019",
     outline: "none",
     fontSize: "15px",
   },
 
   textarea: {
-    backgroundColor: "#21262D",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
     padding: "12px 14px",
     borderRadius: "10px",
-    color: "#F6F8FA",
+    color: "#2A2019",
     minHeight: "100px",
     resize: "vertical",
   },
 
   plataformasBox: {
-    backgroundColor: "#0D1117",
-    border: "1px solid #30363D",
+    backgroundColor: "#F6F3EF",
+    border: "1px solid #DCD3C9",
     borderRadius: "12px",
     padding: "14px",
     display: "grid",
@@ -715,12 +715,12 @@ const styles = {
     alignItems: "center",
     gap: "9px",
     cursor: "pointer",
-    color: "#D9D9D9",
+    color: "#5E5046",
   },
 
   primaryButton: {
-    backgroundColor: "#E63946",
-    color: "#F6F8FA",
+    backgroundColor: "#2D73AC",
+    color: "#FFFFFF",
     border: "none",
     padding: "12px 18px",
     borderRadius: "10px",
@@ -729,9 +729,9 @@ const styles = {
   },
 
   secondaryButton: {
-    backgroundColor: "#21262D",
-    color: "#F6F8FA",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    color: "#2A2019",
+    border: "1px solid #DCD3C9",
     padding: "10px 16px",
     borderRadius: "8px",
     cursor: "pointer",
@@ -754,13 +754,13 @@ const styles = {
   th: {
     textAlign: "left",
     padding: "10px",
-    color: "#8B949E",
-    borderBottom: "1px solid #30363D",
+    color: "#8A7B70",
+    borderBottom: "1px solid #DCD3C9",
   },
 
   td: {
     padding: "12px 10px",
-    borderBottom: "1px solid #21262D",
+    borderBottom: "1px solid #FBF9F6",
     verticalAlign: "middle",
   },
 
@@ -771,17 +771,17 @@ const styles = {
   },
 
   platformBadge: {
-    backgroundColor: "#21262D",
-    border: "1px solid #30363D",
+    backgroundColor: "#FBF9F6",
+    border: "1px solid #DCD3C9",
     borderRadius: "999px",
     padding: "4px 9px",
     fontSize: "12px",
     fontWeight: 600,
-    color: "#A9CCE3",
+    color: "#2D73AC",
   },
 
   semPlataforma: {
-    color: "#8B949E",
+    color: "#8A7B70",
     fontSize: "13px",
   },
 
@@ -794,8 +794,8 @@ const styles = {
 
   editButton: {
     backgroundColor: "transparent",
-    color: "#A9CCE3",
-    border: "1px solid #A9CCE3",
+    color: "#2D73AC",
+    border: "1px solid #2D73AC",
     padding: "6px 10px",
     borderRadius: "6px",
     cursor: "pointer",
@@ -803,33 +803,33 @@ const styles = {
 
   deleteButton: {
     backgroundColor: "transparent",
-    color: "#E63946",
-    border: "1px solid #E63946",
+    color: "#2D73AC",
+    border: "1px solid #2D73AC",
     padding: "6px 10px",
     borderRadius: "6px",
     cursor: "pointer",
   },
 
   erro: {
-    color: "#FF7B72",
+    color: "#C9531E",
     fontWeight: "bold",
     marginTop: "16px",
   },
 
   sucesso: {
-    color: "#3FB950",
+    color: "#2E8B57",
     fontWeight: "bold",
     marginTop: "16px",
   },
 
   emptyText: {
-    color: "#8B949E",
+    color: "#8A7B70",
   },
 
   modalOverlay: {
     position: "fixed",
     inset: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    backgroundColor: "rgba(42, 32, 25, 0.45)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -842,11 +842,11 @@ const styles = {
   maxWidth: "500px",
   maxHeight: "90vh",
   overflowY: "auto",
-  backgroundColor: "#161B22",
-  border: "1px solid #30363D",
+  backgroundColor: "#FFFFFF",
+  border: "1px solid #DCD3C9",
   borderRadius: "18px",
   padding: "24px",
-  boxShadow: "0 20px 70px rgba(0,0,0,.5)",
+  boxShadow: "0 20px 70px rgba(42, 32, 25, 0.45)",
 },
 
   modalTitle: {
@@ -855,7 +855,7 @@ const styles = {
 
   modalSubtitle: {
     margin: "0 0 18px",
-    color: "#8B949E",
+    color: "#8A7B70",
   },
 
   modalActions: {

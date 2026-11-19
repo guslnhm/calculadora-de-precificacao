@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { login, salvarSessao } from "../services/api";
-import logo from "../assets/ssd_logo.png";
+import logo from "../assets/rizq_logo_branco.png";
+import ceu from "../assets/ceu.jpg";
+
+// Login: céu do brandbook RIZQ de um lado, formulário do outro. No celular o céu vira uma faixa em cima.
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -30,62 +33,32 @@ export default function LoginPage({ onLogin }) {
     <div style={styles.container} className="tela-login">
       <style>{`
         @media (max-width: 820px) {
-          .tela-login { grid-template-columns: minmax(0, 1fr) !important; padding: 28px 16px !important; gap: 24px !important; align-content: start; }
-          .tela-login h1 { font-size: 36px !important; }
-          .tela-login .login-lista { display: none !important; }
-          .tela-login form { padding: 22px !important; }
+          .tela-login { grid-template-columns: minmax(0, 1fr) !important; }
+          .tela-login .login-ceu { min-height: 240px !important; padding: 28px 20px !important; }
+          .tela-login .login-ceu h1 { font-size: 28px !important; }
+          .tela-login .login-form { padding: 28px 20px 40px !important; align-content: start !important; }
         }
       `}</style>
-      <div style={styles.backgroundGlowTop}></div>
-      <div style={styles.backgroundGlowBottom}></div>
 
-      <div style={styles.left}>
-        <div style={styles.brandRow}>
-          <img src={logo} alt="Seu Sucesso Delivery" style={styles.logo} />
-          <div style={styles.brandBadge}>Área restrita</div>
-        </div>
-
-        <h1 style={styles.title}>
-          Resultados e
-          <br />
-          precificação
-        </h1>
-
-        <p style={styles.subtitle}>
-          Acompanhe os resultados das lojas no iFood, atualizados todo dia, e
-          as ferramentas de precificação da equipe.
-        </p>
-
-        <div style={styles.infoBox} className="login-lista">
-          <div style={styles.infoItem}>
-            <div style={styles.infoDot}></div>
-            <span>Faturamento, pedidos e ticket de cada semana</span>
-          </div>
-
-          <div style={styles.infoItem}>
-            <div style={styles.infoDot}></div>
-            <span>Comparação com o período anterior</span>
-          </div>
-
-          <div style={styles.infoItem}>
-            <div style={styles.infoDot}></div>
-            <span>Acesso restrito por login</span>
-          </div>
+      <div style={styles.ceu} className="login-ceu">
+        <img src={logo} alt="RIZQ" style={styles.logo} />
+        <div>
+          <h1 style={styles.title}>Resultados e precificação</h1>
+          <p style={styles.subtitle}>
+            Acompanhe os resultados das lojas no iFood, atualizados todo dia, e as
+            ferramentas de precificação da equipe.
+          </p>
         </div>
       </div>
 
-      <div style={styles.right}>
+      <div style={styles.right} className="login-form">
         <form onSubmit={handleSubmit} style={styles.card}>
-          <div style={styles.cardHeader}>
-            <h2 style={styles.cardTitle}>Acessar sistema</h2>
-            <p style={styles.cardSubtitle}>
-              Entre com o seu e-mail e senha.
-            </p>
-          </div>
+          <h2 style={styles.cardTitle}>Entrar</h2>
 
           <div style={styles.field}>
-            <label style={styles.label}>E-mail</label>
+            <label style={styles.label} htmlFor="login-email">E-mail</label>
             <input
+              id="login-email"
               style={styles.input}
               value={email}
               autoComplete="username"
@@ -96,8 +69,9 @@ export default function LoginPage({ onLogin }) {
           </div>
 
           <div style={styles.field}>
-            <label style={styles.label}>Senha</label>
+            <label style={styles.label} htmlFor="login-senha">Senha</label>
             <input
+              id="login-senha"
               style={styles.input}
               type="password"
               autoComplete="current-password"
@@ -124,193 +98,97 @@ export default function LoginPage({ onLogin }) {
 const styles = {
   container: {
     minHeight: "100vh",
-    backgroundColor: "#0D1117",
+    backgroundColor: "#FFFFFF",
     display: "grid",
-    gridTemplateColumns: "1.2fr 0.9fr",
-    alignItems: "center",
-    gap: "40px",
-    padding: "60px",
-    color: "#F6F8FA",
-    fontFamily: "Inter, Arial, sans-serif",
-    position: "relative",
-    overflow: "hidden",
+    gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 1fr)",
+    color: "#2A2019",
   },
-
-  backgroundGlowTop: {
-    position: "absolute",
-    width: "380px",
-    height: "380px",
-    borderRadius: "50%",
-    background: "rgba(230, 57, 70, 0.12)",
-    top: "-100px",
-    right: "-80px",
-    filter: "blur(70px)",
-    pointerEvents: "none",
-  },
-
-  backgroundGlowBottom: {
-    position: "absolute",
-    width: "420px",
-    height: "420px",
-    borderRadius: "50%",
-    background: "rgba(169, 204, 227, 0.10)",
-    bottom: "-140px",
-    left: "-100px",
-    filter: "blur(80px)",
-    pointerEvents: "none",
-  },
-
-  left: {
-    maxWidth: "620px",
-    position: "relative",
-    zIndex: 1,
+  ceu: {
+    background: `linear-gradient(0deg, rgba(36, 96, 150, 0.6) 0%, rgba(36, 96, 150, 0) 55%), #509AD1 url(${ceu}) center / cover`,
+    color: "#FFFFFF",
+    padding: "48px",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "center",
+    justifyContent: "space-between",
+    gap: "32px",
   },
-
-  brandRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "18px",
-    marginBottom: "20px",
-  },
-
   logo: {
-    width: "124px",
+    width: "180px",
+    maxWidth: "50vw",
     height: "auto",
     display: "block",
-    filter: "drop-shadow(0 6px 24px rgba(230,57,70,0.20))",
-    marginTop: "-6px",
   },
-
-  brandBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    backgroundColor: "#161B22",
-    color: "#A9CCE3",
-    border: "1px solid #26313B",
-    padding: "8px 14px",
-    borderRadius: "999px",
-    fontSize: "14px",
-    whiteSpace: "nowrap",
-  },
-
   title: {
-    fontSize: "56px",
-    lineHeight: "1.02",
-    margin: "0 0 18px 0",
-    letterSpacing: "-1px",
+    margin: 0,
+    fontSize: "clamp(30px, 3.6vw, 44px)",
+    fontWeight: 400,
+    lineHeight: 1.15,
+    color: "#FFFFFF",
   },
-
   subtitle: {
-    color: "#D9D9D9",
-    fontSize: "18px",
-    lineHeight: "1.6",
-    maxWidth: "520px",
-    margin: "0 0 28px 0",
+    margin: "12px 0 0",
+    fontSize: "17px",
+    lineHeight: 1.55,
+    fontWeight: 300,
+    maxWidth: "40ch",
   },
-
-  infoBox: {
-    display: "grid",
-    gap: "12px",
-    marginTop: "6px",
-  },
-
-  infoItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    color: "#F6F8FA",
-    fontSize: "16px",
-  },
-
-  infoDot: {
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-    backgroundColor: "#E63946",
-    flexShrink: 0,
-  },
-
   right: {
-    display: "flex",
-    justifyContent: "center",
-    position: "relative",
-    zIndex: 1,
+    display: "grid",
+    alignContent: "center",
+    justifyItems: "center",
+    padding: "48px",
   },
-
   card: {
     width: "100%",
-    maxWidth: "430px",
-    backgroundColor: "#161B22",
-    border: "1px solid #26313B",
-    padding: "32px",
-    borderRadius: "20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "18px",
-    boxShadow: "0 20px 60px rgba(0,0,0,0.45)",
+    maxWidth: "400px",
+    display: "grid",
+    gap: "16px",
   },
-
-  cardHeader: {
-    marginBottom: "6px",
-  },
-
   cardTitle: {
-    margin: 0,
-    fontSize: "30px",
-    color: "#F6F8FA",
+    margin: "0 0 4px",
+    fontSize: "26px",
   },
-
-  cardSubtitle: {
-    margin: "8px 0 0 0",
-    color: "#D9D9D9",
-    lineHeight: "1.5",
-  },
-
   field: {
     display: "grid",
-    gap: "8px",
+    gap: "6px",
   },
-
   label: {
-    color: "#D9D9D9",
-    fontSize: "14px",
+    fontSize: "13px",
+    color: "#76675C",
   },
-
   input: {
-    backgroundColor: "#21262D",
-    border: "1px solid #30363D",
+    width: "100%",
     padding: "12px 14px",
     borderRadius: "10px",
-    color: "#F6F8FA",
+    border: "1px solid #DCD3C9",
+    background: "#FBF9F6",
+    color: "#2A2019",
+    fontSize: "16px",
     outline: "none",
-    fontSize: "15px",
   },
-
   error: {
-    color: "#E63946",
-    fontWeight: "bold",
+    background: "rgba(232, 110, 54, 0.12)",
+    border: "1px solid rgba(201, 83, 30, 0.35)",
+    color: "#B14A18",
+    padding: "10px 12px",
+    borderRadius: "10px",
     fontSize: "14px",
   },
-
-  ajuda: {
-    margin: 0,
-    color: "#9BA7B4",
-    fontSize: "13px",
-    lineHeight: "1.5",
-  },
-
   button: {
-    marginTop: "6px",
-    backgroundColor: "#E63946",
+    marginTop: "4px",
+    backgroundColor: "#2D73AC",
     border: "none",
     padding: "13px 16px",
     borderRadius: "10px",
-    color: "#F6F8FA",
+    color: "#FFFFFF",
+    fontWeight: 600,
     fontSize: "16px",
-    fontWeight: "bold",
     cursor: "pointer",
+  },
+  ajuda: {
+    margin: 0,
+    color: "#76675C",
+    fontSize: "13px",
+    lineHeight: 1.5,
   },
 };

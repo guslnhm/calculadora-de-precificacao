@@ -1,16 +1,16 @@
-import logo from "../../assets/ssd_logo.png";
+import logo from "../../assets/rizq_logo_azul.png";
 import { cor } from "../painel/fmt";
 
 // Moldura das telas abertas sem login (convite e nova senha): logo, cartão central e campos.
 
 export default function TelaPublica({ titulo, subtitulo, children }) {
   return (
-    <div style={{ minHeight: "100vh", background: cor.fundo, color: cor.texto, fontFamily: "Inter, Arial, sans-serif",
+    <div style={{ minHeight: "100vh", background: cor.fundo, color: cor.texto, 
       display: "grid", justifyItems: "center", alignContent: "start", padding: "40px 16px", boxSizing: "border-box" }}>
-      <img src={logo} alt="Seu Sucesso Delivery" style={{ width: 96, height: "auto", marginBottom: 20 }} />
+      <img src={logo} alt="RIZQ" style={{ width: 120, height: "auto", marginBottom: 24 }} />
       <div style={{ width: "100%", maxWidth: 440, background: cor.card, border: `1px solid ${cor.borda}`,
         borderRadius: 16, padding: 24, boxSizing: "border-box", display: "grid", gap: 16,
-        boxShadow: "0 20px 60px rgba(0,0,0,0.45)" }}>
+        boxShadow: "0 20px 60px rgba(64, 44, 28, 0.12)" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 24 }}>{titulo}</h1>
           {subtitulo && <div style={{ marginTop: 8, color: cor.textoSuave, fontSize: 14, lineHeight: 1.5 }}>{subtitulo}</div>}

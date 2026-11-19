@@ -50,7 +50,7 @@ function Moldura({ titulo, api, children, onCancelar, onSalvar, salvando, erro, 
         margin: "10px 0",
         display: "grid",
         gap: "12px",
-        background: "#1B1F27",
+        background: "#FFFFFF",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", flexWrap: "wrap", alignItems: "baseline" }}>

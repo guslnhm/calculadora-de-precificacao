@@ -79,7 +79,7 @@ function EscolherGrupo({ chatId, onEscolher }) {
                   display: "block",
                   width: "100%",
                   textAlign: "left",
-                  background: g.id === chatId ? "#1F2A37" : "transparent",
+                  background: g.id === chatId ? "#FBF9F6" : "transparent",
                   color: cores.texto,
                   border: "none",
                   borderBottom: `1px solid ${cores.borda}`,
