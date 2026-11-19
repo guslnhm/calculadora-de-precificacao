@@ -6,7 +6,7 @@ export function Cartao({ titulo, valor, delta, nota, destaque }) {
   return (
     <div style={{ ...caixa, padding: "14px 16px", minWidth: 0, borderColor: destaque || cor.borda }}>
       <div style={{ fontSize: 12, color: cor.textoSuave, textTransform: "uppercase", letterSpacing: 0.4 }}>{titulo}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: cor.texto, margin: "6px 0 4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      <div style={{ fontSize: "clamp(17px, 1.2vw + 12px, 22px)", fontWeight: 600, letterSpacing: "-0.02em", color: cor.texto, margin: "6px 0 4px", lineHeight: 1.2, overflowWrap: "anywhere" }}>
         {valor}
       </div>
       <div style={{ fontSize: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
