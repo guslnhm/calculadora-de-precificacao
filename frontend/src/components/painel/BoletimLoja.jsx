@@ -83,7 +83,7 @@ export default function BoletimLoja({ dados, onAtualizar, somenteLeitura = false
           valor={percentual(a.conversao)}
           delta={variacao(v.conversao, { pontos: true })}
           nota={a.conversao == null ? (somenteLeitura ? "ainda não lançada" : "lance abaixo") : conversaoBoa ? "✓ boa (meta 15%)" : "✕ abaixo da meta de 15%"}
-          destaque={a.conversao == null ? undefined : conversaoBoa ? "#1f4d2b" : "#5c2b2b"}
+          destaque={a.conversao == null ? undefined : conversaoBoa ? "#9FD3B5" : "#F2B79B"}
         />
         <Cartao titulo="Cancelamentos" valor={inteiro(a.cancelamentos)} delta={variacao(v.cancelamentos, { inverso: true })} nota={percentual(a.taxaCancelamento)} />
         <Cartao titulo="Novos clientes" valor={inteiro(a.novosClientes)} delta={variacao(v.novosClientes)} />
@@ -91,7 +91,7 @@ export default function BoletimLoja({ dados, onAtualizar, somenteLeitura = false
                 nota={a.repasse != null && a.faturamento ? `${percentual(a.repasse / a.faturamento)} do faturamento` : undefined} />
         <Cartao titulo="Tempo de entrega" valor={a.tempoEntrega != null ? `${Math.round(a.tempoEntrega)} min` : "—"} />
         <Cartao titulo="Perda estimada" valor={reaisCurto(a.perdaEstimada)} nota={a.minutosFechada ? `${minutos(a.minutosFechada)} fechada` : "sem fechamentos"}
-                destaque={Number(a.perdaEstimada) > 0 ? "#5c2b2b" : undefined} />
+                destaque={Number(a.perdaEstimada) > 0 ? "#F2B79B" : undefined} />
       </div>
 
       {!somenteLeitura && (

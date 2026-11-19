@@ -163,9 +163,9 @@ const styles = {
     boxSizing: "border-box",
     padding: "12px 14px",
     borderRadius: "10px",
-    border: "1px solid #30363D",
-    backgroundColor: "#21262D",
-    color: "#F6F8FA",
+    border: "1px solid #DCD3C9",
+    backgroundColor: "#FBF9F6",
+    color: "#2A2019",
     outline: "none",
     fontSize: "15px",
   },
@@ -183,18 +183,18 @@ const styles = {
     zIndex: 1000,
     maxHeight: "280px",
     overflowY: "auto",
-    backgroundColor: "#161B22",
-    border: "1px solid #30363D",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #DCD3C9",
     borderRadius: "10px",
-    boxShadow: "0 14px 35px rgba(0,0,0,0.45)",
+    boxShadow: "0 14px 35px rgba(64, 44, 28, 0.12)",
   },
 
   option: {
     width: "100%",
     border: "none",
-    borderBottom: "1px solid #21262D",
+    borderBottom: "1px solid #FBF9F6",
     backgroundColor: "transparent",
-    color: "#F6F8FA",
+    color: "#2A2019",
     padding: "11px 12px",
     cursor: "pointer",
     textAlign: "left",
@@ -205,7 +205,7 @@ const styles = {
   },
 
   optionSelected: {
-    backgroundColor: "#21262D",
+    backgroundColor: "#FBF9F6",
   },
 
   nome: {
@@ -213,14 +213,14 @@ const styles = {
   },
 
   cmv: {
-    color: "#8B949E",
+    color: "#8A7B70",
     fontSize: "12px",
     whiteSpace: "nowrap",
   },
 
   empty: {
     padding: "14px",
-    color: "#8B949E",
+    color: "#8A7B70",
     textAlign: "center",
   },
 };

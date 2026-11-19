@@ -38,7 +38,7 @@ function Tooltip({ x, y, largura, linhas }) {
         left: esquerda ? undefined : x + 12,
         right: esquerda ? largura - x + 12 : undefined,
         top: Math.max(0, y - 10),
-        background: "#0B0F14",
+        background: "#F6F3EF",
         border: `1px solid ${cor.borda}`,
         borderRadius: 8,
         padding: "8px 10px",
@@ -46,7 +46,7 @@ function Tooltip({ x, y, largura, linhas }) {
         color: cor.texto,
         pointerEvents: "none",
         whiteSpace: "nowrap",
-        boxShadow: "0 6px 18px rgba(0,0,0,.35)",
+        boxShadow: "0 6px 18px rgba(64, 44, 28, 0.12)",
         zIndex: 2,
       }}
     >
@@ -132,7 +132,7 @@ export function GraficoLinha({ series, rotulos, formato, altura = 200 }) {
               <path d={d} fill="none" stroke={s.cor} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
               {pts.map((p, i) =>
                 p && (foco === i || pts.filter(Boolean).length === 1) ? (
-                  <circle key={i} cx={p[0]} cy={p[1]} r={4} fill={s.cor} stroke="#161B22" strokeWidth={2} />
+                  <circle key={i} cx={p[0]} cy={p[1]} r={4} fill={s.cor} stroke="#FFFFFF" strokeWidth={2} />
                 ) : null
               )}
               {ultimo && foco === null && (
@@ -215,7 +215,7 @@ export function GraficoBarras({ itens, formato, altura = 180, corBarra = cor.ser
 
 const DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 // rampa sequencial azul (do fundo para o mais forte)
-const RAMPA = ["#1b2533", "#184f95", "#1c5cab", "#256abf", "#2a78d6", "#3987e5", "#5598e7", "#86b6ef"];
+const RAMPA = ["#EFEAE4", "#D6E7F5", "#B9D6EE", "#97C2E6", "#73AEDC", "#509AD1", "#3A82BE", "#2D6BA0"];
 
 /** Mapa de calor dia da semana × hora. dados: [{ diaSemana 1-7, hora 0-23, faturamentoMedio }]. */
 export function MapaCalor({ dados, formato }) {

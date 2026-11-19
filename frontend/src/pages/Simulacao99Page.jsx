@@ -821,7 +821,7 @@ export default function Simulacao99Page() {
 
 const styles = {
   page: {
-    color: "#F6F8FA",
+    color: "#2A2019",
     paddingBottom: "8px",
   },
 
@@ -830,12 +830,12 @@ const styles = {
   },
 
   pageTitle: {
-    color: "#F6F8FA",
+    color: "#2A2019",
     marginBottom: "8px",
   },
 
   pageSubtitle: {
-    color: "#D9D9D9",
+    color: "#5E5046",
     margin: 0,
   },
 
@@ -847,8 +847,8 @@ const styles = {
   },
 
   formCard: {
-    backgroundColor: "#161B22",
-    border: "1px solid #26313B",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E7DFD6",
     borderRadius: "18px",
     padding: "22px",
     display: "grid",
@@ -856,8 +856,8 @@ const styles = {
   },
 
   resultCard: {
-    backgroundColor: "#161B22",
-    border: "1px solid #26313B",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #E7DFD6",
     borderRadius: "18px",
     padding: "22px",
   },
@@ -874,9 +874,9 @@ const styles = {
   input: {
     padding: "11px 12px",
     borderRadius: "8px",
-    border: "1px solid #30363D",
-    backgroundColor: "#0D1117",
-    color: "#F6F8FA",
+    border: "1px solid #DCD3C9",
+    backgroundColor: "#F6F3EF",
+    color: "#2A2019",
   },
 
   inputPercentualWrapper: {
@@ -888,9 +888,9 @@ const styles = {
     boxSizing: "border-box",
     padding: "11px 36px 11px 12px",
     borderRadius: "8px",
-    border: "1px solid #30363D",
-    backgroundColor: "#0D1117",
-    color: "#F6F8FA",
+    border: "1px solid #DCD3C9",
+    backgroundColor: "#F6F3EF",
+    color: "#2A2019",
   },
 
   percentualSuffix: {
@@ -898,7 +898,7 @@ const styles = {
     right: "12px",
     top: "50%",
     transform: "translateY(-50%)",
-    color: "#8B949E",
+    color: "#8A7B70",
   },
 
   grid2: {
@@ -912,8 +912,8 @@ const styles = {
     justifyContent: "space-between",
     padding: "12px",
     borderRadius: "10px",
-    backgroundColor: "#0D1117",
-    border: "1px solid #30363D",
+    backgroundColor: "#F6F3EF",
+    border: "1px solid #DCD3C9",
   },
 
   percentualResumo: {
@@ -921,12 +921,12 @@ const styles = {
     justifyContent: "space-between",
     padding: "12px",
     borderRadius: "10px",
-    backgroundColor: "#0D1117",
-    border: "1px solid #30363D",
+    backgroundColor: "#F6F3EF",
+    border: "1px solid #DCD3C9",
   },
 
   percentualResumoErro: {
-    border: "1px solid #F85149",
+    border: "1px solid #C9531E",
   },
 
   actions: {
@@ -941,17 +941,17 @@ const styles = {
     padding: "11px 16px",
     cursor: "pointer",
     fontWeight: 700,
-    backgroundColor: "#f7d600",
-    color: "#000000",
+    backgroundColor: "#F4B83F",
+    color: "#2A2019",
   },
 
   secondaryButton: {
-    border: "1px solid #30363D",
+    border: "1px solid #DCD3C9",
     borderRadius: "8px",
     padding: "11px 16px",
     cursor: "pointer",
-    backgroundColor: "#21262D",
-    color: "#F6F8FA",
+    backgroundColor: "#FBF9F6",
+    color: "#2A2019",
   },
 
   disabledButton: {
@@ -964,31 +964,31 @@ const styles = {
   },
 
   placeholder: {
-    color: "#8B949E",
+    color: "#8A7B70",
   },
 
   infoSection: {
-    color: "#D9D9D9",
+    color: "#5E5046",
     paddingBottom: "12px",
-    borderBottom: "1px solid #30363D",
+    borderBottom: "1px solid #DCD3C9",
     marginBottom: "14px",
   },
 
   priceCard: {
-    border: "1px solid #30363D",
+    border: "1px solid #DCD3C9",
     borderRadius: "12px",
     padding: "14px",
     marginBottom: "10px",
     cursor: "pointer",
-    backgroundColor: "#0D1117",
+    backgroundColor: "#F6F3EF",
   },
 
   priceCardHighlight: {
-    border: "1px solid #2EA043",
+    border: "1px solid #2E8B57",
   },
 
   priceCardSelected: {
-    outline: "2px solid #58A6FF",
+    outline: "2px solid #2D73AC",
   },
 
   radioRow: {
@@ -999,20 +999,20 @@ const styles = {
   },
 
   radioText: {
-    color: "#8B949E",
+    color: "#8A7B70",
     fontSize: "13px",
   },
 
   priceTitle: {
     margin: "0 0 5px",
-    color: "#D9D9D9",
+    color: "#5E5046",
   },
 
   priceValue: {
     margin: 0,
     fontSize: "24px",
     fontWeight: 700,
-    color: "#F6F8FA",
+    color: "#2A2019",
   },
 
   editablePriceBox: {
@@ -1025,7 +1025,7 @@ const styles = {
   currencyLabel: {
     fontSize: "18px",
     fontWeight: 700,
-    color: "#f7d600",
+    color: "#8A6D00",
   },
 
   editablePriceInput: {
@@ -1033,9 +1033,9 @@ const styles = {
     boxSizing: "border-box",
     padding: "8px 10px",
     borderRadius: "8px",
-    border: "1px solid #f7d600",
-    backgroundColor: "#161B22",
-    color: "#F6F8FA",
+    border: "1px solid #E0A42A",
+    backgroundColor: "#FFFFFF",
+    color: "#2A2019",
     fontSize: "22px",
     fontWeight: 700,
     outline: "none",
@@ -1044,14 +1044,14 @@ const styles = {
   editablePriceHint: {
     display: "block",
     marginTop: "7px",
-    color: "#8B949E",
+    color: "#8A7B70",
     fontSize: "12px",
   },
 
   cmvPercentual: {
     display: "block",
     marginTop: "8px",
-    color: "#F6F8FA",
+    color: "#2A2019",
     fontSize: "14px",
     fontWeight: 700,
   },
@@ -1063,37 +1063,37 @@ const styles = {
   },
 
   saveBox: {
-    borderTop: "1px solid #30363D",
+    borderTop: "1px solid #DCD3C9",
     marginTop: "14px",
     paddingTop: "14px",
   },
 
   saveText: {
-    color: "#D9D9D9",
+    color: "#5E5046",
   },
 
   erro: {
-    color: "#FF7B72",
+    color: "#C9531E",
     margin: 0,
   },
 
   sucesso: {
-    color: "#3FB950",
+    color: "#2E8B57",
     margin: 0,
   },
 
   copartCard: {
-    border: "1px solid #30363D",
+    border: "1px solid #DCD3C9",
     borderRadius: "12px",
-    backgroundColor: "#0D1117",
+    backgroundColor: "#F6F3EF",
     overflow: "hidden",
     marginBottom: "10px",
   },
 
   copartHeader: {
     padding: "11px 12px",
-    borderBottom: "1px solid #30363D",
-    color: "#F6F8FA",
+    borderBottom: "1px solid #DCD3C9",
+    color: "#2A2019",
     fontSize: "14px",
   },
 
@@ -1103,11 +1103,11 @@ const styles = {
     gap: "8px",
     padding: "9px 10px",
     cursor: "pointer",
-    borderBottom: "1px solid #21262D",
+    borderBottom: "1px solid #FBF9F6",
   },
 
   copartRowSelected: {
-    outline: "2px solid #58A6FF",
+    outline: "2px solid #2D73AC",
     outlineOffset: "-2px",
   },
 
@@ -1122,24 +1122,24 @@ const styles = {
   copartParticipation: {
     display: "block",
     marginTop: "2px",
-    color: "#8B949E",
+    color: "#8A7B70",
     fontSize: "11px",
   },
 
   copartValue: {
     whiteSpace: "nowrap",
     fontSize: "16px",
-    color: "#F6F8FA",
+    color: "#2A2019",
   },
 
   saveParametersButton: {
     width: "100%",
-    border: "1px solid #30363D",
+    border: "1px solid #DCD3C9",
     borderRadius: "8px",
     padding: "11px 16px",
     cursor: "pointer",
     fontWeight: 700,
-    backgroundColor: "#21262D",
-    color: "#F6F8FA",
+    backgroundColor: "#FBF9F6",
+    color: "#2A2019",
   },
 };

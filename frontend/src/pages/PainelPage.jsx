@@ -104,7 +104,7 @@ export default function PainelPage({ mentorado = false }) {
               {["SEMANAL", "MENSAL"].map((t) => (
                 <button key={t} onClick={() => trocarTipo(t)}
                         style={{ padding: "8px 12px", border: "none", cursor: "pointer", fontSize: 13,
-                          background: tipo === t ? cor.destaque : cor.campo, color: "#fff", fontWeight: tipo === t ? 700 : 400 }}>
+                          background: tipo === t ? cor.destaque : cor.campo, color: tipo === t ? "#fff" : cor.texto, fontWeight: tipo === t ? 700 : 400 }}>
                   {t === "SEMANAL" ? "Semanal" : "Mensal"}
                 </button>
               ))}

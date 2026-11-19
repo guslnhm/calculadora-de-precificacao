@@ -51,10 +51,10 @@ const styles = {
   container: {
     fontFamily: "Arial, sans-serif",
     minHeight: "100vh",
-    backgroundColor: "#f4f6f8",
+    backgroundColor: "#F6F3EF",
   },
   header: {
-    backgroundColor: "#1f2937",
+    backgroundColor: "#FFFFFF",
     color: "#fff",
     padding: "16px 24px",
   },
@@ -80,7 +80,7 @@ const styles = {
     backgroundColor: "transparent",
   },
   linkAtivo: {
-    backgroundColor: "#374151",
+    backgroundColor: "#E7DFD6",
   },
   main: {
     padding: "24px",
@@ -109,6 +109,7 @@ import ConvitePage from "./pages/ConvitePage";
 import NovaSenhaPage from "./pages/NovaSenhaPage";
 import TrocarSenha from "./components/acesso/TrocarSenha";
 import { authApi, limparSessao } from "./services/api";
+import logoBranco from "./assets/rizq_logo_branco.png";
 
 function NavLink({ to, children }) {
   const location = useLocation();
@@ -185,7 +186,11 @@ function AreaLogada({ onSair }) {
       <header style={styles.header}>
         <div style={styles.headerInner}>
           <div style={styles.topoHeader}>
-            <h1 style={styles.titulo}>{mentorado ? "Painel de resultados" : "Calculadora de Precificação"}</h1>
+            <div style={styles.marca}>
+              <img src={logoBranco} alt="RIZQ" style={styles.logo} />
+              <span style={styles.separador} aria-hidden="true" />
+              <span style={styles.area}>{mentorado ? "Painel de resultados" : "Consultoria"}</span>
+            </div>
             <div style={styles.usuarioBox}>
               <span>{usuarioNome}</span>
               <button style={styles.botaoTopo} onClick={() => setTrocandoSenha(true)}>Trocar senha</button>
@@ -245,15 +250,13 @@ function AreaLogada({ onSair }) {
 
 const styles = {
   container: {
-    fontFamily: "Arial, sans-serif",
     minHeight: "100vh",
-    backgroundColor: "#0D1117",
+    backgroundColor: "#F6F3EF",
   },
   header: {
-    backgroundColor: "#0D1117",
-    color: "#F6F8FA",
-    padding: "18px 24px",
-    borderBottom: "1px solid #1B222B",
+    backgroundColor: "#509AD1",
+    color: "#FFFFFF",
+    padding: "14px 24px 0",
   },
   headerInner: {
     maxWidth: "1100px",
@@ -263,23 +266,40 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: "16px",
+    gap: "14px",
     flexWrap: "wrap",
+    paddingBottom: "12px",
   },
-  titulo: {
-    margin: 0,
-    fontSize: "clamp(20px, 5vw, 28px)",
+  marca: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+  },
+  logo: {
+    height: "26px",
+    width: "auto",
+    display: "block",
+  },
+  separador: {
+    width: "1px",
+    height: "22px",
+    background: "rgba(255, 255, 255, 0.45)",
+  },
+  area: {
+    fontSize: "15px",
+    fontWeight: 300,
   },
   usuarioBox: {
     display: "flex",
     alignItems: "center",
-    gap: "10px",
+    gap: "8px",
     flexWrap: "wrap",
+    fontSize: "14px",
   },
   botaoTopo: {
-    background: "#21262D",
-    border: "1px solid #30363D",
-    color: "#F6F8FA",
+    background: "rgba(255, 255, 255, 0.16)",
+    border: "1px solid rgba(255, 255, 255, 0.45)",
+    color: "#FFFFFF",
     borderRadius: "8px",
     padding: "6px 10px",
     cursor: "pointer",
@@ -287,23 +307,26 @@ const styles = {
   },
   nav: {
     display: "flex",
-    gap: "12px",
-    marginTop: "14px",
+    gap: "2px",
     flexWrap: "wrap",
   },
   link: {
-    color: "#fff",
+    color: "rgba(255, 255, 255, 0.9)",
     textDecoration: "none",
-    padding: "8px 12px",
-    borderRadius: "8px",
+    padding: "10px 12px 12px",
+    borderRadius: "10px 10px 0 0",
     backgroundColor: "transparent",
+    fontSize: "14px",
+    whiteSpace: "nowrap",
   },
   linkAtivo: {
-    backgroundColor: "#161B22",
+    backgroundColor: "#F6F3EF",
+    color: "#2D73AC",
+    fontWeight: 600,
   },
   main: {
     padding: "24px",
-    backgroundColor: "#0D1117",
+    backgroundColor: "#F6F3EF",
   },
   mainInner: {
     maxWidth: "1100px",

@@ -31,7 +31,7 @@ export default function TrocarSenha({ obrigatoria = false, onFechar }) {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50, display: "grid",
+    <div style={{ position: "fixed", inset: 0, background: "rgba(42, 32, 25, 0.45)", zIndex: 50, display: "grid",
       placeItems: "center", padding: 16, overflowY: "auto" }}>
       <div style={{ width: "100%", maxWidth: 420, background: cor.card, border: `1px solid ${cor.borda}`,
         borderRadius: 16, padding: 24, boxSizing: "border-box", display: "grid", gap: 14, color: cor.texto }}>

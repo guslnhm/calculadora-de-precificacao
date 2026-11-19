@@ -410,7 +410,7 @@ export default function LojaIfoodPage() {
               onClick={() => setParams({ loja: l.id, aba })}
               style={{
                 textAlign: "left",
-                background: l.id === merchantId ? "#1F2A37" : "transparent",
+                background: l.id === merchantId ? "#FBF9F6" : "transparent",
                 border: `1px solid ${l.id === merchantId ? cores.destaque : cores.borda}`,
                 borderRadius: "10px",
                 color: cores.texto,

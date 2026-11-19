@@ -96,7 +96,7 @@ export default function Carteira({ dados, onAbrirLoja }) {
         <Cartao titulo="Pedidos" valor={inteiro(t.pedidos)} delta={variacao(t.variacaoPedidos)} nota="vs período anterior" />
         <Cartao titulo="Ticket médio" valor={reais(t.ticket)} />
         <Cartao titulo="Cancelamentos" valor={inteiro(t.cancelamentos)} />
-        <Cartao titulo="Perda estimada" valor={reaisCurto(t.perdaEstimada)} nota={`${minutos(t.minutosFechada)} fechadas`} destaque={Number(t.perdaEstimada) > 0 ? "#5c2b2b" : undefined} />
+        <Cartao titulo="Perda estimada" valor={reaisCurto(t.perdaEstimada)} nota={`${minutos(t.minutosFechada)} fechadas`} destaque={Number(t.perdaEstimada) > 0 ? "#F2B79B" : undefined} />
         <Cartao titulo="Lojas com dados" valor={inteiro(t.lojas)} />
       </div>
 
@@ -139,7 +139,7 @@ export default function Carteira({ dados, onAbrirLoja }) {
                 const vp = variacao(l.variacao?.pedidos);
                 return (
                   <tr key={l.chave} onClick={() => onAbrirLoja(l)} style={{ cursor: "pointer", borderBottom: `1px solid ${cor.grade}` }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#1c232c")}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = cor.campo)}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                     <td style={{ border: "none", padding: "8px 10px", maxWidth: 280 }}>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
