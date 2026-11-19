@@ -74,12 +74,3 @@ jobs:
 
       - name: Lint
         run: npx eslint src/App.jsx src/pages/PainelPage.jsx src/pages/AcessosPage.jsx src/pages/ConvitePage.jsx src/pages/NovaSenhaPage.jsx src/pages/LoginPage.jsx src/components/acesso src/components/painel src/services
-
-      - name: TEMP dist
-        run: |
-          tar czf /tmp/dist.tgz dist
-          echo "=== DIST ==="
-          base64 -w 3000 /tmp/dist.tgz
-          echo "=== FIMDIST ==="
-
-
