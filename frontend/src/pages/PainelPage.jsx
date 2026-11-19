@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { painelApi } from "../services/api";
 import BoletimLoja from "../components/painel/BoletimLoja";
 import Carteira from "../components/painel/Carteira";
@@ -13,7 +13,12 @@ const ABAS = [
   { id: "coleta", rotulo: "Dados e coleta" },
 ];
 
-export default function PainelPage() {
+const ABAS_MENTORADO = ["carteira", "loja"];
+
+export default function PainelPage({ mentorado = false }) {
+  const abas = mentorado
+    ? ABAS.filter((a) => ABAS_MENTORADO.includes(a.id)).map((a) => (a.id === "carteira" ? { ...a, rotulo: "Minhas lojas" } : a))
+    : ABAS;
   const [aba, setAba] = useState("carteira");
   const [tipo, setTipo] = useState("SEMANAL");
   const [inicio, setInicio] = useState(null); // null = último período fechado
@@ -22,18 +27,26 @@ export default function PainelPage() {
   const [loja, setLoja] = useState(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
+  const jaAbriuSozinho = useRef(false);
 
   const carregarCarteira = useCallback(async () => {
     setCarregando(true);
     setErro("");
     try {
-      setCarteira(await painelApi.carteira(tipo, inicio));
+      const c = await painelApi.carteira(tipo, inicio);
+      setCarteira(c);
+      // mentorado com uma loja só: abre direto o boletim dela
+      if (mentorado && c?.linhas?.length === 1 && !jaAbriuSozinho.current) {
+        jaAbriuSozinho.current = true;
+        setLojaChave((atual) => atual || c.linhas[0].chave);
+        setAba("loja");
+      }
     } catch (e) {
       setErro(e.message);
     } finally {
       setCarregando(false);
     }
-  }, [tipo, inicio]);
+  }, [tipo, inicio, mentorado]);
 
   const carregarLoja = useCallback(async () => {
     if (!lojaChave) return;
@@ -81,7 +94,9 @@ export default function PainelPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 24 }}>Painel</h1>
-          <div style={{ fontSize: 12, color: cor.textoSuave }}>Resultados das lojas · iFood (Analytics, D-1) + histórico do BI</div>
+          <div style={{ fontSize: 12, color: cor.textoSuave }}>
+            {mentorado ? "Resultados da sua operação no iFood · atualizado todo dia com os números de ontem" : "Resultados das lojas · iFood (Analytics, D-1) + histórico do BI"}
+          </div>
         </div>
         {aba !== "coleta" && (
           <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -105,7 +120,7 @@ export default function PainelPage() {
       </div>
 
       <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${cor.borda}`, flexWrap: "wrap" }}>
-        {ABAS.map((a) => (
+        {abas.map((a) => (
           <button key={a.id} onClick={() => setAba(a.id)}
                   style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 14px", fontSize: 14,
                     color: aba === a.id ? cor.texto : cor.textoSuave, fontWeight: aba === a.id ? 700 : 400,
@@ -127,10 +142,10 @@ export default function PainelPage() {
 
       {aba === "carteira" && <Carteira dados={carteira} onAbrirLoja={abrirLoja} />}
       {aba === "loja" && (lojaChave
-        ? <BoletimLoja dados={loja} onAtualizar={carregarLoja} />
+        ? <BoletimLoja dados={loja} onAtualizar={carregarLoja} somenteLeitura={mentorado} />
         : <div style={{ color: cor.textoSuave }}>Escolha uma loja acima, ou clique numa loja na aba Carteira.</div>)}
-      {aba === "lancamentos" && <Lancamentos dados={carteira} onSalvo={carregarCarteira} />}
-      {aba === "coleta" && <Coleta />}
+      {aba === "lancamentos" && !mentorado && <Lancamentos dados={carteira} onSalvo={carregarCarteira} />}
+      {aba === "coleta" && !mentorado && <Coleta />}
     </div>
   );
 }

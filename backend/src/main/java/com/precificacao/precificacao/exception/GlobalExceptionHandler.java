@@ -47,6 +47,15 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(com.precificacao.precificacao.acesso.AcessoException.class)
+    public ResponseEntity<?> handleAcesso(com.precificacao.precificacao.acesso.AcessoException ex) {
+        return ResponseEntity.status(ex.status())
+                .body(Map.of(
+                        "erro", ex.status().name(),
+                        "mensagem", ex.getMessage()
+                ));
+    }
+
     @ExceptionHandler(CredenciaisInvalidasException.class)
     public ResponseEntity<?> handleCredenciaisInvalidas(CredenciaisInvalidasException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

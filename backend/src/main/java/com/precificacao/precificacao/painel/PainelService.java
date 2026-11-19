@@ -123,12 +123,24 @@ public class PainelService {
     // ----------------------------------------------------------------- carteira
 
     public Carteira carteira(String tipo, LocalDate inicio) {
+        return carteira(tipo, inicio, null);
+    }
+
+    /**
+     * Carteira; com {@code permitidas} (acesso de mentorado) mostra só essas lojas, inclusive as que ainda
+     * não têm números no período.
+     */
+    public Carteira carteira(String tipo, LocalDate inicio, Set<String> permitidas) {
         Periodo p = periodo(tipo, inicio);
         Periodo ant = p.anterior();
         Map<Periodo, Map<String, Metricas>> calc = calcular(List.of(p, ant), null);
         Map<String, String[]> nomes = nomes();
         Set<String> chaves = new LinkedHashSet<>(calc.get(p).keySet());
         chaves.addAll(calc.get(ant).keySet());
+        if (permitidas != null) {
+            chaves.retainAll(permitidas);
+            chaves.addAll(permitidas);
+        }
         List<Linha> linhas = new ArrayList<>();
         for (String c : chaves) {
             Metricas a = calc.get(p).get(c);
@@ -410,6 +422,17 @@ public class PainelService {
     // ----------------------------------------------------------------- nomes
 
     /** chave -> {nome, plataforma}. */
+    public record OpcaoLoja(String chave, String nome, String plataforma) {
+    }
+
+    /** Todas as lojas que podem aparecer no painel (para escolher nos acessos). */
+    public List<OpcaoLoja> opcoesLojas() {
+        List<OpcaoLoja> out = new ArrayList<>();
+        nomes().forEach((k, v) -> out.add(new OpcaoLoja(k, v[0], v[1])));
+        out.sort(Comparator.comparing((OpcaoLoja o) -> o.nome() == null ? "" : o.nome().toLowerCase()));
+        return out;
+    }
+
     Map<String, String[]> nomes() {
         Map<String, String[]> out = new HashMap<>();
         repo.nomesLojas().forEach((k, v) -> out.put(k, new String[]{v == null ? k : v, "IFOOD"}));

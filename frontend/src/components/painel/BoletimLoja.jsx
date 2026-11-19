@@ -55,7 +55,7 @@ function Lancamento({ dados, onSalvo }) {
   );
 }
 
-export default function BoletimLoja({ dados, onAtualizar }) {
+export default function BoletimLoja({ dados, onAtualizar, somenteLeitura = false }) {
   if (!dados) return null;
   const a = dados.atual || {};
   const v = dados.variacao || {};
@@ -82,7 +82,7 @@ export default function BoletimLoja({ dados, onAtualizar }) {
           titulo="Conversão"
           valor={percentual(a.conversao)}
           delta={variacao(v.conversao, { pontos: true })}
-          nota={a.conversao == null ? "lance abaixo" : conversaoBoa ? "✓ boa (meta 15%)" : "✕ abaixo da meta de 15%"}
+          nota={a.conversao == null ? (somenteLeitura ? "ainda não lançada" : "lance abaixo") : conversaoBoa ? "✓ boa (meta 15%)" : "✕ abaixo da meta de 15%"}
           destaque={a.conversao == null ? undefined : conversaoBoa ? "#1f4d2b" : "#5c2b2b"}
         />
         <Cartao titulo="Cancelamentos" valor={inteiro(a.cancelamentos)} delta={variacao(v.cancelamentos, { inverso: true })} nota={percentual(a.taxaCancelamento)} />
@@ -94,9 +94,11 @@ export default function BoletimLoja({ dados, onAtualizar }) {
                 destaque={Number(a.perdaEstimada) > 0 ? "#5c2b2b" : undefined} />
       </div>
 
-      <Bloco titulo="Conversão e repasse do período" subtitulo="valores do Portal do Parceiro — ficam salvos para este período">
-        <Lancamento key={`${dados.chave}-${dados.periodo.inicio}`} dados={dados} onSalvo={onAtualizar} />
-      </Bloco>
+      {!somenteLeitura && (
+        <Bloco titulo="Conversão e repasse do período" subtitulo="valores do Portal do Parceiro — ficam salvos para este período">
+          <Lancamento key={`${dados.chave}-${dados.periodo.inicio}`} dados={dados} onSalvo={onAtualizar} />
+        </Bloco>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(380px, 100%), 1fr))", gap: 16 }}>
         <Bloco titulo="Faturamento" subtitulo={`últimos ${serie.length} períodos`}

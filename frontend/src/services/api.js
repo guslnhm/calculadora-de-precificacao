@@ -4,6 +4,31 @@ function getToken() {
   return localStorage.getItem("token");
 }
 
+// ------ Sessão
+
+/** Guarda a sessão depois do login (ou do cadastro pelo convite). */
+export function salvarSessao(dados) {
+  localStorage.setItem("token", dados.token);
+  localStorage.setItem("usuarioNome", dados.nome || "");
+  localStorage.setItem("perfil", dados.perfil || "");
+}
+
+export function limparSessao() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("usuarioNome");
+  localStorage.removeItem("perfil");
+}
+
+/** Toda chamada passa por aqui: se a sessão caiu (401), volta para a tela de login. */
+async function fetch(url, opcoes) {
+  const resposta = await window.fetch(url, opcoes);
+  if (resposta.status === 401 && getToken() && !String(url).endsWith("/auth/login")) {
+    limparSessao();
+    window.location.assign("/");
+  }
+  return resposta;
+}
+
 function getHeaders(extra = {}) {
   const token = getToken();
 
@@ -534,4 +559,29 @@ export const painelApi = {
   importarBi: () => requisicao("POST", "/painel/importar-bi"),
   operacoesBi: () => requisicao("GET", "/painel/operacoes-bi"),
   vincularOperacao: (idOperacao, merchantId) => requisicao("PUT", `/painel/operacoes-bi/${idOperacao}`, { merchantId }),
+};
+
+export const authApi = {
+  eu: () => requisicao("GET", "/auth/eu"),
+  sair: () => requisicao("POST", "/auth/logout"),
+  trocarSenha: (atual, nova) => requisicao("PUT", "/auth/senha", { atual, nova }),
+};
+
+// Rotas públicas (sem login)
+export const conviteApi = {
+  ver: (token) => requisicao("GET", `/convites/${encodeURIComponent(token)}`),
+  aceitar: (token, dados) => requisicao("POST", `/convites/${encodeURIComponent(token)}/aceitar`, dados),
+  verLinkSenha: (token) => requisicao("GET", `/senha/${encodeURIComponent(token)}`),
+  novaSenha: (token, senha) => requisicao("POST", `/senha/${encodeURIComponent(token)}`, { senha }),
+};
+
+export const acessosApi = {
+  lojas: () => requisicao("GET", "/acessos/lojas"),
+  convites: () => requisicao("GET", "/acessos/convites"),
+  criarConvite: (dados) => requisicao("POST", "/acessos/convites", dados),
+  revogarConvite: (id) => requisicao("DELETE", `/acessos/convites/${id}`),
+  usuarios: () => requisicao("GET", "/acessos/usuarios"),
+  editarUsuario: (id, dados) => requisicao("PUT", `/acessos/usuarios/${id}`, dados),
+  linkSenha: (id) => requisicao("POST", `/acessos/usuarios/${id}/link-senha`),
+  adesao: () => requisicao("GET", "/acessos/adesao"),
 };
