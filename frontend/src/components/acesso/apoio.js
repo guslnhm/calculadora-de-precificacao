@@ -70,3 +70,14 @@ export async function copiar(texto) {
 }
 
 export const botaoSec = { ...botao, background: cor.campo, border: `1px solid ${cor.bordaCampo}`, fontWeight: 500 };
+
+export const botaoGrande = {
+  background: cor.destaque,
+  border: "none",
+  color: "#fff",
+  borderRadius: 10,
+  padding: "13px 16px",
+  fontSize: 16,
+  fontWeight: 700,
+  cursor: "pointer",
+};

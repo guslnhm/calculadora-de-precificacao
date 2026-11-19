@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { conviteApi, salvarSessao } from "../services/api";
-import TelaPublica, { Aviso, Campo, botaoGrande } from "../components/acesso/TelaPublica";
+import TelaPublica, { Aviso, Campo } from "../components/acesso/TelaPublica";
+import { botaoGrande } from "../components/acesso/apoio";
 import { cor } from "../components/painel/fmt";
 
 // Cadastro pelo link de convite: nome, e-mail, data de nascimento e senha. Entra direto no painel.

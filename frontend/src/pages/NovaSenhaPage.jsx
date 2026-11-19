@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { conviteApi, salvarSessao } from "../services/api";
-import TelaPublica, { Aviso, Campo, botaoGrande } from "../components/acesso/TelaPublica";
+import TelaPublica, { Aviso, Campo } from "../components/acesso/TelaPublica";
+import { botaoGrande } from "../components/acesso/apoio";
 import { cor } from "../components/painel/fmt";
 
 // Link de nova senha (gerado pela equipe na tela de Acessos).

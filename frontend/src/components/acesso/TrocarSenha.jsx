@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { authApi } from "../../services/api";
-import { Aviso, Campo, botaoGrande } from "./TelaPublica";
+import { Aviso, Campo } from "./TelaPublica";
+import { botaoGrande } from "./apoio";
 import { cor } from "../painel/fmt";
 
 // Janela para trocar a senha. Obrigatória quando a senha antiga era fraca.

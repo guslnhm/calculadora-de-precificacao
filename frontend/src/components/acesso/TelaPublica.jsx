@@ -33,16 +33,6 @@ export function Campo({ rotulo, dica, ...props }) {
   );
 }
 
-export const botaoGrande = {
-  background: cor.destaque,
-  border: "none",
-  color: "#fff",
-  borderRadius: 10,
-  padding: "13px 16px",
-  fontSize: 16,
-  fontWeight: 700,
-  cursor: "pointer",
-};
 
 export function Aviso({ children, tipo = "erro" }) {
   const c = tipo === "erro" ? cor.ruim : cor.textoSuave;
