@@ -14,9 +14,16 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === SEM BI ===
-          SELECT m.nome, m.merchant_id FROM ifood_merchant m JOIN painel_coleta c ON c.merchant_id=m.merchant_id
-          WHERE c.ultimo_erro LIKE 'Loja não autorizou%' ORDER BY 1;
+          \echo === DIA 18/11 ===
+          SELECT count(*) linhas, count(*) FILTER (WHERE pedidos=0) zeradas, min(coletado_em) AT TIME ZONE 'America/Sao_Paulo', max(coletado_em) AT TIME ZONE 'America/Sao_Paulo', sum(pedidos) FROM painel_dia WHERE dia='2026-11-18';
+          SELECT d.dia, m.nome, d.pedidos, d.gmv, d.coletado_em AT TIME ZONE 'America/Sao_Paulo' coletado FROM painel_dia d JOIN ifood_merchant m ON m.merchant_id=d.merchant_id
+           WHERE d.dia >= '2026-11-16' AND (m.nome ILIKE 'Chicken Lovers -  Lozandes%' OR m.nome ILIKE 'Lux Hamb%' OR m.nome ILIKE 'Qg - Bougainville%') ORDER BY m.nome, d.dia;
+          \echo === ZERADAS 18/11 (lojas) ===
+          SELECT m.nome, d.coletado_em AT TIME ZONE 'America/Sao_Paulo' FROM painel_dia d JOIN ifood_merchant m ON m.merchant_id=d.merchant_id WHERE d.dia='2026-11-18' AND d.pedidos=0 ORDER BY 2, 1;
+          \echo === COLETA HOJE ===
+          SELECT min(ultima_coleta) AT TIME ZONE 'America/Sao_Paulo', max(ultima_coleta) AT TIME ZONE 'America/Sao_Paulo', count(*) FILTER (WHERE ultima_coleta > current_date) FROM painel_coleta;
+          \echo === RESUMO ENVIADO ===
+          SELECT min(enviado_em) AT TIME ZONE 'America/Sao_Paulo', max(enviado_em) AT TIME ZONE 'America/Sao_Paulo', count(*) FROM whatsapp_envio WHERE tipo='resumo' AND enviado_em > current_date;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
