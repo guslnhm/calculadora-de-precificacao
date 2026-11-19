@@ -98,6 +98,9 @@ public class ResumoDiarioService {
         OffsetDateTime terminou = coleta.terminouEm();
         boolean coletouHoje = !coleta.rodando() && ((terminou != null && !terminou.isBefore(inicioHoje))
                 || repo.coletouDiaDesde(hoje.minusDays(1), inicioHoje));
+        // o iFood às vezes libera o D-1 depois das 9h: dia de ontem todo zerado = dado ainda não chegou
+        boolean diaChegou = repo.pedidosDoDia(hoje.minusDays(1)) > 0;
+        coletouHoje = coletouHoje && diaChegou;
         return coletouHoje || !agora.isBefore(hoje.atTime(LIMITE_ESPERA).atZone(zona).toOffsetDateTime());
     }
 
@@ -126,8 +129,12 @@ public class ResumoDiarioService {
     Map<String, Loja> numeros(LocalDate d, OffsetDateTime agora) {
         Map<String, String> nomes = repo.nomesLojas();
         Map<String, LinhaDia> dias = new HashMap<>();
-        for (LinhaDia l : repo.dias(null, d, d)) {
-            dias.put(l.merchantId(), l);
+        List<LinhaDia> doDia = repo.dias(null, d, d);
+        // todas as lojas zeradas = o iFood ainda não liberou o dia: trata como "sem dados", não como zero pedidos
+        if (doDia.stream().anyMatch(l -> l.pedidos() > 0 || l.cancelados() > 0)) {
+            for (LinhaDia l : doDia) {
+                dias.put(l.merchantId(), l);
+            }
         }
         OffsetDateTime de = d.atStartOfDay(zona).toOffsetDateTime();
         OffsetDateTime ate = d.plusDays(1).atStartOfDay(zona).toOffsetDateTime();

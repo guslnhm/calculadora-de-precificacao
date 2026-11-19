@@ -47,6 +47,19 @@ public class PainelRepository {
         }
     }
 
+    public long pedidosNoPeriodo(String merchantId, LocalDate de, LocalDate ate) {
+        Long n = jdbc.queryForObject("SELECT COALESCE(sum(pedidos + cancelados), 0) FROM painel_dia "
+                + "WHERE merchant_id = ? AND dia BETWEEN ? AND ?", Long.class, merchantId, Date.valueOf(de), Date.valueOf(ate));
+        return n == null ? 0 : n;
+    }
+
+    /** Pedidos + cancelados de todas as lojas no dia (0 = o iFood ainda não liberou o dia). */
+    public long pedidosDoDia(LocalDate dia) {
+        Long n = jdbc.queryForObject("SELECT COALESCE(sum(pedidos + cancelados), 0) FROM painel_dia WHERE dia = ?",
+                Long.class, Date.valueOf(dia));
+        return n == null ? 0 : n;
+    }
+
     /** Já há números do dia coletados a partir de "desde"? */
     public boolean coletouDiaDesde(LocalDate dia, OffsetDateTime desde) {
         Integer n = jdbc.queryForObject("SELECT count(*) FROM painel_dia WHERE dia = ? AND coletado_em >= ?", Integer.class,
