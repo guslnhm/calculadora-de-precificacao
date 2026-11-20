@@ -40,6 +40,13 @@ public class PainelColetaService {
     private volatile String ultimaExecucao;
     private volatile OffsetDateTime terminouEm;
 
+    /** Duas últimas leituras do dia de ontem (pedidos + cancelados por loja), para saber se o iFood parou de mudar. */
+    private record Foto(LocalDate dia, Map<String, Integer> movimento, OffsetDateTime em) {
+    }
+
+    private volatile Foto fotoAnterior;
+    private volatile Foto fotoAtual;
+
     @org.springframework.beans.factory.annotation.Autowired
     public PainelColetaService(AnalyticsClient fonte, PainelRepository repo, PainelProperties cfg, Clock clock,
                                IfoodProperties ifood) {
@@ -83,11 +90,56 @@ public class PainelColetaService {
             }
         } finally {
             terminouEm = agora();
+            fotografar(ontem());
             rodando.set(false);
             ultimaExecucao = agora() + ": " + ok + " loja(s) ok, " + erro + " com erro";
             log.info("[painel] coleta: {}", ultimaExecucao);
         }
         return true;
+    }
+
+    /**
+     * Relê só um dia de todas as lojas (o iFood libera o D-1 aos poucos depois das 9h).
+     * Devolve false se já havia uma coleta em andamento.
+     */
+    public boolean recoletarDia(LocalDate dia) {
+        if (!rodando.compareAndSet(false, true)) {
+            return false;
+        }
+        int erro = 0;
+        try {
+            for (String m : repo.lojasAtivas()) {
+                try {
+                    coletarBloco(m, dia, dia);
+                } catch (RuntimeException e) {
+                    erro++;
+                }
+            }
+        } finally {
+            Foto antes = fotoAtual;
+            fotografar(dia);
+            rodando.set(false);
+            boolean mudou = antes != null && antes.dia().equals(dia) && !antes.movimento().equals(fotoAtual.movimento());
+            log.info("[painel] releitura de {}: {} ({} loja(s) com erro)", dia, mudou ? "números mudaram" : "sem mudança", erro);
+        }
+        return true;
+    }
+
+    private void fotografar(LocalDate dia) {
+        fotoAnterior = fotoAtual;
+        fotoAtual = new Foto(dia, repo.movimentoPorLoja(dia), agora());
+    }
+
+    /** As duas últimas leituras do dia, com pelo menos 15 min entre elas, deram exatamente os mesmos números. */
+    public boolean estavel(LocalDate dia) {
+        Foto a = fotoAnterior, b = fotoAtual;
+        return a != null && b != null && a.dia().equals(dia) && b.dia().equals(dia)
+                && !a.em().plusMinutes(15).isAfter(b.em())
+                && a.movimento().equals(b.movimento());
+    }
+
+    private LocalDate ontem() {
+        return LocalDate.now(clock.withZone(zona)).minusDays(1);
     }
 
     /** Coleta uma loja. Devolve true se deu certo. */

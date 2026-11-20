@@ -60,6 +60,48 @@ public class PainelRepository {
         return n == null ? 0 : n;
     }
 
+    /** Pedidos + cancelados de cada loja no dia (só lojas com linha gravada). */
+    public Map<String, Integer> movimentoPorLoja(LocalDate dia) {
+        Map<String, Integer> out = new java.util.TreeMap<>();
+        jdbc.query("SELECT merchant_id, pedidos + cancelados FROM painel_dia WHERE dia = ?",
+                rs -> {
+                    out.put(rs.getString(1), rs.getInt(2));
+                }, Date.valueOf(dia));
+        return out;
+    }
+
+    /**
+     * Lojas que vieram zeradas no dia mas costumam vender nele: venderam no mesmo dia da semana anterior e em
+     * pelo menos 3 dos 7 dias antes. Sinal de que o iFood ainda não liberou o dia inteiro para elas.
+     */
+    public List<String> zeradasSuspeitas(LocalDate dia) {
+        return jdbc.queryForList("""
+                SELECT d.merchant_id FROM painel_dia d
+                WHERE d.dia = ? AND d.pedidos + d.cancelados = 0
+                  AND EXISTS (SELECT 1 FROM painel_dia s WHERE s.merchant_id = d.merchant_id AND s.dia = ? AND s.pedidos > 0)
+                  AND (SELECT count(*) FROM painel_dia a WHERE a.merchant_id = d.merchant_id
+                         AND a.dia BETWEEN ? AND ? AND a.pedidos > 0) >= 3
+                ORDER BY d.merchant_id""", String.class,
+                Date.valueOf(dia), Date.valueOf(dia.minusDays(7)), Date.valueOf(dia.minusDays(7)), Date.valueOf(dia.minusDays(1)));
+    }
+
+    /** Números (pedidos + cancelados por loja) que foram no resumo do dia. */
+    public Map<String, Integer> resumoEnviado(LocalDate dia) {
+        Map<String, Integer> out = new java.util.TreeMap<>();
+        jdbc.query("SELECT merchant_id, movimento FROM painel_resumo_enviado WHERE dia = ?",
+                rs -> {
+                    out.put(rs.getString(1), rs.getInt(2));
+                }, Date.valueOf(dia));
+        return out;
+    }
+
+    public void salvarResumoEnviado(LocalDate dia, Map<String, Integer> movimento, OffsetDateTime agora) {
+        jdbc.update("DELETE FROM painel_resumo_enviado WHERE dia = ?", Date.valueOf(dia));
+        movimento.forEach((m, n) -> jdbc.update(
+                "INSERT INTO painel_resumo_enviado (dia, merchant_id, movimento, enviado_em) VALUES (?, ?, ?, ?)",
+                Date.valueOf(dia), m, n, agora));
+    }
+
     /** Já há números do dia coletados a partir de "desde"? */
     public boolean coletouDiaDesde(LocalDate dia, OffsetDateTime desde) {
         Integer n = jdbc.queryForObject("SELECT count(*) FROM painel_dia WHERE dia = ? AND coletado_em >= ?", Integer.class,
