@@ -105,7 +105,7 @@ public class DiaGradualTest {
     void lojasQueMudaramDepoisDoEnvio() {
         Map<String, Integer> enviado = Map.of(A, 0, B, 5, "c", 9);
         Map<String, Integer> agora = Map.of(A, 47, B, 11, "c", 9, "d", 3);
-        assertThat(ResumoDiarioService.mudaram(enviado, agora)).containsExactly(A, B, "d");
+        assertThat(ResumoDiarioService.mudaram(enviado, agora)).containsExactlyInAnyOrder(A, B, "d");
         assertThat(ResumoDiarioService.mudaram(agora, agora)).isEmpty();
     }
 }
