@@ -1,5 +1,10 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
+/** "?instancia=x" (vazio = número principal). */
+function qInst(instancia) {
+  return instancia ? `?instancia=${encodeURIComponent(instancia)}` : "";
+}
+
 function getToken() {
   return localStorage.getItem("token");
 }
@@ -441,9 +446,13 @@ export const whatsappApi = {
   criarGrupo: (dados) => requisicao("POST", "/whatsapp/grupos", dados),
   atualizarGrupo: (id, dados) => requisicao("PUT", `/whatsapp/grupos/${id}`, dados),
   removerGrupo: (id) => requisicao("DELETE", `/whatsapp/grupos/${id}`),
-  gruposDisponiveis: () => requisicao("GET", "/whatsapp/grupos-disponiveis"),
-  situacao: () => requisicao("GET", "/whatsapp/situacao"),
-  conectar: () => requisicao("POST", "/whatsapp/conectar"),
+  gruposDisponiveis: (instancia) => requisicao("GET", `/whatsapp/grupos-disponiveis${qInst(instancia)}`),
+  situacao: (instancia) => requisicao("GET", `/whatsapp/situacao${qInst(instancia)}`),
+  conectar: (instancia) => requisicao("POST", `/whatsapp/conectar${qInst(instancia)}`),
+  numeros: () => requisicao("GET", "/whatsapp/numeros"),
+  criarNumero: (nome) => requisicao("POST", "/whatsapp/numeros", { nome }),
+  removerNumero: (instancia) => requisicao("DELETE", `/whatsapp/numeros/${encodeURIComponent(instancia)}`),
+  moverTodos: (instancia) => requisicao("POST", `/whatsapp/numeros/mover-todos${qInst(instancia)}`),
   testarGrupo: (id) => requisicao("POST", `/whatsapp/grupos/${id}/teste`),
 };
 
