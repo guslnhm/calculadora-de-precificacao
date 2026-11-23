@@ -73,4 +73,4 @@ jobs:
         run: npm run build
 
       - name: Lint
-        run: npx eslint src/App.jsx src/pages/PainelPage.jsx src/pages/AcessosPage.jsx src/pages/ConvitePage.jsx src/pages/NovaSenhaPage.jsx src/pages/LoginPage.jsx src/components/acesso src/components/painel src/services src/components/monitor/NumerosWhatsapp.jsx src/components/monitor/ConexaoWhatsapp.jsx src/components/monitor/AbaGrupos.jsx
+        run: npx eslint src/App.jsx src/pages/PainelPage.jsx src/pages/AcessosPage.jsx src/pages/ConvitePage.jsx src/pages/NovaSenhaPage.jsx src/pages/LoginPage.jsx src/components/acesso src/components/painel src/services src/components/monitor/NumerosWhatsapp.jsx src/components/monitor/ConexaoWhatsapp.jsx
