@@ -40,6 +40,14 @@ public interface WhatsappSender {
         return conectar();
     }
 
+    /**
+     * Conecta pelo código de pareamento (8 letras digitadas no celular, sem ler QR Code), para quando o celular
+     * do número não está perto da tela. telefone: número com DDD (com ou sem 55).
+     */
+    default Map<String, Object> conectarPorCodigo(String instancia, String telefone) {
+        return conectar(instancia);
+    }
+
     List<GrupoWhatsapp> listarGrupos();
 
     /** Situação da conexão (ex.: connected, smartphoneConnected). */

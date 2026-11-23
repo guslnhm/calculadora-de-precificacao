@@ -158,4 +158,18 @@ class EvolutionSenderTest {
         evo.enviar(" ", "120363041234567890@g.us", "oi");
         assertThat(pedidos.get(pedidos.size() - 1).caminho()).isEqualTo("/message/sendText/monitor");
     }
+
+    @Test
+    void conectaPorCodigoSemQr() {
+        assertThat(EvolutionSender.telefone("(61) 99999-8888")).isEqualTo("5561999998888");
+        assertThat(EvolutionSender.telefone("+55 61 99999-8888")).isEqualTo("5561999998888");
+        assertThat(EvolutionSender.telefone("9999")).isNull();
+
+        rota("GET /instance/connectionState/monitor-chefe", 200, "{\"instance\":{\"state\":\"close\"}}");
+        rota("GET /instance/connect/monitor-chefe?number=5561999998888", 200, "{\"pairingCode\":\"WZYEH1YY\",\"code\":\"2@x\"}");
+        var r = evo.conectarPorCodigo("monitor-chefe", "61 99999-8888");
+        assertThat(r).containsEntry("codigoPareamento", "WZYEH1YY").containsEntry("conectado", false);
+        assertThatThrownBy(() -> evo.conectarPorCodigo("monitor-chefe", "123"))
+                .isInstanceOf(WhatsappSender.FalhaEnvio.class);
+    }
 }

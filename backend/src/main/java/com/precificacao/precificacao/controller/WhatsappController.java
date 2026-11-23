@@ -85,8 +85,11 @@ public class WhatsappController {
 
     /** Conecta o número: devolve o QR Code para ler no WhatsApp do celular (ou conectado=true). */
     @PostMapping("/conectar")
-    public Map<String, Object> conectar(@RequestParam(required = false) String instancia) {
-        return whatsapp.conectar(instancia);
+    public Map<String, Object> conectar(@RequestParam(required = false) String instancia,
+                                        @RequestParam(required = false) String telefone) {
+        return telefone == null || telefone.isBlank()
+                ? whatsapp.conectar(instancia)
+                : whatsapp.conectarPorCodigo(instancia, telefone);
     }
 
     // ------------------------------------------------------------------ números
