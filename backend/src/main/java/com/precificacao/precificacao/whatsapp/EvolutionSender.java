@@ -151,6 +151,35 @@ public class EvolutionSender implements WhatsappSender {
 
     @Override
     public Map<String, Object> conectar(String instancia) {
+        return conectar(instancia, null);
+    }
+
+    @Override
+    public Map<String, Object> conectarPorCodigo(String instancia, String telefone) {
+        String tel = telefone(telefone);
+        if (tel == null) {
+            throw new FalhaEnvio("Informe o número do WhatsApp com DDD, por exemplo 61 99999-8888");
+        }
+        Map<String, Object> m = conectar(instancia, tel);
+        if (!Boolean.TRUE.equals(m.get("conectado")) && !m.containsKey("codigoPareamento")) {
+            m.put("mensagem", "A Evolution não devolveu o código. Espere uns segundos e gere de novo.");
+        }
+        return m;
+    }
+
+    /** "(61) 99999-8888" → "5561999998888"; null se não parece um celular. */
+    static String telefone(String bruto) {
+        if (bruto == null) {
+            return null;
+        }
+        String d = bruto.replaceAll("\\D", "");
+        if (d.length() == 10 || d.length() == 11) {
+            d = "55" + d;
+        }
+        return d.length() >= 12 && d.length() <= 13 ? d : null;
+    }
+
+    private Map<String, Object> conectar(String instancia, String telefone) {
         String instanciaUrl = inst(instancia);
         Map<String, Object> m = new LinkedHashMap<>();
         Resposta estado = get("/instance/connectionState/" + instanciaUrl);
@@ -166,6 +195,9 @@ public class EvolutionSender implements WhatsappSender {
             corpo.put("alwaysOnline", false);
             corpo.put("syncFullHistory", false);
             corpo.put("rejectCall", false);
+            if (telefone != null) {
+                corpo.put("number", telefone); // pede o código de pareamento junto
+            }
             Resposta criada = exigir(chamarSemFalha("POST", "/instance/create", corpo), "criar a instância", instanciaUrl);
             qr = json(criada).path("qrcode");
         } else {
@@ -173,7 +205,8 @@ public class EvolutionSender implements WhatsappSender {
                 m.put("conectado", true);
                 return m;
             }
-            qr = json(exigir(get("/instance/connect/" + instanciaUrl), "gerar o QR Code", instanciaUrl));
+            qr = json(exigir(get("/instance/connect/" + instanciaUrl + (telefone == null ? "" : "?number=" + telefone)),
+                    "gerar o QR Code", instanciaUrl));
         }
         if ("open".equals(qr.path("instance").path("state").asText())) {
             m.put("conectado", true);
@@ -187,7 +220,7 @@ public class EvolutionSender implements WhatsappSender {
         if (!qr.path("pairingCode").asText("").isBlank()) {
             m.put("codigoPareamento", qr.path("pairingCode").asText());
         }
-        if (!m.containsKey("qrCode")) {
+        if (!m.containsKey("qrCode") && !m.containsKey("codigoPareamento")) {
             m.put("mensagem", "A Evolution ainda está gerando o QR Code. Tente de novo em alguns segundos.");
         }
         return m;
