@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { monitorApi, whatsappApi } from "../../services/api";
 import { cores, pilula, s } from "./ui";
-import ConexaoWhatsapp from "./ConexaoWhatsapp";
+import NumerosWhatsapp from "./NumerosWhatsapp";
 
 const VAZIO = {
   id: null,
@@ -12,6 +12,7 @@ const VAZIO = {
   avisarRetorno: true,
   ativo: true,
   lojas: [],
+  instancia: null,
 };
 
 function normalizar(texto) {
@@ -22,7 +23,7 @@ function normalizar(texto) {
 }
 
 /** Escolhe o grupo na lista da Z-API ou aceita o ID colado à mão. */
-function EscolherGrupo({ chatId, onEscolher }) {
+function EscolherGrupo({ chatId, instancia, onEscolher }) {
   const [disponiveis, setDisponiveis] = useState(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
@@ -32,7 +33,7 @@ function EscolherGrupo({ chatId, onEscolher }) {
     setCarregando(true);
     setErro("");
     try {
-      const lista = await whatsappApi.gruposDisponiveis();
+      const lista = await whatsappApi.gruposDisponiveis(instancia);
       setDisponiveis(lista || []);
     } catch (e) {
       setErro(e.message);
@@ -105,7 +106,7 @@ function EscolherGrupo({ chatId, onEscolher }) {
   );
 }
 
-function FormGrupo({ inicial, lojas, onSalvo, onCancelar }) {
+function FormGrupo({ inicial, lojas, numeros, onSalvo, onCancelar }) {
   const [g, setG] = useState(inicial);
   const [busca, setBusca] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -151,6 +152,7 @@ function FormGrupo({ inicial, lojas, onSalvo, onCancelar }) {
         avisarRetorno: g.avisarRetorno,
         ativo: g.ativo,
         lojas: g.todasLojas ? [] : g.lojas,
+        instancia: g.instancia || null,
       };
       const salvo = g.id ? await whatsappApi.atualizarGrupo(g.id, dados) : await whatsappApi.criarGrupo(dados);
       onSalvo(salvo);
@@ -165,7 +167,22 @@ function FormGrupo({ inicial, lojas, onSalvo, onCancelar }) {
     <form onSubmit={salvar} style={{ ...s.card, display: "grid", gap: "14px" }}>
       <h3 style={{ ...s.cardTitulo, margin: 0 }}>{g.id ? `Editar "${inicial.nome}"` : "Novo grupo"}</h3>
 
+      {numeros.length > 1 && (
+        <label style={s.label}>
+          Número que envia para este grupo
+          <select style={s.input} value={g.instancia || ""} onChange={(e) => mudar("instancia", e.target.value || null)}>
+            {numeros.map((n) => (
+              <option key={n.instancia || "principal"} value={n.instancia || ""}>
+                {n.nome}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <EscolherGrupo
+        key={g.instancia || "principal"}
+        instancia={g.instancia}
         chatId={g.chatId}
         onEscolher={(escolhido) =>
           setG((atual) => ({
@@ -269,7 +286,7 @@ function FormGrupo({ inicial, lojas, onSalvo, onCancelar }) {
   );
 }
 
-function CartaoGrupo({ g, nomes, onEditar, onRemovido }) {
+function CartaoGrupo({ g, nomes, nomeNumero, onEditar, onRemovido }) {
   const [teste, setTeste] = useState("");
   const [testando, setTestando] = useState(false);
   const [confirmar, setConfirmar] = useState(false);
@@ -305,6 +322,7 @@ function CartaoGrupo({ g, nomes, onEditar, onRemovido }) {
         {g.admin && <span style={pilula(cores.destaque)}>Admin</span>}
         {!g.ativo && <span style={pilula(cores.cinza)}>Inativo</span>}
         {!g.avisarRetorno && <span style={pilula(cores.cinza)}>Sem aviso de retorno</span>}
+        {nomeNumero && <span style={pilula(cores.azul)}>📱 {nomeNumero}</span>}
       </div>
       <div style={{ ...s.suave, margin: "6px 0 10px" }}>
         {g.todasLojas
@@ -353,11 +371,17 @@ export default function AbaGrupos() {
   const [lojas, setLojas] = useState([]);
   const [erro, setErro] = useState("");
   const [editando, setEditando] = useState(null);
+  const [numeros, setNumeros] = useState(null);
 
   const carregar = useCallback(async () => {
     try {
-      const [gs, ls] = await Promise.all([whatsappApi.grupos(), monitorApi.lojasIfood()]);
+      const [gs, ls, ns] = await Promise.all([
+        whatsappApi.grupos(),
+        monitorApi.lojasIfood(),
+        whatsappApi.numeros().catch(() => ({ variosNumeros: false, numeros: [] })),
+      ]);
       setGrupos(gs);
+      setNumeros(ns);
       setLojas([...ls].sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR")));
       setErro("");
     } catch (e) {
@@ -370,6 +394,9 @@ export default function AbaGrupos() {
   }, [carregar]);
 
   const nomes = useMemo(() => Object.fromEntries(lojas.map((l) => [l.merchantId, l.nome])), [lojas]);
+  const listaNumeros = numeros?.variosNumeros ? numeros.numeros || [] : [];
+  const nomeDoNumero = (inst) =>
+    listaNumeros.length > 1 ? (listaNumeros.find((n) => (n.instancia || null) === (inst || null))?.nome || inst || "Número principal") : null;
 
   const ativos = (grupos || []).filter((g) => g.ativo);
   const temAdmin = ativos.some((g) => g.admin);
@@ -381,7 +408,7 @@ export default function AbaGrupos() {
 
   return (
     <div>
-      <ConexaoWhatsapp />
+      <NumerosWhatsapp dados={numeros} onMudou={carregar} />
       {grupos !== null && !temAdmin && (
         <div style={s.aviso}>
           Cadastre um <strong>grupo admin</strong> primeiro: é para ele que vão os avisos do monitor e os alertas das
@@ -415,6 +442,7 @@ export default function AbaGrupos() {
               key={g.id}
               g={g}
               nomes={nomes}
+              nomeNumero={nomeDoNumero(g.instancia)}
               onEditar={() => setEditando({ ...g, lojas: [...(g.lojas || [])] })}
               onRemovido={() => {
                 if (editando?.id === g.id) setEditando(null);
@@ -445,6 +473,7 @@ export default function AbaGrupos() {
             key={editando.id ?? "novo"}
             inicial={editando}
             lojas={lojas}
+            numeros={listaNumeros}
             onCancelar={() => setEditando(null)}
             onSalvo={() => {
               setEditando(null);

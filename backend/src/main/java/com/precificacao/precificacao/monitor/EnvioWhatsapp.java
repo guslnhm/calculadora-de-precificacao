@@ -37,7 +37,7 @@ public class EnvioWhatsapp {
             return "SOMBRA";
         }
         try {
-            whatsapp.enviar(g.chatId(), texto);
+            whatsapp.enviar(g.instancia(), g.chatId(), texto);
             repo.registrarEnvio(tipo, g.nome(), g.chatId(), List.of(), texto, "ENVIADO", null, agora);
             return "ENVIADO";
         } catch (RuntimeException ex) {

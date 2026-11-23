@@ -6,8 +6,9 @@ const NOMES = { evolution: "Evolution API", zapi: "Z-API", console: "nenhum (só
 
 /**
  * Mostra se o número do WhatsApp está conectado e, na Evolution, conecta pelo QR Code aqui mesmo.
+ * instancia: número extra (vazio = o principal); nome: como ele aparece na tela.
  */
-export default function ConexaoWhatsapp() {
+export default function ConexaoWhatsapp({ instancia = null, nome: nomeNumero = null, compacto = false }) {
   const [situacao, setSituacao] = useState(null);
   const [qr, setQr] = useState(null);
   const [carregandoQr, setCarregandoQr] = useState(false);
@@ -16,13 +17,13 @@ export default function ConexaoWhatsapp() {
   const ler = useCallback(async () => {
     let atual;
     try {
-      atual = await whatsappApi.situacao();
+      atual = await whatsappApi.situacao(instancia);
     } catch (e) {
       atual = { erro: e.message };
     }
     setSituacao(atual);
     return atual;
-  }, []);
+  }, [instancia]);
 
   useEffect(() => {
     ler();
@@ -32,7 +33,7 @@ export default function ConexaoWhatsapp() {
     setCarregandoQr(true);
     setErroQr("");
     try {
-      const r = await whatsappApi.conectar();
+      const r = await whatsappApi.conectar(instancia);
       if (r.conectado) {
         setQr(null);
         await ler();
@@ -44,7 +45,7 @@ export default function ConexaoWhatsapp() {
     } finally {
       setCarregandoQr(false);
     }
-  }, [ler]);
+  }, [ler, instancia]);
 
   // Enquanto o QR está na tela: confere a conexão a cada 4s e troca o QR a cada 30s (ele expira).
   useEffect(() => {
@@ -81,8 +82,8 @@ export default function ConexaoWhatsapp() {
 
   if (conectado) {
     return (
-      <div style={{ marginBottom: "14px" }}>
-        <span style={pilula(cores.verde)}>● WhatsApp conectado ({nome})</span>
+      <div style={{ marginBottom: compacto ? 0 : "14px" }}>
+        <span style={pilula(cores.verde)}>● {nomeNumero ? "Conectado" : `WhatsApp conectado (${nome})`}</span>
       </div>
     );
   }
@@ -96,8 +97,8 @@ export default function ConexaoWhatsapp() {
   }
 
   return (
-    <div style={{ ...s.card, marginBottom: "16px", borderColor: cores.amarelo }}>
-      <h3 style={s.cardTitulo}>Conectar o número do WhatsApp</h3>
+    <div style={compacto ? { marginTop: "6px" } : { ...s.card, marginBottom: "16px", borderColor: cores.amarelo }}>
+      {!compacto && <h3 style={s.cardTitulo}>Conectar o número do WhatsApp</h3>}
       {!qr && (
         <>
           <p style={{ ...s.suave, marginTop: 0 }}>
@@ -122,7 +123,7 @@ export default function ConexaoWhatsapp() {
             <div style={{ ...s.suave, width: "240px" }}>{qr.mensagem || "Gerando o QR Code…"}</div>
           )}
           <ol style={{ margin: 0, paddingLeft: "18px", lineHeight: 1.8, fontSize: "14px", flex: "1 1 220px" }}>
-            <li>No celular do número Business, abra o WhatsApp Business.</li>
+            <li>No celular {nomeNumero ? `do número "${nomeNumero}"` : "do número Business"}, abra o WhatsApp (ou WhatsApp Business).</li>
             <li>
               Toque em <strong>⋮ → Dispositivos conectados → Conectar dispositivo</strong>.
             </li>

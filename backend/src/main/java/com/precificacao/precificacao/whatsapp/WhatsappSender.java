@@ -12,6 +12,34 @@ public interface WhatsappSender {
 
     void enviar(String chatId, String texto);
 
+    // --- Vários números (só a Evolution: cada número é uma "instância"). instancia null = número principal.
+
+    /** O provedor aceita mais de um número? */
+    default boolean variosNumeros() {
+        return false;
+    }
+
+    /** Nome da instância do número principal (da variável de ambiente). */
+    default String instanciaPrincipal() {
+        return null;
+    }
+
+    default void enviar(String instancia, String chatId, String texto) {
+        enviar(chatId, texto);
+    }
+
+    default List<GrupoWhatsapp> listarGrupos(String instancia) {
+        return listarGrupos();
+    }
+
+    default Map<String, Object> situacao(String instancia) {
+        return situacao();
+    }
+
+    default Map<String, Object> conectar(String instancia) {
+        return conectar();
+    }
+
     List<GrupoWhatsapp> listarGrupos();
 
     /** Situação da conexão (ex.: connected, smartphoneConnected). */

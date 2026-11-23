@@ -80,8 +80,14 @@ public final class MonitorModelos {
     }
 
     /** Grupo de WhatsApp e as lojas que ele acompanha. */
+    /** instancia: número (instância da Evolution) que envia para o grupo; null = o principal. */
     public record Grupo(long id, String nome, String chatId, boolean todasLojas, boolean admin,
-                        boolean avisarRetorno, boolean ativo, Set<String> lojas) {
+                        boolean avisarRetorno, boolean ativo, Set<String> lojas, String instancia) {
+
+        public Grupo(long id, String nome, String chatId, boolean todasLojas, boolean admin,
+                     boolean avisarRetorno, boolean ativo, Set<String> lojas) {
+            this(id, nome, chatId, todasLojas, admin, avisarRetorno, ativo, lojas, null);
+        }
 
         public boolean acompanha(String merchantId) {
             return todasLojas || lojas.contains(merchantId);

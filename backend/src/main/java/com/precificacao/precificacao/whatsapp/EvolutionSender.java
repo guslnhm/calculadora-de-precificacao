@@ -24,7 +24,7 @@ public class EvolutionSender implements WhatsappSender {
 
     private final String base;
     private final String apiKey;
-    private final String instancia;
+    private final String principal;
     private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
@@ -37,8 +37,24 @@ public class EvolutionSender implements WhatsappSender {
     public EvolutionSender(WhatsappProperties props, ObjectMapper mapper) {
         this.base = props.evolutionUrl();
         this.apiKey = props.evolutionApiKey();
-        this.instancia = URLEncoder.encode(props.evolutionInstancia(), StandardCharsets.UTF_8).replace("+", "%20");
+        this.principal = props.evolutionInstancia();
         this.mapper = mapper;
+    }
+
+    @Override
+    public boolean variosNumeros() {
+        return true;
+    }
+
+    @Override
+    public String instanciaPrincipal() {
+        return principal;
+    }
+
+    /** Nome da instância (null/vazio = a principal), já codificado para ir no caminho da URL. */
+    private String inst(String instancia) {
+        String nome = instancia == null || instancia.isBlank() ? principal : instancia.strip();
+        return URLEncoder.encode(nome, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     /** "1203…-group" (Z-API) ou "1203…" viram "1203…@g.us"; números e JIDs completos passam como estão. */
@@ -55,13 +71,19 @@ public class EvolutionSender implements WhatsappSender {
 
     @Override
     public void enviar(String chatId, String texto) {
+        enviar(null, chatId, texto);
+    }
+
+    @Override
+    public void enviar(String instancia, String chatId, String texto) {
+        String instanciaUrl = inst(instancia);
         Map<String, Object> corpo = new LinkedHashMap<>();
         corpo.put("number", jid(chatId));
         corpo.put("text", texto);
         String erro = null;
         for (int tentativa = 0; tentativa < 3; tentativa++) {
             try {
-                Resposta r = chamar("POST", "/message/sendText/" + instancia, mapper.writeValueAsString(corpo));
+                Resposta r = chamar("POST", "/message/sendText/" + instanciaUrl, mapper.writeValueAsString(corpo));
                 if (r.ok()) {
                     return;
                 }
@@ -79,8 +101,14 @@ public class EvolutionSender implements WhatsappSender {
 
     @Override
     public List<GrupoWhatsapp> listarGrupos() {
-        JsonNode grupos = json(exigir(get("/group/fetchAllGroups/" + instancia + "?getParticipants=false"),
-                "listar os grupos"));
+        return listarGrupos(null);
+    }
+
+    @Override
+    public List<GrupoWhatsapp> listarGrupos(String instancia) {
+        String instanciaUrl = inst(instancia);
+        JsonNode grupos = json(exigir(get("/group/fetchAllGroups/" + instanciaUrl + "?getParticipants=false"),
+                "listar os grupos", instanciaUrl));
         List<GrupoWhatsapp> out = new ArrayList<>();
         for (JsonNode g : grupos) {
             out.add(new GrupoWhatsapp(g.path("id").asText(), g.path("subject").asText()));
@@ -91,17 +119,23 @@ public class EvolutionSender implements WhatsappSender {
 
     @Override
     public Map<String, Object> situacao() {
+        return situacao(null);
+    }
+
+    @Override
+    public Map<String, Object> situacao(String instancia) {
+        String instanciaUrl = inst(instancia);
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("provider", "evolution");
-        m.put("instancia", URLDecoderSafe.decode(instancia));
+        m.put("instancia", URLDecoderSafe.decode(instanciaUrl));
         try {
-            Resposta r = get("/instance/connectionState/" + instancia);
+            Resposta r = get("/instance/connectionState/" + instanciaUrl);
             if (r.status() == 404) {
                 m.put("connected", false);
                 m.put("state", "sem_instancia");
                 return m;
             }
-            String estado = json(exigir(r, "ler a situação")).path("instance").path("state").asText("");
+            String estado = json(exigir(r, "ler a situação", instanciaUrl)).path("instance").path("state").asText("");
             m.put("state", estado);
             m.put("connected", "open".equals(estado));
         } catch (RuntimeException e) {
@@ -112,13 +146,19 @@ public class EvolutionSender implements WhatsappSender {
 
     @Override
     public Map<String, Object> conectar() {
+        return conectar(null);
+    }
+
+    @Override
+    public Map<String, Object> conectar(String instancia) {
+        String instanciaUrl = inst(instancia);
         Map<String, Object> m = new LinkedHashMap<>();
-        Resposta estado = get("/instance/connectionState/" + instancia);
+        Resposta estado = get("/instance/connectionState/" + instanciaUrl);
         JsonNode qr;
         if (estado.status() == 404) {
             // primeira vez: cria a instância já pedindo o QR Code
             Map<String, Object> corpo = new LinkedHashMap<>();
-            corpo.put("instanceName", URLDecoderSafe.decode(instancia));
+            corpo.put("instanceName", URLDecoderSafe.decode(instanciaUrl));
             corpo.put("integration", "WHATSAPP-BAILEYS");
             corpo.put("qrcode", true);
             corpo.put("groupsIgnore", true);   // não precisamos receber as mensagens dos grupos
@@ -126,14 +166,14 @@ public class EvolutionSender implements WhatsappSender {
             corpo.put("alwaysOnline", false);
             corpo.put("syncFullHistory", false);
             corpo.put("rejectCall", false);
-            Resposta criada = exigir(chamarSemFalha("POST", "/instance/create", corpo), "criar a instância");
+            Resposta criada = exigir(chamarSemFalha("POST", "/instance/create", corpo), "criar a instância", instanciaUrl);
             qr = json(criada).path("qrcode");
         } else {
-            if ("open".equals(json(exigir(estado, "ler a situação")).path("instance").path("state").asText())) {
+            if ("open".equals(json(exigir(estado, "ler a situação", instanciaUrl)).path("instance").path("state").asText())) {
                 m.put("conectado", true);
                 return m;
             }
-            qr = json(exigir(get("/instance/connect/" + instancia), "gerar o QR Code"));
+            qr = json(exigir(get("/instance/connect/" + instanciaUrl), "gerar o QR Code", instanciaUrl));
         }
         if ("open".equals(qr.path("instance").path("state").asText())) {
             m.put("conectado", true);
@@ -192,7 +232,7 @@ public class EvolutionSender implements WhatsappSender {
         }
     }
 
-    private Resposta exigir(Resposta r, String acao) {
+    private Resposta exigir(Resposta r, String acao, String instancia) {
         if (r.status() == 401 || r.status() == 403) {
             throw new FalhaEnvio("A Evolution recusou a chave: confira se EVOLUTION_API_KEY no backend é igual a "
                     + "AUTHENTICATION_API_KEY do serviço da Evolution.");

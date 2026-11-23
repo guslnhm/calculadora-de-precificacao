@@ -446,7 +446,7 @@ public class MonitorService {
             return;
         }
         try {
-            whatsapp.enviar(g.chatId(), texto);
+            whatsapp.enviar(g.instancia(), g.chatId(), texto);
             repo.registrarEnvio(tipo, g.nome(), g.chatId(), incidentes, texto, "ENVIADO", null, agora);
         } catch (RuntimeException ex) {
             log.error("Falha ao enviar WhatsApp para {}: {}", g.nome(), ex.getMessage());

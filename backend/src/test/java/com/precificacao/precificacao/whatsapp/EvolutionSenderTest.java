@@ -144,4 +144,18 @@ class EvolutionSenderTest {
         assertThat(evo.conectar()).containsEntry("conectado", true);
         assertThat(pedidos).hasSize(1);
     }
+
+    @Test
+    void segundoNumeroUsaAInstanciaDele() {
+        rota("POST /message/sendText/monitor-teste", 201, "{\"key\":{\"id\":\"X\"}}");
+        rota("GET /instance/connectionState/monitor-teste", 200, "{\"instance\":{\"state\":\"open\"}}");
+        evo.enviar("monitor-teste", "120363041234567890@g.us", "oi");
+        assertThat(pedidos.get(pedidos.size() - 1).caminho()).isEqualTo("/message/sendText/monitor-teste");
+        assertThat(evo.situacao("monitor-teste")).containsEntry("connected", true).containsEntry("instancia", "monitor-teste");
+
+        // sem instância (ou vazia) = o número principal
+        rota("POST /message/sendText/monitor", 201, "{}");
+        evo.enviar(" ", "120363041234567890@g.us", "oi");
+        assertThat(pedidos.get(pedidos.size() - 1).caminho()).isEqualTo("/message/sendText/monitor");
+    }
 }
