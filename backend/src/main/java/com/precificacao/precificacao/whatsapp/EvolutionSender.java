@@ -161,10 +161,48 @@ public class EvolutionSender implements WhatsappSender {
             throw new FalhaEnvio("Informe o número do WhatsApp com DDD, por exemplo 61 99999-8888");
         }
         Map<String, Object> m = conectar(instancia, tel);
-        if (!Boolean.TRUE.equals(m.get("conectado")) && !m.containsKey("codigoPareamento")) {
-            m.put("mensagem", "A Evolution não devolveu o código. Espere uns segundos e gere de novo.");
+        if (Boolean.TRUE.equals(m.get("conectado")) || m.containsKey("codigoPareamento")) {
+            return m;
         }
+        // A Evolution só gera o código quando a tentativa de conexão é feita já com o número. Se a instância
+        // acabou de ser criada (ou estava no meio de uma tentativa por QR Code), o código não vem de primeira:
+        // pede de novo e, se preciso, reinicia a tentativa (logout) e pede outra vez.
+        String instanciaUrl = inst(instancia);
+        String ultima = "";
+        for (int tentativa = 0; tentativa < 3; tentativa++) {
+            if (tentativa == 1) {
+                chamarSemFalha("DELETE", "/instance/logout/" + instanciaUrl, Map.of());
+            }
+            dormir(tentativa == 0 ? 2500 : 3500);
+            Resposta r = get("/instance/connect/" + instanciaUrl + "?number=" + tel);
+            ultima = r.status() + " " + resumo(r.corpo());
+            if (!r.ok()) {
+                continue;
+            }
+            JsonNode j = json(r);
+            if ("open".equals(j.path("instance").path("state").asText())) {
+                return Map.of("conectado", true);
+            }
+            String codigo = j.path("pairingCode").asText(j.path("qrcode").path("pairingCode").asText(""));
+            if (!codigo.isBlank() && !"null".equals(codigo)) {
+                Map<String, Object> ok = new LinkedHashMap<>();
+                ok.put("conectado", false);
+                ok.put("codigoPareamento", codigo);
+                return ok;
+            }
+        }
+        m.remove("qrCode");
+        m.put("mensagem", "A Evolution não devolveu o código depois de 3 tentativas. Resposta dela: " + ultima);
         return m;
+    }
+
+    /** Resposta da Evolution sem as partes longas/sensíveis (QR em base64 e o "code" da sessão). */
+    static String resumo(String corpo) {
+        if (corpo == null) {
+            return "";
+        }
+        String t = corpo.replaceAll("\"(base64|code)\"\\s*:\\s*\"[^\"]*\"", "\"$1\":\"…\"");
+        return t.length() > 200 ? t.substring(0, 200) + "…" : t;
     }
 
     /** "(61) 99999-8888" → "5561999998888"; null se não parece um celular. */
