@@ -25,6 +25,8 @@ public class EvolutionSender implements WhatsappSender {
     private final String base;
     private final String apiKey;
     private final String principal;
+    /** Instâncias dos números extras (cadastrados no banco), para achar um número conectado. */
+    private java.util.function.Supplier<List<String>> numerosExtras = List::of;
     private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
@@ -39,6 +41,10 @@ public class EvolutionSender implements WhatsappSender {
         this.apiKey = props.evolutionApiKey();
         this.principal = props.evolutionInstancia();
         this.mapper = mapper;
+    }
+
+    public void usarNumerosExtras(java.util.function.Supplier<List<String>> extras) {
+        this.numerosExtras = extras;
     }
 
     @Override
@@ -160,8 +166,10 @@ public class EvolutionSender implements WhatsappSender {
         if (tel == null) {
             throw new FalhaEnvio("Informe o número do WhatsApp com DDD, por exemplo 61 99999-8888");
         }
+        tel = numeroNoWhatsapp(tel, instancia);
         Map<String, Object> m = conectar(instancia, tel);
         if (Boolean.TRUE.equals(m.get("conectado")) || m.containsKey("codigoPareamento")) {
+            m.put("numeroUsado", tel);
             return m;
         }
         // A Evolution só gera o código quando a tentativa de conexão é feita já com o número. Se a instância
@@ -188,12 +196,62 @@ public class EvolutionSender implements WhatsappSender {
                 Map<String, Object> ok = new LinkedHashMap<>();
                 ok.put("conectado", false);
                 ok.put("codigoPareamento", codigo);
+                ok.put("numeroUsado", tel);
                 return ok;
             }
         }
         m.remove("qrCode");
         m.put("mensagem", "A Evolution não devolveu o código depois de 3 tentativas. Resposta dela: " + ultima);
         return m;
+    }
+
+    /**
+     * O código de pareamento só funciona com o número exatamente como o WhatsApp o registrou. No Brasil, muitas
+     * contas (DDD 31 em diante, como 61) estão registradas sem o 9 extra. Pergunta ao WhatsApp, por um número
+     * já conectado, qual é o número real da conta; se não der para perguntar, tira o 9 nesses DDDs.
+     */
+    String numeroNoWhatsapp(String tel, String instancia) {
+        List<String> candidatos = new ArrayList<>();
+        candidatos.add(principal);
+        for (String n : numerosExtras.get()) {
+            if (!n.equals(instancia)) {
+                candidatos.add(n);
+            }
+        }
+        for (String inst : candidatos) {
+            if (inst == null || inst.equals(instancia)) {
+                continue;
+            }
+            try {
+                Resposta r = chamarSemFalha("POST", "/chat/whatsappNumbers/" + inst(inst), Map.of("numbers", List.of(tel)));
+                if (!r.ok()) {
+                    continue;
+                }
+                for (JsonNode n : json(r)) {
+                    if (n.path("exists").asBoolean(false)) {
+                        String jid = n.path("jid").asText("");
+                        String digitos = jid.contains("@") ? jid.substring(0, jid.indexOf('@')).replaceAll("\\D", "") : "";
+                        if (digitos.length() >= 12) {
+                            return digitos;
+                        }
+                    }
+                }
+            } catch (RuntimeException e) {
+                // tenta o próximo número conectado
+            }
+        }
+        return semNonoDigito(tel);
+    }
+
+    /** 55 + DDD ≥ 31 + 9 + 8 dígitos → sem o 9 (como o WhatsApp registra essas contas). */
+    static String semNonoDigito(String tel) {
+        if (tel.length() == 13 && tel.startsWith("55") && tel.charAt(4) == '9') {
+            int ddd = Integer.parseInt(tel.substring(2, 4));
+            if (ddd >= 31) {
+                return tel.substring(0, 4) + tel.substring(5);
+            }
+        }
+        return tel;
     }
 
     /** Resposta da Evolution sem as partes longas/sensíveis (QR em base64 e o "code" da sessão). */

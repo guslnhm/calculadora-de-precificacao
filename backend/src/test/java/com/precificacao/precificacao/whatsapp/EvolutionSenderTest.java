@@ -166,7 +166,7 @@ class EvolutionSenderTest {
         assertThat(EvolutionSender.telefone("9999")).isNull();
 
         rota("GET /instance/connectionState/monitor-chefe", 200, "{\"instance\":{\"state\":\"close\"}}");
-        rota("GET /instance/connect/monitor-chefe?number=5561999998888", 200, "{\"pairingCode\":\"WZYEH1YY\",\"code\":\"2@x\"}");
+        rota("GET /instance/connect/monitor-chefe?number=556199998888", 200, "{\"pairingCode\":\"WZYEH1YY\",\"code\":\"2@x\"}");
         var r = evo.conectarPorCodigo("monitor-chefe", "61 99999-8888");
         assertThat(r).containsEntry("codigoPareamento", "WZYEH1YY").containsEntry("conectado", false);
         assertThatThrownBy(() -> evo.conectarPorCodigo("monitor-chefe", "123"))
@@ -176,12 +176,26 @@ class EvolutionSenderTest {
     @Test
     void semCodigoTentaDeNovoEMostraARespostaSemOQr() {
         rota("GET /instance/connectionState/monitor-x", 200, "{\"instance\":{\"state\":\"connecting\"}}");
-        rota("GET /instance/connect/monitor-x?number=5561999998888", 200, "{\"count\":1,\"base64\":\"data:image/png;base64,AAAA\"}");
+        rota("GET /instance/connect/monitor-x?number=556199998888", 200, "{\"count\":1,\"base64\":\"data:image/png;base64,AAAA\"}");
         rota("DELETE /instance/logout/monitor-x", 200, "{}");
         var r = evo.conectarPorCodigo("monitor-x", "61999998888");
         assertThat(r).doesNotContainKey("codigoPareamento").doesNotContainKey("qrCode");
         assertThat((String) r.get("mensagem")).contains("3 tentativas").contains("\"count\":1").doesNotContain("AAAA");
         assertThat(pedidos.stream().filter(p -> p.caminho().startsWith("/instance/connect/")).count()).isEqualTo(4);
         assertThat(pedidos.stream().anyMatch(p -> p.metodo().equals("DELETE"))).isTrue();
+    }
+
+    @Test
+    void usaONumeroComoOWhatsappRegistrou() {
+        assertThat(EvolutionSender.semNonoDigito("5561999998888")).isEqualTo("556199998888");
+        assertThat(EvolutionSender.semNonoDigito("5511999998888")).isEqualTo("5511999998888"); // SP mantém o 9
+        assertThat(EvolutionSender.semNonoDigito("556199998888")).isEqualTo("556199998888");
+
+        // pergunta ao número principal (conectado) qual é a conta real
+        rota("POST /chat/whatsappNumbers/monitor", 200, "[{\"exists\":true,\"jid\":\"556199998888@s.whatsapp.net\",\"number\":\"5561999998888\"}]");
+        rota("GET /instance/connectionState/monitor-chefe", 200, "{\"instance\":{\"state\":\"close\"}}");
+        rota("GET /instance/connect/monitor-chefe?number=556199998888", 200, "{\"pairingCode\":\"ABCD1234\"}");
+        var r = evo.conectarPorCodigo("monitor-chefe", "(61) 99999-8888");
+        assertThat(r).containsEntry("codigoPareamento", "ABCD1234").containsEntry("numeroUsado", "556199998888");
     }
 }

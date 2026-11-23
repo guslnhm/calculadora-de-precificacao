@@ -17,6 +17,7 @@ export default function ConexaoWhatsapp({ instancia = null, nome: nomeNumero = n
   const [modoCodigo, setModoCodigo] = useState(false);
   const [telefone, setTelefone] = useState("");
   const [codigo, setCodigo] = useState(null);
+  const [numeroUsado, setNumeroUsado] = useState("");
   const [copiado, setCopiado] = useState(false);
 
   const ler = useCallback(async () => {
@@ -63,6 +64,7 @@ export default function ConexaoWhatsapp({ instancia = null, nome: nomeNumero = n
         await ler();
       } else if (r.codigoPareamento) {
         setCodigo(r.codigoPareamento);
+        setNumeroUsado(r.numeroUsado || "");
       } else {
         setErroQr(r.mensagem || "Não veio o código. Tente de novo.");
       }
@@ -164,7 +166,9 @@ export default function ConexaoWhatsapp({ instancia = null, nome: nomeNumero = n
             </>
           ) : (
             <>
-              <div style={{ fontSize: "13px", color: cores.textoSuave }}>Código de conexão</div>
+              <div style={{ fontSize: "13px", color: cores.textoSuave }}>
+                Código de conexão{numeroUsado ? ` para o número ${numeroUsado.replace(/^55(\d{2})(\d+)(\d{4})$/, "+55 $1 $2-$3")}` : ""}
+              </div>
               <div style={{ fontSize: "34px", fontWeight: 700, letterSpacing: "0.12em", color: cores.texto, fontVariantNumeric: "tabular-nums" }}>
                 {codigo.length === 8 ? `${codigo.slice(0, 4)}-${codigo.slice(4)}` : codigo}
               </div>
