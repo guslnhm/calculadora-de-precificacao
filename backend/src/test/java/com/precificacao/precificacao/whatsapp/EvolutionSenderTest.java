@@ -172,4 +172,16 @@ class EvolutionSenderTest {
         assertThatThrownBy(() -> evo.conectarPorCodigo("monitor-chefe", "123"))
                 .isInstanceOf(WhatsappSender.FalhaEnvio.class);
     }
+
+    @Test
+    void semCodigoTentaDeNovoEMostraARespostaSemOQr() {
+        rota("GET /instance/connectionState/monitor-x", 200, "{\"instance\":{\"state\":\"connecting\"}}");
+        rota("GET /instance/connect/monitor-x?number=5561999998888", 200, "{\"count\":1,\"base64\":\"data:image/png;base64,AAAA\"}");
+        rota("DELETE /instance/logout/monitor-x", 200, "{}");
+        var r = evo.conectarPorCodigo("monitor-x", "61999998888");
+        assertThat(r).doesNotContainKey("codigoPareamento").doesNotContainKey("qrCode");
+        assertThat((String) r.get("mensagem")).contains("3 tentativas").contains("\"count\":1").doesNotContain("AAAA");
+        assertThat(pedidos.stream().filter(p -> p.caminho().startsWith("/instance/connect/")).count()).isEqualTo(4);
+        assertThat(pedidos.stream().anyMatch(p -> p.metodo().equals("DELETE"))).isTrue();
+    }
 }
