@@ -64,7 +64,60 @@ public class PainelService {
                            Integer cancelamentos, BigDecimal taxaCancelamento, Integer novosClientes,
                            BigDecimal conversao, BigDecimal repasse, BigDecimal tempoEntrega,
                            BigDecimal incentivoLoja, Long minutosFechada, BigDecimal perdaEstimada,
-                           boolean conversaoManual, boolean repasseManual) {
+                           boolean conversaoManual, boolean repasseManual, BigDecimal valorBruto,
+                           BigDecimal valorLiquido, BigDecimal recebidoViaLoja, BigDecimal repassadoPlataforma,
+                           BigDecimal taxaRepasse, BigDecimal custoPlataforma) {
+    }
+
+    /**
+     * Valores do Portal do Parceiro no período: lançamento manual, senão a base histórica (BI).
+     * repasse = líquido + recebido via loja; taxa de repasse = repasse / (bruto − repassado ao iFood);
+     * custo da plataforma = 1 − taxa.
+     */
+    record Portal(BigDecimal conversao, BigDecimal repasse, BigDecimal bruto, BigDecimal liquido, BigDecimal recebido,
+                  BigDecimal repassado, BigDecimal taxa, boolean conversaoManual, boolean repasseManual) {
+
+        static Portal de(Manual m, PeriodoBi b) {
+            boolean convManual = m != null && m.conversao() != null;
+            BigDecimal conv = convManual ? m.conversao() : b == null ? null : b.conversao();
+            boolean valoresManuais = m != null && (m.valorBruto() != null || m.valorLiquido() != null);
+            BigDecimal bruto = null, liq = null, rec = null, repd = null, rep = null;
+            boolean repManual = false;
+            if (valoresManuais) {
+                bruto = m.valorBruto();
+                liq = m.valorLiquido();
+                rec = m.recebidoViaLoja();
+                repd = m.repassadoPlataforma();
+                rep = liq != null ? liq.add(nz(rec)) : m.repasse();
+                repManual = true;
+            } else if (m != null && m.repasse() != null) {
+                rep = m.repasse();
+                repManual = true;
+                if (b != null) {
+                    bruto = b.valorBruto();
+                    repd = b.repassadoPlataforma();
+                }
+            } else if (b != null) {
+                bruto = b.valorBruto();
+                liq = b.valorLiquido();
+                rec = b.recebidoViaLoja();
+                repd = b.repassadoPlataforma();
+                rep = liq != null ? liq.add(nz(rec)) : b.repasse();
+            }
+            return new Portal(conv, rep, bruto, liq, rec, repd, taxaRepasse(rep, bruto, repd), convManual, repManual);
+        }
+
+        BigDecimal custo() {
+            return taxa == null ? null : BigDecimal.ONE.subtract(taxa);
+        }
+    }
+
+    static BigDecimal taxaRepasse(BigDecimal repasse, BigDecimal bruto, BigDecimal repassado) {
+        if (repasse == null || bruto == null) {
+            return null;
+        }
+        BigDecimal base = bruto.subtract(nz(repassado));
+        return base.signum() <= 0 ? null : repasse.divide(base, 4, RoundingMode.HALF_UP);
     }
 
     public record Linha(String chave, String nome, String plataforma, Metricas atual, Metricas anterior,
@@ -335,9 +388,11 @@ public class PainelService {
                 } else if (!ds.isEmpty()) {
                     met = deDias(ds, null, m, perda);   // período em andamento ou coleta parcial
                 } else if (m != null) {
-                    met = new Metricas(null, null, null, null, null, null, null, m.conversao(), m.repasse(), null, null,
+                    Portal pt = Portal.de(m, null);
+                    met = new Metricas(null, null, null, null, null, null, null, pt.conversao(), pt.repasse(), null, null,
                             perda == null ? null : perda.minutos(), perda == null ? null : perda.valor(),
-                            m.conversao() != null, m.repasse() != null);
+                            pt.conversaoManual(), pt.repasseManual(), pt.bruto(), pt.liquido(), pt.recebido(),
+                            pt.repassado(), pt.taxa(), pt.custo());
                 } else {
                     continue;
                 }
@@ -367,28 +422,27 @@ public class PainelService {
                 tempoPeso += d.pedidos();
             }
         }
-        BigDecimal conv = m != null && m.conversao() != null ? m.conversao() : b == null ? null : b.conversao();
-        BigDecimal rep = m != null && m.repasse() != null ? m.repasse() : b == null ? null : b.repasse();
+        Portal pt = Portal.de(m, b);
         return new Metricas("ANALYTICS", ped, fat, ped == 0 ? null : fat.divide(BigDecimal.valueOf(ped), 2, RoundingMode.HALF_UP),
-                canc, taxa(canc, ped + canc), temNovos ? novos : null, conv, rep,
+                canc, taxa(canc, ped + canc), temNovos ? novos : null, pt.conversao(), pt.repasse(),
                 tempoPeso == 0 ? null : tempoSoma.divide(BigDecimal.valueOf(tempoPeso), 1, RoundingMode.HALF_UP),
                 inc, perda == null ? null : perda.minutos(), perda == null ? null : perda.valor(),
-                m != null && m.conversao() != null, m != null && m.repasse() != null);
+                pt.conversaoManual(), pt.repasseManual(), pt.bruto(), pt.liquido(), pt.recebido(), pt.repassado(),
+                pt.taxa(), pt.custo());
     }
 
     private static Metricas deBi(PeriodoBi b, Manual m, Estimativa perda) {
         Integer ped = b.pedidos();
         Integer canc = b.cancelamentos();
-        BigDecimal conv = m != null && m.conversao() != null ? m.conversao() : b.conversao();
-        BigDecimal rep = m != null && m.repasse() != null ? m.repasse() : b.repasse();
+        Portal pt = Portal.de(m, b);
         BigDecimal ticket = b.ticket() != null ? b.ticket()
                 : ped == null || ped == 0 || b.faturamento() == null ? null
                 : b.faturamento().divide(BigDecimal.valueOf(ped), 2, RoundingMode.HALF_UP);
         return new Metricas("BI", ped, b.faturamento(), ticket, canc,
-                ped == null || canc == null ? null : taxa(canc, ped + canc), b.novosClientes(), conv, rep,
-                b.tempoEntrega(), b.incentivosLoja(), perda == null ? null : perda.minutos(),
-                perda == null ? null : perda.valor(), m != null && m.conversao() != null,
-                m != null && m.repasse() != null);
+                ped == null || canc == null ? null : taxa(canc, ped + canc), b.novosClientes(), pt.conversao(),
+                pt.repasse(), b.tempoEntrega(), b.incentivosLoja(), perda == null ? null : perda.minutos(),
+                perda == null ? null : perda.valor(), pt.conversaoManual(), pt.repasseManual(), pt.bruto(),
+                pt.liquido(), pt.recebido(), pt.repassado(), pt.taxa(), pt.custo());
     }
 
     /** Duas operações do BI ligadas à mesma loja no mesmo período: soma. */
@@ -400,7 +454,15 @@ public class PainelService {
                 soma(a.repasse(), b.repasse()), a.conversao() != null ? a.conversao() : b.conversao(),
                 soma(a.novosClientes(), b.novosClientes()), a.tempoEntrega() != null ? a.tempoEntrega() : b.tempoEntrega(),
                 soma(a.cancelamentos(), b.cancelamentos()), a.tempoAberto(), soma(a.incentivosIfood(), b.incentivosIfood()),
-                soma(a.incentivosLoja(), b.incentivosLoja()));
+                soma(a.incentivosLoja(), b.incentivosLoja()), soma(a.valorBruto(), b.valorBruto()),
+                soma(a.valorLiquido(), b.valorLiquido()), soma(a.recebidoViaLoja(), b.recebidoViaLoja()),
+                soma(a.repassadoPlataforma(), b.repassadoPlataforma()));
+    }
+
+    /** Diferença em pontos percentuais (0,25 → 0,20 = −5 p.p.). */
+    private static BigDecimal pontos(BigDecimal a, BigDecimal b) {
+        return a == null || b == null ? null
+                : a.subtract(b).multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
     }
 
     /** Variação % (atual vs anterior) dos principais números. */
@@ -414,9 +476,10 @@ public class PainelService {
         v.put("ticket", pct(a.ticket(), b.ticket()));
         v.put("cancelamentos", pct(dec(a.cancelamentos()), dec(b.cancelamentos())));
         v.put("novosClientes", pct(dec(a.novosClientes()), dec(b.novosClientes())));
-        v.put("conversao", a.conversao() == null || b.conversao() == null ? null
-                : a.conversao().subtract(b.conversao()).multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP));
+        v.put("conversao", pontos(a.conversao(), b.conversao()));
         v.put("repasse", pct(a.repasse(), b.repasse()));
+        v.put("taxaRepasse", pontos(a.taxaRepasse(), b.taxaRepasse()));
+        v.put("custoPlataforma", pontos(a.custoPlataforma(), b.custoPlataforma()));
         return v;
     }
 

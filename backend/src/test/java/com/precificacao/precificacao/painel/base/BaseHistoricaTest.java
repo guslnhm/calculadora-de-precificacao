@@ -218,4 +218,38 @@ class BaseHistoricaTest {
                         new BaseHistoricaService.NovaOperacao("999", "Loja Nova", 7, null, null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void valoresDoBoletimMantemOsOutrosCamposDaMetrica() throws SQLException {
+        BaseHistoricaService.gravar(c, relatorio(
+                RelatorioPedidosTest.linhaCsv("p-1", "Loja A", "111", "17/11/2026 20:00:00", "CONCLUIDO", "100")));
+        try (Statement st = c.createStatement()) {
+            st.execute("UPDATE silver.fato_metricas_periodo SET novos_clientes = 9 WHERE periodo_tipo = 'SEMANAL'");
+        }
+        java.time.LocalDate ini = java.time.LocalDate.of(2026, 11, 16);
+        java.time.LocalDate fim = java.time.LocalDate.of(2026, 11, 22);
+        BaseHistoricaService.gravarValoresPortal(c, 7, "SEMANAL", ini, fim, new BigDecimal("0.3"),
+                new BigDecimal("400"), new BigDecimal("300"), null, new BigDecimal("25"));
+        BaseHistoricaService.recalcularGold(c, java.util.List.of(new BaseHistoricaService.Periodo(7, "SEMANAL", ini, fim)), true);
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("""
+                SELECT valor_bruto, recebido_via_loja, repassado_plataforma, repasse, taxa_repasse, novos_clientes,
+                       alteracao_cardapio, conversao
+                FROM gold.financeiro_periodo WHERE periodo_tipo = 'SEMANAL'""")) {
+            rs.next();
+            assertThat(rs.getBigDecimal(1)).isEqualByComparingTo("400");
+            assertThat(rs.getBigDecimal(2)).isEqualByComparingTo("0");
+            assertThat(rs.getBigDecimal(3)).isEqualByComparingTo("25");
+            assertThat(rs.getBigDecimal(4)).isEqualByComparingTo("300");
+            assertThat(rs.getBigDecimal(5).setScale(4, java.math.RoundingMode.HALF_UP)).isEqualByComparingTo("0.8000"); // 300 / 375
+            assertThat(rs.getInt(6)).isEqualTo(9);
+            assertThat(rs.getBoolean(7)).isTrue();
+            assertThat(rs.getBigDecimal(8)).isEqualByComparingTo("0.3");
+        }
+        // só conversão: não apaga os valores
+        BaseHistoricaService.gravarValoresPortal(c, 7, "SEMANAL", ini, fim, new BigDecimal("0.1"), null, null, null, null);
+        assertThat((BigDecimal) um("SELECT valor_bruto FROM silver.fato_metricas_periodo WHERE periodo_tipo = 'SEMANAL'"))
+                .isEqualByComparingTo("400");
+        assertThat((BigDecimal) um("SELECT conversao FROM silver.fato_metricas_periodo WHERE periodo_tipo = 'SEMANAL'"))
+                .isEqualByComparingTo("0.1");
+    }
 }

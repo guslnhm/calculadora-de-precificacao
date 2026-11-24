@@ -9,6 +9,7 @@ import com.precificacao.precificacao.painel.PainelProperties;
 import com.precificacao.precificacao.painel.PainelRepository;
 import com.precificacao.precificacao.painel.PainelScheduler;
 import com.precificacao.precificacao.painel.PainelService;
+import com.precificacao.precificacao.painel.base.BaseHistoricaService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -37,7 +38,8 @@ import java.util.Map;
 public class PainelController {
 
     public record ManualRequest(String chave, String periodoTipo, LocalDate inicio, BigDecimal conversao,
-                                BigDecimal repasse) {
+                                BigDecimal repasse, BigDecimal valorBruto, BigDecimal valorLiquido,
+                                BigDecimal recebidoViaLoja, BigDecimal repassadoPlataforma) {
     }
 
     public record VinculoRequest(String merchantId) {
@@ -50,9 +52,12 @@ public class PainelController {
     private final PainelRepository repo;
     private final PainelProperties cfg;
     private final Clock clock;
+    private final BaseHistoricaService base;
 
     public PainelController(PainelService painel, PainelColetaService coleta, PainelScheduler agenda,
-                            BiImportService bi, PainelRepository repo, PainelProperties cfg, Clock clock) {
+                            BiImportService bi, PainelRepository repo, PainelProperties cfg, Clock clock,
+                            BaseHistoricaService base) {
+        this.base = base;
         this.painel = painel;
         this.coleta = coleta;
         this.agenda = agenda;
@@ -87,10 +92,34 @@ public class PainelController {
         if (conv != null && conv.compareTo(BigDecimal.ONE) > 0) {
             conv = conv.movePointLeft(2); // aceita 19,2 (%) ou 0,192
         }
-        Object usuario = http.getAttribute("usuarioNome");
-        repo.salvarManual(req.chave(), p.tipo(), p.inicio(), conv, req.repasse(),
-                usuario == null ? null : usuario.toString(), OffsetDateTime.now(clock));
-        return Map.of("ok", true, "periodo", p);
+        // valores do Portal: repasse = líquido + recebido via loja; em branco com bruto/líquido preenchidos vale 0
+        boolean temValores = req.valorBruto() != null || req.valorLiquido() != null;
+        BigDecimal recebido = req.recebidoViaLoja() == null && temValores ? BigDecimal.ZERO : req.recebidoViaLoja();
+        BigDecimal repassado = req.repassadoPlataforma() == null && temValores ? BigDecimal.ZERO : req.repassadoPlataforma();
+        BigDecimal repasse = req.valorLiquido() != null ? req.valorLiquido().add(recebido) : req.repasse();
+        Sessao s = Sessao.de(http);
+        Object usuario = s != null ? s.nome() : http.getAttribute("usuarioNome");
+        repo.salvarManual(new PainelRepository.Manual(req.chave(), p.tipo(), p.inicio(), conv, repasse,
+                OffsetDateTime.now(clock), usuario == null ? null : usuario.toString(), req.valorBruto(),
+                req.valorLiquido(), recebido, repassado));
+
+        // também na base histórica, quando a loja é uma operação só da base
+        String naBase = "não configurada";
+        if (cfg.bancoBiConfigurado()) {
+            List<Integer> ops = repo.operacoesDaChave(req.chave());
+            if (ops.size() == 1) {
+                try {
+                    base.salvarValoresPortal(ops.get(0), p.tipo(), p.inicio(), conv, req.valorBruto(),
+                            req.valorLiquido(), recebido, repassado);
+                    naBase = "gravado";
+                } catch (RuntimeException e) {
+                    naBase = "erro: " + e.getMessage();
+                }
+            } else {
+                naBase = ops.isEmpty() ? "loja sem operação na base" : "loja com mais de uma operação na base";
+            }
+        }
+        return Map.of("ok", true, "periodo", p, "base", naBase);
     }
 
     @GetMapping("/status")

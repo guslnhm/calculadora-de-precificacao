@@ -358,7 +358,7 @@ public class BaseHistoricaService {
                                 BigDecimal tempoAberto, Boolean alteracaoCardapio) {
     }
 
-    static LocalDate[] periodo(String tipo, LocalDate inicio) {
+    public static LocalDate[] periodo(String tipo, LocalDate inicio) {
         if ("MENSAL".equalsIgnoreCase(tipo)) {
             LocalDate m = inicio.withDayOfMonth(1);
             return new LocalDate[]{m, m.with(TemporalAdjusters.lastDayOfMonth())};
@@ -367,7 +367,7 @@ public class BaseHistoricaService {
         return new LocalDate[]{seg, seg.plusDays(6)};
     }
 
-    static String tipo(String t) {
+    public static String tipo(String t) {
         return "MENSAL".equalsIgnoreCase(t) ? "MENSAL" : "SEMANAL";
     }
 
@@ -428,6 +428,58 @@ public class BaseHistoricaService {
             throw new IllegalStateException("Não consegui gravar na base: " + ex.getMessage());
         }
         reimportarDepois();
+    }
+
+    /**
+     * Grava só conversão e os valores do Portal (bruto, líquido, recebido via loja, repassado) da operação,
+     * mantendo os outros campos da métrica (novos clientes, tempos, alteração de cardápio). Usado pelo boletim.
+     * Sem bruto nem líquido, só a conversão muda.
+     */
+    public void salvarValoresPortal(int idOperacao, String periodoTipo, LocalDate inicio, BigDecimal conversao,
+                                    BigDecimal bruto, BigDecimal liquido, BigDecimal recebido, BigDecimal repassado) {
+        String t = tipo(periodoTipo);
+        LocalDate[] p = periodo(t, inicio);
+        try (Connection c = conectar(jdbcBase())) {
+            c.setAutoCommit(false);
+            try {
+                gravarValoresPortal(c, idOperacao, t, p[0], p[1], conversao, bruto, liquido, recebido, repassado);
+                recalcularGold(c, List.of(new Periodo(idOperacao, t, p[0], p[1])), true);
+                c.commit();
+            } catch (SQLException | RuntimeException ex) {
+                c.rollback();
+                throw ex;
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Não consegui gravar na base: " + ex.getMessage());
+        }
+        reimportarDepois();
+    }
+
+    private static final String VALORES_PORTAL = ", valor_bruto = EXCLUDED.valor_bruto, valor_liquido = EXCLUDED.valor_liquido,"
+            + " recebido_via_loja = EXCLUDED.recebido_via_loja, repassado_plataforma = EXCLUDED.repassado_plataforma";
+
+    static void gravarValoresPortal(Connection c, int idOperacao, String tipo, LocalDate ini, LocalDate fim,
+                                    BigDecimal conversao, BigDecimal bruto, BigDecimal liquido, BigDecimal recebido,
+                                    BigDecimal repassado) throws SQLException {
+        boolean temValores = bruto != null || liquido != null;
+        try (PreparedStatement ps = c.prepareStatement("""
+                INSERT INTO silver.fato_metricas_periodo (id_operacao, id_plataforma, periodo_tipo, data_inicio, data_fim,
+                    conversao, valor_bruto, valor_liquido, recebido_via_loja, repassado_plataforma, data_carga)
+                VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, now())
+                ON CONFLICT (id_operacao, id_plataforma, periodo_tipo, data_inicio) DO UPDATE SET
+                    data_fim = EXCLUDED.data_fim, conversao = EXCLUDED.conversao, data_carga = EXCLUDED.data_carga
+                    %s""".formatted(temValores ? VALORES_PORTAL : ""))) {
+            ps.setInt(1, idOperacao);
+            ps.setString(2, tipo);
+            ps.setDate(3, java.sql.Date.valueOf(ini));
+            ps.setDate(4, java.sql.Date.valueOf(fim));
+            ps.setBigDecimal(5, conversao);
+            ps.setBigDecimal(6, bruto);
+            ps.setBigDecimal(7, liquido);
+            ps.setBigDecimal(8, recebido == null && temValores ? BigDecimal.ZERO : recebido);
+            ps.setBigDecimal(9, repassado == null && temValores ? BigDecimal.ZERO : repassado);
+            ps.executeUpdate();
+        }
     }
 
     static void validar(EdicaoMetrica e) {

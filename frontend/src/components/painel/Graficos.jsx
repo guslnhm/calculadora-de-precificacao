@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { cor } from "./fmt";
+import { COR_MARCA, cor } from "./fmt";
 
 // Gráficos do painel em SVG puro (sem biblioteca): linha com cruz de leitura, barras e mapa de calor.
 // Regras: um eixo só, linhas de 2px, grade discreta, tooltip ao passar o mouse, legenda quando há 2 séries.
@@ -79,8 +79,11 @@ export function Legenda({ series }) {
  * Linha no tempo. series: [{ nome, cor, valores: [n|null] }], rotulos: [string], formato: (n) => string.
  * O último ponto de cada série leva rótulo direto.
  */
-/** Linhas. marcas: [{ indice, rotulo }] = pontos verticais (ex.: alteração de cardápio). */
-export function GraficoLinha({ series, rotulos, formato, altura = 200, marcas = [] }) {
+/**
+ * Linhas. marcas: [{ indice, rotulo }] = pontos verticais (ex.: alteração de cardápio).
+ * extras(i): linhas a mais no tooltip do período i (ex.: taxa de repasse).
+ */
+export function GraficoLinha({ series, rotulos, formato, altura = 200, marcas = [], extras }) {
   const [ref, largura] = useLargura();
   const [foco, setFoco] = useState(null);
   const m = { e: 76, d: 16, t: 16, b: 26 };
@@ -121,8 +124,8 @@ export function GraficoLinha({ series, rotulos, formato, altura = 200, marcas = 
         {foco !== null && <line x1={x(foco)} x2={x(foco)} y1={m.t} y2={m.t + h} stroke={cor.textoSuave} strokeDasharray="3 3" />}
         {marcas.map((mc) => (
           <g key={`m${mc.indice}`}>
-            <line x1={x(mc.indice)} x2={x(mc.indice)} y1={m.t} y2={m.t + h} stroke={cor.serie2} strokeWidth={1.5} strokeDasharray="4 3" />
-            <circle cx={x(mc.indice)} cy={m.t} r={5} fill={cor.serie2} stroke="#FFFFFF" strokeWidth={2}>
+            <line x1={x(mc.indice)} x2={x(mc.indice)} y1={m.t} y2={m.t + h} stroke={COR_MARCA} strokeWidth={1.5} strokeDasharray="4 3" />
+            <circle cx={x(mc.indice)} cy={m.t} r={5} fill={COR_MARCA} stroke="#FFFFFF" strokeWidth={2}>
               <title>{mc.rotulo}</title>
             </circle>
           </g>
@@ -161,7 +164,8 @@ export function GraficoLinha({ series, rotulos, formato, altura = 200, marcas = 
           linhas={[
             { rotulo: rotulos[foco] },
             ...series.map((s) => ({ rotulo: s.nome, cor: s.cor, valor: s.valores[foco] == null ? "—" : formato(s.valores[foco]) })),
-            ...marcas.filter((mc) => mc.indice === foco).map((mc) => ({ rotulo: mc.rotulo, cor: cor.serie2, valor: "●" })),
+            ...(extras ? extras(foco) : []),
+            ...marcas.filter((mc) => mc.indice === foco).map((mc) => ({ rotulo: mc.rotulo, cor: COR_MARCA, valor: "●" })),
           ]}
         />
       )}

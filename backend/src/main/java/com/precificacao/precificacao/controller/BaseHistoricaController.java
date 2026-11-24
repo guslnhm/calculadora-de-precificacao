@@ -66,6 +66,12 @@ public class BaseHistoricaController {
     @PutMapping("/metricas")
     public Map<String, Object> salvarMetrica(@RequestBody BaseHistoricaService.EdicaoMetrica req) {
         base.salvarMetrica(req);
+        // o que foi lançado antes no boletim deixa de valer: a base (reimportada em seguida) passa a mandar
+        String tipo = BaseHistoricaService.tipo(req.periodoTipo());
+        LocalDate inicio = BaseHistoricaService.periodo(tipo, req.inicio())[0];
+        for (String chave : painel.chavesDaOperacao(req.idOperacao())) {
+            painel.apagarManual(chave, tipo, inicio);
+        }
         return Map.of("ok", true);
     }
 

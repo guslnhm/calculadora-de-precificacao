@@ -2,7 +2,7 @@ import { useState } from "react";
 import { painelApi } from "../../services/api";
 import { dataHora } from "../monitor/ui";
 import { Cartao, Selo } from "./Carteira";
-import { botao, caixa, campo, cor, dataCurta, inteiro, minutos, percentual, reais, reaisCurto, rotuloPeriodo, variacao } from "./fmt";
+import { COR_MARCA, botao, caixa, campo, cor, dataCurta, inteiro, minutos, percentual, reais, reaisCurto, rotuloPeriodo, variacao } from "./fmt";
 import { GraficoBarras, GraficoLinha, MapaCalor } from "./Graficos";
 
 const META_CONVERSAO = 0.15;
@@ -20,37 +20,87 @@ function Bloco({ titulo, subtitulo, children, direita }) {
   );
 }
 
-/** Lançamento de conversão e repasse do período (valores do Portal). */
+const CAMPOS_PORTAL = [
+  { id: "valorBruto", rotulo: "Valor bruto", dica: "Portal: valor bruto das vendas" },
+  { id: "valorLiquido", rotulo: "Valor líquido", dica: "Portal: valor líquido a receber" },
+  { id: "recebidoViaLoja", rotulo: "Recebido via loja", dica: "pago direto à loja (dinheiro, maquininha)" },
+  { id: "repassadoPlataforma", rotulo: "Repassado ao iFood", dica: "valor que a loja repassou ao iFood" },
+];
+
+const paraTexto = (v, casas = 2) => (v == null ? "" : Number(v).toFixed(casas).replace(".", ","));
+const lerNumero = (s) => {
+  const t = String(s).trim();
+  if (t === "") return null;
+  const n = Number(t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t);
+  return Number.isFinite(n) ? n : NaN;
+};
+
+/** Repasse, taxa de repasse e custo da plataforma a partir dos valores do Portal. */
+function calcularRepasse({ valorBruto, valorLiquido, recebidoViaLoja, repassadoPlataforma }) {
+  const repasse = valorLiquido == null ? null : valorLiquido + (recebidoViaLoja || 0);
+  const base = valorBruto == null ? null : valorBruto - (repassadoPlataforma || 0);
+  const taxa = repasse == null || !base || base <= 0 ? null : repasse / base;
+  return { repasse, taxa, custo: taxa == null ? null : 1 - taxa };
+}
+
+/** Lançamento dos valores do Portal no período: conversão, bruto, líquido, recebido via loja e repassado. */
 function Lancamento({ dados, onSalvo }) {
   const a = dados.atual || {};
-  const [conv, setConv] = useState(a.conversao != null ? String((a.conversao * 100).toFixed(2)).replace(".", ",") : "");
-  const [rep, setRep] = useState(a.repasse != null ? Number(a.repasse).toFixed(2).replace(".", ",") : "");
+  const [conv, setConv] = useState(a.conversao != null ? paraTexto(a.conversao * 100) : "");
+  const [valores, setValores] = useState(() =>
+    Object.fromEntries(CAMPOS_PORTAL.map((c) => [c.id, paraTexto(a[c.id])])));
   const [msg, setMsg] = useState("");
-  const num = (s) => (s.trim() === "" ? null : Number(s.replace(/\./g, "").replace(",", ".")));
+
+  const numeros = Object.fromEntries(CAMPOS_PORTAL.map((c) => [c.id, lerNumero(valores[c.id])]));
+  const invalido = Object.values(numeros).some((n) => Number.isNaN(n)) || Number.isNaN(lerNumero(conv));
+  const previa = invalido ? {} : calcularRepasse(numeros);
 
   async function salvar() {
+    if (invalido) {
+      setMsg("Confira os números (use vírgula para os centavos).");
+      return;
+    }
     setMsg("Salvando...");
     try {
-      await painelApi.salvarManual({
+      const c = lerNumero(conv);
+      const r = await painelApi.salvarManual({
         chave: dados.chave,
         periodoTipo: dados.periodo.tipo,
         inicio: dados.periodo.inicio,
-        conversao: num(conv) == null ? null : num(conv) / 100,
-        repasse: num(rep),
+        conversao: c == null ? null : c / 100,
+        ...numeros,
       });
-      setMsg("Salvo");
+      setMsg(r?.base === "gravado" ? "Salvo no painel e na base histórica" : "Salvo");
       onSalvo();
     } catch (e) {
       setMsg(e.message);
     }
   }
 
+  const rotulo = { display: "grid", gap: 4, fontSize: 12, color: cor.textoSuave };
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 13 }}>
-      <label>Conversão (%) <input value={conv} onChange={(e) => setConv(e.target.value)} style={{ ...campo, width: 80 }} placeholder="19,2" /></label>
-      <label>Repasse (R$) <input value={rep} onChange={(e) => setRep(e.target.value)} style={{ ...campo, width: 120 }} placeholder="31561,74" /></label>
-      <button onClick={salvar} style={botao}>Salvar</button>
-      <span style={{ color: cor.textoSuave }}>{msg}</span>
+    <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <label style={rotulo}>Conversão (%)
+          <input value={conv} onChange={(e) => setConv(e.target.value)} style={{ ...campo, width: 80 }} placeholder="19,2" />
+        </label>
+        {CAMPOS_PORTAL.map((c) => (
+          <label key={c.id} style={rotulo} title={c.dica}>{c.rotulo} (R$)
+            <input value={valores[c.id]} onChange={(e) => setValores({ ...valores, [c.id]: e.target.value })}
+                   style={{ ...campo, width: 120 }} placeholder="0,00" />
+          </label>
+        ))}
+        <button onClick={salvar} style={botao}>Salvar</button>
+      </div>
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: 13, alignItems: "baseline" }}>
+        <span>Repasse: <b>{previa.repasse == null ? "—" : reais(previa.repasse)}</b></span>
+        <span>Taxa de repasse: <b>{previa.taxa == null ? "—" : percentual(previa.taxa)}</b></span>
+        <span>Custo da plataforma: <b>{previa.custo == null ? "—" : percentual(previa.custo)}</b></span>
+        <span style={{ fontSize: 12, color: cor.textoSuave }}>
+          repasse = líquido + recebido via loja · taxa = repasse ÷ (bruto − repassado ao iFood)
+        </span>
+        {msg && <span style={{ color: cor.textoSuave, marginLeft: "auto" }}>{msg}</span>}
+      </div>
     </div>
   );
 }
@@ -91,14 +141,19 @@ export default function BoletimLoja({ dados, onAtualizar, somenteLeitura = false
         <Cartao titulo="Cancelamentos" valor={inteiro(a.cancelamentos)} delta={variacao(v.cancelamentos, { inverso: true })} nota={percentual(a.taxaCancelamento)} />
         <Cartao titulo="Novos clientes" valor={inteiro(a.novosClientes)} delta={variacao(v.novosClientes)} />
         <Cartao titulo="Repasse" valor={reaisCurto(a.repasse)} delta={variacao(v.repasse)}
-                nota={a.repasse != null && a.faturamento ? `${percentual(a.repasse / a.faturamento)} do faturamento` : undefined} />
+                nota={a.repasse == null ? (somenteLeitura ? "ainda não lançado" : "lance abaixo") : "líquido + recebido via loja"} />
+        <Cartao titulo="Taxa de repasse" valor={percentual(a.taxaRepasse)} delta={variacao(v.taxaRepasse, { pontos: true })}
+                nota={a.taxaRepasse == null ? (a.repasse == null ? "lance o bruto e o líquido" : "falta o valor bruto") : "repasse ÷ bruto"} />
+        <Cartao titulo="Custo da plataforma" valor={percentual(a.custoPlataforma)}
+                delta={variacao(v.custoPlataforma, { pontos: true, inverso: true })}
+                nota={a.custoPlataforma == null ? undefined : "1 − taxa de repasse"} />
         <Cartao titulo="Tempo de entrega" valor={a.tempoEntrega != null ? `${Math.round(a.tempoEntrega)} min` : "—"} />
         <Cartao titulo="Perda estimada" valor={reaisCurto(a.perdaEstimada)} nota={a.minutosFechada ? `${minutos(a.minutosFechada)} fechada` : "sem fechamentos"}
                 destaque={Number(a.perdaEstimada) > 0 ? "#F2B79B" : undefined} />
       </div>
 
       {!somenteLeitura && (
-        <Bloco titulo="Conversão e repasse do período" subtitulo="valores do Portal do Parceiro — ficam salvos para este período">
+        <Bloco titulo="Valores do Portal no período" subtitulo="do Portal do Parceiro (Financeiro) — ficam salvos para este período">
           <Lancamento key={`${dados.chave}-${dados.periodo.inicio}`} dados={dados} onSalvo={onAtualizar} />
         </Bloco>
       )}
@@ -107,11 +162,16 @@ export default function BoletimLoja({ dados, onAtualizar, somenteLeitura = false
         <Bloco titulo="Faturamento" subtitulo={`últimos ${serie.length} períodos`}
                direita={<span style={{ fontSize: 12, color: cor.textoSuave }}>média {reaisCurto(rec.mediaFaturamento)} · recorde {reaisCurto(rec.recordeFaturamento)}</span>}>
           <GraficoLinha rotulos={rotulos} formato={(n, eixo) => (eixo ? reaisCurto(n) : reais(n, true))}
-                        series={[{ nome: "Faturamento", cor: cor.serie1, valores: val("faturamento") }]}
-                        marcas={marcasCardapio} />
+                        series={[{ nome: "Faturamento", cor: cor.serie1, valores: val("faturamento") },
+                                 { nome: "Repasse", cor: cor.serie2, valores: val("repasse") }]}
+                        marcas={marcasCardapio}
+                        extras={(i) => {
+                          const t = serie[i]?.metricas?.taxaRepasse;
+                          return t == null ? [] : [{ rotulo: "Taxa de repasse", valor: percentual(t) }];
+                        }} />
           {marcasCardapio.length > 0 && (
             <div style={{ fontSize: 12, color: cor.textoSuave, marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: cor.serie2 }} />
+              <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: COR_MARCA }} />
               Alteração de cardápio feita pela consultoria
             </div>
           )}
