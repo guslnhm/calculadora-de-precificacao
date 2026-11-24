@@ -148,6 +148,10 @@ class BaseHistoricaTest {
         assertThat((BigDecimal) um("SELECT repasse FROM gold.financeiro_periodo WHERE periodo_tipo = 'MENSAL'"))
                 .isEqualByComparingTo("700");
         assertThat(um("SELECT alteracao_cardapio FROM gold.financeiro_periodo WHERE periodo_tipo = 'MENSAL'")).isEqualTo(false);
+        // linha vazia de métricas criada para o mês; a da semana (já preenchida) continua igual
+        assertThat(um("SELECT count(*) FROM silver.fato_metricas_periodo")).isEqualTo(2L);
+        assertThat((BigDecimal) um("SELECT valor_bruto FROM silver.fato_metricas_periodo WHERE periodo_tipo = 'SEMANAL'"))
+                .isEqualByComparingTo("200");
 
         // reenviar o mesmo período (com um pedido que mudou de status) não duplica
         var r2 = BaseHistoricaService.gravar(c, relatorio(

@@ -36,7 +36,10 @@ import java.util.stream.Collectors;
  * caminho do processo manual: public.pedidos → silver.fato_pedido → gold.financeiro_periodo.
  *
  * - public.pedidos: pedido que já existe (mesmo ID completo) é substituído, então reenviar um período não duplica.
- * - silver.fato_pedido: só pedidos de lojas com operação cadastrada (silver.dim_operacao_alias pelo ID da loja).
+ * - silver.fato_pedido: só pedidos de lojas com operação cadastrada (silver.dim_operacao_alias pelo ID da loja;
+ *   o script manual também exigia o mesmo nome, e perdia os pedidos de loja que mudou de nome no iFood).
+ *   Pedido que já estava no fato é atualizado (o script manual ignorava).
+ * - silver.fato_metricas_periodo: cria a linha vazia de cada semana/mês tocado, como o script manual.
  * - gold.financeiro_periodo: refaz as semanas (seg–dom) e os meses que o arquivo tocou, com as mesmas contas da
  *   base (pedidos e valores sem os cancelados; repasse = líquido + recebido via loja; etc.). Os valores manuais
  *   (bruto, líquido, conversão, alteração de cardápio…) vêm de silver.fato_metricas_periodo; se não houver,
@@ -241,6 +244,18 @@ public class BaseHistoricaService {
         Array inicios = c.createArrayOf("date", periodos.stream().map(p -> java.sql.Date.valueOf(p.inicio())).toArray());
         Array fins = c.createArrayOf("date", periodos.stream().map(p -> java.sql.Date.valueOf(p.fim())).toArray());
         String alvo = "SELECT * FROM unnest(?::int[], ?::varchar[], ?::date[], ?::date[]) AS t(id_operacao, periodo_tipo, data_inicio, data_fim)";
+        // como no processo manual: cria a linha (vazia) de métricas do período, para os valores do Portal
+        // (bruto, líquido, conversão, alteração de cardápio…) serem preenchidos depois
+        try (PreparedStatement ps = c.prepareStatement("""
+                INSERT INTO silver.fato_metricas_periodo (id_operacao, id_plataforma, periodo_tipo, data_inicio, data_fim)
+                SELECT id_operacao, 1, periodo_tipo, data_inicio, data_fim FROM (%s) a
+                ON CONFLICT (id_operacao, id_plataforma, periodo_tipo, data_inicio) DO NOTHING""".formatted(alvo))) {
+            ps.setArray(1, ops);
+            ps.setArray(2, tipos);
+            ps.setArray(3, inicios);
+            ps.setArray(4, fins);
+            ps.executeUpdate();
+        }
         try (PreparedStatement ps = c.prepareStatement("""
                 WITH alvo AS (%s),
                 agg AS (
