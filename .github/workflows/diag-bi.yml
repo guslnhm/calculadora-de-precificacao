@@ -22,7 +22,7 @@ jobs:
           JOIN silver.dim_operacao o ON o.id_operacao = g.id_operacao
           JOIN silver.dim_loja l ON l.id_loja = o.id_loja
           LEFT JOIN silver.dim_operacao_alias a ON a.id_operacao = o.id_operacao AND a.id_plataforma = 1
-          LEFT JOIN silver.fato_metricas_periodo m USING (id_operacao, id_plataforma, periodo_tipo, data_inicio)
+          LEFT JOIN silver.fato_metricas_periodo m ON m.id_operacao = g.id_operacao AND m.id_plataforma = 1 AND m.periodo_tipo = g.periodo_tipo AND m.data_inicio = g.data_inicio
           WHERE g.periodo_tipo = 'SEMANAL' AND g.id_plataforma = 1 AND g.data_inicio >= '2026-10-19'
           GROUP BY 1,2,3,5,6,7,8,9,10,11 ORDER BY 2,3,5;
           SQL
