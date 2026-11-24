@@ -301,21 +301,13 @@ public class BaseHistoricaService {
             ps.setArray(4, fins);
             ps.executeUpdate();
         }
-        // contas derivadas, iguais às da base
+        // ticket, perc. de incentivos, repasse, taxa e custo são colunas geradas pela própria base;
+        // aqui só garante o "false" na alteração de cardápio
         try (PreparedStatement ps = c.prepareStatement("""
-                UPDATE gold.financeiro_periodo g SET
-                    alteracao_cardapio = coalesce(g.alteracao_cardapio, false),
-                    ticket_medio = round(g.valor_itens / nullif(g.qtd_pedidos, 0), 2),
-                    perc_incentivos_ifood = round(g.incentivos_ifood / nullif(g.valor_itens, 0), 4),
-                    perc_incentivos_loja = round(g.incentivos_loja / nullif(g.valor_itens, 0), 4),
-                    repasse = g.valor_liquido + coalesce(g.recebido_via_loja, 0),
-                    taxa_repasse = round((g.valor_liquido + coalesce(g.recebido_via_loja, 0))
-                                   / nullif(g.valor_bruto - coalesce(g.repassado_plataforma, 0), 0), 4),
-                    custo_plataforma = 1 - round((g.valor_liquido + coalesce(g.recebido_via_loja, 0))
-                                   / nullif(g.valor_bruto - coalesce(g.repassado_plataforma, 0), 0), 4)
+                UPDATE gold.financeiro_periodo g SET alteracao_cardapio = false
                 FROM (%s) a
                 WHERE g.id_operacao = a.id_operacao AND g.id_plataforma = 1 AND g.periodo_tipo = a.periodo_tipo
-                  AND g.data_inicio = a.data_inicio""".formatted(alvo))) {
+                  AND g.data_inicio = a.data_inicio AND g.alteracao_cardapio IS NULL""".formatted(alvo))) {
             ps.setArray(1, ops);
             ps.setArray(2, tipos);
             ps.setArray(3, inicios);
@@ -448,6 +440,11 @@ public class BaseHistoricaService {
     }
 
     static void gravarMetrica(Connection c, EdicaoMetrica e, String tipo, LocalDate ini, LocalDate fim) throws SQLException {
+        // a taxa de repasse da base é (líquido + recebido) / (bruto − repassado): com recebido ou repassado
+        // em branco ela fica vazia, então, havendo bruto ou líquido, o que ficou em branco vale 0
+        boolean temValores = e.valorBruto() != null || e.valorLiquido() != null;
+        BigDecimal recebido = e.recebidoViaLoja() == null && temValores ? BigDecimal.ZERO : e.recebidoViaLoja();
+        BigDecimal repassado = e.repassadoPlataforma() == null && temValores ? BigDecimal.ZERO : e.repassadoPlataforma();
         try (PreparedStatement ps = c.prepareStatement("""
                 INSERT INTO silver.fato_metricas_periodo (id_operacao, id_plataforma, periodo_tipo, data_inicio, data_fim,
                     valor_bruto, valor_liquido, recebido_via_loja, repassado_plataforma, conversao, novos_clientes,
@@ -465,8 +462,8 @@ public class BaseHistoricaService {
             ps.setDate(4, java.sql.Date.valueOf(fim));
             ps.setBigDecimal(5, e.valorBruto());
             ps.setBigDecimal(6, e.valorLiquido());
-            ps.setBigDecimal(7, e.recebidoViaLoja());
-            ps.setBigDecimal(8, e.repassadoPlataforma());
+            ps.setBigDecimal(7, recebido);
+            ps.setBigDecimal(8, repassado);
             ps.setBigDecimal(9, e.conversao());
             ps.setObject(10, e.novosClientes(), Types.INTEGER);
             ps.setBigDecimal(11, e.tempoEntrega());
