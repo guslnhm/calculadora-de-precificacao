@@ -1,7 +1,10 @@
 package com.precificacao.precificacao.controller;
 
+import com.precificacao.precificacao.acesso.Sessao;
 import com.precificacao.precificacao.painel.PainelRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import com.precificacao.precificacao.painel.base.BaseHistoricaService;
+import com.precificacao.precificacao.painel.base.ConsultaBase;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -81,9 +84,21 @@ public class BaseHistoricaController {
         return Map.of("pedidos", base.cadastrarOperacao(req));
     }
 
+    public record PedidoConsulta(String sql, Integer limite) {
+    }
+
+    @PostMapping("/consulta")
+    public ConsultaBase.Resultado consultar(@RequestBody PedidoConsulta req, HttpServletRequest http) {
+        Sessao s = Sessao.de(http);
+        if (s == null || s.mentorado()) {
+            throw new IllegalArgumentException("Sem permissão");
+        }
+        return base.consultar(req.sql(), req.limite(), s.email());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> invalido(IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(Map.of("erro", "ARQUIVO_INVALIDO", "mensagem", e.getMessage()));
+        return ResponseEntity.badRequest().body(Map.of("erro", "ARQUIVO_INVALIDO", "mensagem", String.valueOf(e.getMessage())));
     }
 
     @ExceptionHandler(IllegalStateException.class)

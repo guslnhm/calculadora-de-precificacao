@@ -5,6 +5,7 @@ import Carteira from "../components/painel/Carteira";
 import Coleta from "../components/painel/Coleta";
 import Lancamentos from "../components/painel/Lancamentos";
 import LancamentosBase from "../components/painel/LancamentosBase";
+import ConsultaBase from "../components/painel/ConsultaBase";
 import { baseApi } from "../services/api";
 import { campo, cor, moverPeriodo, rotuloPeriodo } from "../components/painel/fmt";
 
@@ -13,6 +14,7 @@ const ABAS = [
   { id: "loja", rotulo: "Boletim da loja" },
   { id: "lancamentos", rotulo: "Valores do Portal" },
   { id: "coleta", rotulo: "Dados e coleta" },
+  { id: "sql", rotulo: "Consultas SQL", precisaBase: true },
 ];
 
 const ABAS_MENTORADO = ["carteira", "loja"];
@@ -106,7 +108,7 @@ export default function PainelPage({ mentorado = false }) {
             {mentorado ? "Resultados da sua operação no iFood · atualizado todo dia com os números de ontem" : "Resultados das lojas · iFood (Analytics, D-1) + histórico do BI"}
           </div>
         </div>
-        {aba !== "coleta" && (
+        {aba !== "coleta" && aba !== "sql" && (
           <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ display: "flex", border: `1px solid ${cor.bordaCampo}`, borderRadius: 8, overflow: "hidden" }}>
               {["SEMANAL", "MENSAL"].map((t) => (
@@ -128,7 +130,7 @@ export default function PainelPage({ mentorado = false }) {
       </div>
 
       <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${cor.borda}`, flexWrap: "wrap" }}>
-        {abas.map((a) => (
+        {abas.filter((a) => !a.precisaBase || baseConfigurada).map((a) => (
           <button key={a.id} onClick={() => setAba(a.id)}
                   style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 14px", fontSize: 14,
                     color: aba === a.id ? cor.texto : cor.textoSuave, fontWeight: aba === a.id ? 700 : 400,
@@ -155,6 +157,7 @@ export default function PainelPage({ mentorado = false }) {
       {aba === "lancamentos" && !mentorado && baseConfigurada && <LancamentosBase periodo={carteira?.periodo} onSalvo={carregarCarteira} />}
       {aba === "lancamentos" && !mentorado && !baseConfigurada && <Lancamentos dados={carteira} onSalvo={carregarCarteira} />}
       {aba === "coleta" && !mentorado && <Coleta />}
+      {aba === "sql" && !mentorado && baseConfigurada && <ConsultaBase />}
     </div>
   );
 }

@@ -623,6 +623,17 @@ public class BaseHistoricaService {
 
     // ------------------------------------------------------------------ apoio
 
+    /** Consulta de leitura na base (aba "Consultas SQL"). */
+    public ConsultaBase.Resultado consultar(String sql, Integer limite, String quem) {
+        try (Connection c = conectar(jdbcBase())) {
+            ConsultaBase.Resultado r = ConsultaBase.executar(c, sql, limite == null ? ConsultaBase.LIMITE_PADRAO : limite);
+            log.info("[base] consulta de {} ({} linha(s), {} ms)", quem, r.linhas().size(), r.ms());
+            return r;
+        } catch (SQLException e) {
+            throw new IllegalArgumentException(e.getMessage());
+        }
+    }
+
     private BiImportService.Jdbc jdbcBase() {
         if (!configurada()) {
             throw new IllegalStateException("BI_DATABASE_URL não configurada");
