@@ -15,46 +15,66 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === PEDIDOS COLUNAS ===
-          SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='pedidos' ORDER BY ordinal_position;
-          \echo === INDICES ===
-          SELECT schemaname, tablename, indexdef FROM pg_indexes WHERE schemaname IN ('public','silver','gold') ORDER BY 1,2;
-          \echo === CONSTRAINTS ===
-          SELECT conrelid::regclass, conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE connamespace::regnamespace::text IN ('public','silver','gold') ORDER BY 1;
-          \echo === DATAS ===
-          SELECT 'pedidos', min(data_hora_pedido), max(data_hora_pedido), count(*) FROM public.pedidos
-          UNION ALL SELECT 'fato_pedido', min(data_hora_pedido)::text, max(data_hora_pedido)::text, count(*) FROM silver.fato_pedido
-          UNION ALL SELECT 'gold', min(data_inicio)::text, max(data_fim)::text, count(*) FROM gold.financeiro_periodo
-          UNION ALL SELECT 'metricas', min(data_inicio)::text, max(data_fim)::text, count(*) FROM silver.fato_metricas_periodo;
-          \echo === AMOSTRA PEDIDOS (2 linhas) ===
-          \x on
-          SELECT * FROM public.pedidos ORDER BY id DESC LIMIT 2;
-          SELECT * FROM silver.fato_pedido ORDER BY id_pedido DESC LIMIT 2;
-          SELECT * FROM silver.fato_metricas_periodo ORDER BY id_metrica DESC LIMIT 2;
-          SELECT * FROM gold.financeiro_periodo ORDER BY id_financeiro DESC LIMIT 2;
-          \x off
-          \echo === DATA_CARGA RECENTES ===
-          SELECT 'fato_pedido', data_carga::date, count(*) FROM silver.fato_pedido GROUP BY 2 ORDER BY 2 DESC LIMIT 5;
-          SELECT 'gold', data_carga::date, periodo_tipo, count(*) FROM gold.financeiro_periodo GROUP BY 2,3 ORDER BY 2 DESC LIMIT 8;
-          SELECT 'metricas', data_carga::date, periodo_tipo, count(*) FROM silver.fato_metricas_periodo GROUP BY 2,3 ORDER BY 2 DESC LIMIT 8;
-          \echo === GOLD vs FATO (1 operacao, semana recente) ===
-          WITH g AS (SELECT * FROM gold.financeiro_periodo WHERE periodo_tipo ILIKE 'seman%' ORDER BY data_inicio DESC, id_operacao LIMIT 3)
-          SELECT g.id_operacao, g.id_plataforma, g.data_inicio, g.data_fim, g.qtd_pedidos, g.valor_itens, g.ticket_medio, g.incentivos_ifood, g.incentivos_loja, g.valor_bruto, g.valor_liquido, g.qtd_cancelamentos,
-            (SELECT count(*) FROM silver.fato_pedido f WHERE f.id_operacao=g.id_operacao AND f.id_plataforma=g.id_plataforma AND f.data_hora_pedido::date BETWEEN g.data_inicio AND g.data_fim) n_total,
-            (SELECT count(*) FROM silver.fato_pedido f WHERE f.id_operacao=g.id_operacao AND f.id_plataforma=g.id_plataforma AND f.data_hora_pedido::date BETWEEN g.data_inicio AND g.data_fim AND f.status_final_pedido ILIKE 'CONCLU%') n_concl,
-            (SELECT sum(valor_itens) FROM silver.fato_pedido f WHERE f.id_operacao=g.id_operacao AND f.id_plataforma=g.id_plataforma AND f.data_hora_pedido::date BETWEEN g.data_inicio AND g.data_fim AND f.status_final_pedido ILIKE 'CONCLU%') itens_concl,
-            (SELECT sum(incentivo_prom_ifood) FROM silver.fato_pedido f WHERE f.id_operacao=g.id_operacao AND f.id_plataforma=g.id_plataforma AND f.data_hora_pedido::date BETWEEN g.data_inicio AND g.data_fim AND f.status_final_pedido ILIKE 'CONCLU%') inc_ifood,
-            (SELECT m.valor_bruto||' / '||m.valor_liquido||' / conv '||coalesce(m.conversao::text,'-') FROM silver.fato_metricas_periodo m WHERE m.id_operacao=g.id_operacao AND m.id_plataforma=g.id_plataforma AND m.data_inicio=g.data_inicio AND m.periodo_tipo=g.periodo_tipo LIMIT 1) metricas
-          FROM g;
-          \echo === STATUS DISTINTOS ===
-          SELECT status_final_pedido, count(*) FROM silver.fato_pedido GROUP BY 1;
-          SELECT periodo_tipo, count(*) FROM gold.financeiro_periodo GROUP BY 1;
-          \echo === CANAIS/PLATAFORMAS ===
-          SELECT * FROM silver.dim_plataforma;
-          SELECT canal_venda, count(*) FROM public.pedidos GROUP BY 1 ORDER BY 2 DESC LIMIT 6;
-          \echo === MAPA LOJA -> OPERACAO ===
-          SELECT * FROM silver.dim_operacao_alias LIMIT 5;
-          SELECT * FROM staging.mapa_operacao LIMIT 5;
+          \echo === VALIDA PEDIDOS/ITENS/INCENTIVOS (semanal, desde jul/26) ===
+          WITH g AS (SELECT * FROM gold.financeiro_periodo WHERE id_plataforma=1 AND data_inicio >= '2026-07-01'),
+          c AS (SELECT g.id_financeiro, g.periodo_tipo, g.qtd_pedidos, g.qtd_cancelamentos, g.valor_itens, g.incentivos_ifood, g.incentivos_loja,
+                 count(f.*) FILTER (WHERE f.status_final_pedido <> 'CANCELADO') q1,
+                 count(f.*) FILTER (WHERE f.status_final_pedido = 'CANCELADO') canc,
+                 coalesce(sum(f.valor_itens) FILTER (WHERE f.status_final_pedido <> 'CANCELADO'),0) it1,
+                 coalesce(sum(f.valor_itens) FILTER (WHERE f.status_final_pedido = 'CONCLUIDO'),0) it2,
+                 coalesce(sum(f.incentivo_prom_ifood) FILTER (WHERE f.status_final_pedido <> 'CANCELADO'),0) ii,
+                 coalesce(sum(f.incentivo_prom_loja) FILTER (WHERE f.status_final_pedido <> 'CANCELADO'),0) il
+               FROM g LEFT JOIN silver.fato_pedido f ON f.id_operacao=g.id_operacao AND f.id_plataforma=g.id_plataforma
+                 AND f.data_hora_pedido >= g.data_inicio AND f.data_hora_pedido < g.data_fim + 1
+               GROUP BY 1,2,3,4,5,6,7)
+          SELECT periodo_tipo, count(*) linhas,
+            count(*) FILTER (WHERE qtd_pedidos=q1) qtd_ok,
+            count(*) FILTER (WHERE qtd_cancelamentos=canc) canc_ok,
+            count(*) FILTER (WHERE abs(valor_itens-it1)<0.02) itens_ok_semcanc,
+            count(*) FILTER (WHERE abs(valor_itens-it2)<0.02) itens_ok_concl,
+            count(*) FILTER (WHERE abs(incentivos_ifood-ii)<0.02) inc_ifood_ok,
+            count(*) FILTER (WHERE abs(incentivos_loja-il)<0.02) inc_loja_ok,
+            count(*) FILTER (WHERE q1=0) sem_pedidos_no_fato
+          FROM c GROUP BY 1;
+          \echo === EXEMPLOS QUE NAO BATEM ===
+          WITH g AS (SELECT * FROM gold.financeiro_periodo WHERE id_plataforma=1 AND periodo_tipo='SEMANAL' AND data_inicio >= '2026-09-01'),
+          c AS (SELECT g.id_operacao, g.data_inicio, g.qtd_pedidos, g.qtd_cancelamentos, g.valor_itens,
+                 count(f.*) FILTER (WHERE f.status_final_pedido <> 'CANCELADO') q1, count(f.*) FILTER (WHERE f.status_final_pedido = 'CANCELADO') canc,
+                 coalesce(sum(f.valor_itens) FILTER (WHERE f.status_final_pedido <> 'CANCELADO'),0) it1,
+                 string_agg(DISTINCT f.status_final_pedido, ',') sts
+               FROM g LEFT JOIN silver.fato_pedido f ON f.id_operacao=g.id_operacao AND f.id_plataforma=1 AND f.data_hora_pedido >= g.data_inicio AND f.data_hora_pedido < g.data_fim + 1
+               GROUP BY 1,2,3,4,5)
+          SELECT * FROM c WHERE qtd_pedidos<>q1 OR abs(valor_itens-it1)>=0.02 LIMIT 12;
+          \echo === VALIDA REPASSE/TAXAS ===
+          SELECT count(*) linhas,
+            count(*) FILTER (WHERE abs(repasse-(valor_liquido+recebido_via_loja))<0.02) repasse_ok,
+            count(*) FILTER (WHERE abs(taxa_repasse - round(repasse/nullif(valor_bruto-repassado_plataforma,0),4))<0.00011) taxa_ok,
+            count(*) FILTER (WHERE abs(custo_plataforma-(1-taxa_repasse))<0.00011) custo_ok,
+            count(*) FILTER (WHERE abs(ticket_medio-round(valor_itens/nullif(qtd_pedidos,0),2))<0.011) ticket_ok,
+            count(*) FILTER (WHERE abs(perc_incentivos_ifood-round(incentivos_ifood/nullif(valor_itens,0),4))<0.00011) pif_ok,
+            count(*) FILTER (WHERE valor_bruto IS NULL) bruto_nulo
+          FROM gold.financeiro_periodo WHERE data_inicio >= '2026-07-01';
+          \echo === METRICAS x GOLD ===
+          SELECT count(*) gold, count(m.*) com_metrica,
+            count(*) FILTER (WHERE abs(g.valor_bruto-m.valor_bruto)<0.02 AND abs(g.valor_liquido-m.valor_liquido)<0.02) iguais,
+            count(*) FILTER (WHERE g.conversao IS NOT DISTINCT FROM m.conversao) conv_igual,
+            count(*) FILTER (WHERE g.alteracao_cardapio IS NOT DISTINCT FROM m.alteracao_cardapio) alt_igual
+          FROM gold.financeiro_periodo g LEFT JOIN silver.fato_metricas_periodo m USING (id_operacao, id_plataforma, periodo_tipo, data_inicio)
+          WHERE g.data_inicio >= '2026-07-01';
+          \echo === ALTERACAO CARDAPIO MARCADAS ===
+          SELECT periodo_tipo, count(*) FILTER (WHERE alteracao_cardapio) marcadas, count(*) total, min(data_inicio) FILTER (WHERE alteracao_cardapio), max(data_inicio) FILTER (WHERE alteracao_cardapio) FROM gold.financeiro_periodo GROUP BY 1;
+          \echo === PLATAFORMAS NA GOLD ===
+          SELECT id_plataforma, periodo_tipo, count(*), max(data_inicio) FROM gold.financeiro_periodo GROUP BY 1,2 ORDER BY 1,2;
+          \echo === LOJAS DO CSV SEM ALIAS (amostra de ids recentes do public.pedidos) ===
+          SELECT p.id_loja, max(p.nome_loja), count(*) FROM public.pedidos p LEFT JOIN silver.dim_operacao_alias a ON a.id_loja_origem=p.id_loja AND a.id_plataforma=1
+           WHERE a.id_alias IS NULL AND p.data_hora_pedido >= '2026-10-01' GROUP BY 1 ORDER BY 3 DESC LIMIT 15;
+          \echo === TEMPO_ENTREGA / NOVOS / TEMPO_ABERTO preenchidos? ===
+          SELECT periodo_tipo, count(*) total, count(tempo_entrega) te, count(novos_clientes) nc, count(tempo_aberto) ta, count(conversao) conv FROM silver.fato_metricas_periodo WHERE data_inicio >= '2026-07-01' GROUP BY 1;
+          \echo === DUPLICADOS EM PEDIDOS ===
+          SELECT count(*) - count(DISTINCT id_completo_pedido) dup FROM public.pedidos WHERE data_hora_pedido >= '2026-09-01';
+          SELECT count(*) - count(DISTINCT id_pedido) FROM silver.fato_pedido;
+          \echo === DIM_DATA RANGE ===
+          SELECT min(data), max(data) FROM silver.dim_data;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
