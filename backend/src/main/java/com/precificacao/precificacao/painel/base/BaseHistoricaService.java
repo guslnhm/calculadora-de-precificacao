@@ -455,6 +455,9 @@ public class BaseHistoricaService {
         reimportarDepois();
     }
 
+    private static final String VALORES_PORTAL = ", valor_bruto = EXCLUDED.valor_bruto, valor_liquido = EXCLUDED.valor_liquido,"
+            + " recebido_via_loja = EXCLUDED.recebido_via_loja, repassado_plataforma = EXCLUDED.repassado_plataforma";
+
     static void gravarValoresPortal(Connection c, int idOperacao, String tipo, LocalDate ini, LocalDate fim,
                                     BigDecimal conversao, BigDecimal bruto, BigDecimal liquido, BigDecimal recebido,
                                     BigDecimal repassado) throws SQLException {
@@ -465,10 +468,7 @@ public class BaseHistoricaService {
                 VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, now())
                 ON CONFLICT (id_operacao, id_plataforma, periodo_tipo, data_inicio) DO UPDATE SET
                     data_fim = EXCLUDED.data_fim, conversao = EXCLUDED.conversao, data_carga = EXCLUDED.data_carga
-                    %s""".formatted(temValores ? """,
-                    valor_bruto = EXCLUDED.valor_bruto, valor_liquido = EXCLUDED.valor_liquido,
-                    recebido_via_loja = EXCLUDED.recebido_via_loja, repassado_plataforma = EXCLUDED.repassado_plataforma"""
-                    : ""))) {
+                    %s""".formatted(temValores ? VALORES_PORTAL : ""))) {
             ps.setInt(1, idOperacao);
             ps.setString(2, tipo);
             ps.setDate(3, java.sql.Date.valueOf(ini));

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { painelApi } from "../../services/api";
 import { dataHora } from "../monitor/ui";
 import { Cartao, Selo } from "./Carteira";
-import { botao, caixa, campo, cor, dataCurta, inteiro, minutos, percentual, reais, reaisCurto, rotuloPeriodo, variacao } from "./fmt";
-import { COR_MARCA, GraficoBarras, GraficoLinha, MapaCalor } from "./Graficos";
+import { COR_MARCA, botao, caixa, campo, cor, dataCurta, inteiro, minutos, percentual, reais, reaisCurto, rotuloPeriodo, variacao } from "./fmt";
+import { GraficoBarras, GraficoLinha, MapaCalor } from "./Graficos";
 
 const META_CONVERSAO = 0.15;
 

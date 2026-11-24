@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { cor } from "./fmt";
+import { COR_MARCA, cor } from "./fmt";
 
 // Gráficos do painel em SVG puro (sem biblioteca): linha com cruz de leitura, barras e mapa de calor.
 // Regras: um eixo só, linhas de 2px, grade discreta, tooltip ao passar o mouse, legenda quando há 2 séries.
@@ -79,9 +79,6 @@ export function Legenda({ series }) {
  * Linha no tempo. series: [{ nome, cor, valores: [n|null] }], rotulos: [string], formato: (n) => string.
  * O último ponto de cada série leva rótulo direto.
  */
-/** Cor das marcas verticais (alteração de cardápio): neutra, para não confundir com as séries. */
-export const COR_MARCA = cor.texto;
-
 /**
  * Linhas. marcas: [{ indice, rotulo }] = pontos verticais (ex.: alteração de cardápio).
  * extras(i): linhas a mais no tooltip do período i (ex.: taxa de repasse).

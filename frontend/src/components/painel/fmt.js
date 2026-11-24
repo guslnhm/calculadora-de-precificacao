@@ -11,6 +11,9 @@ export const cor = {
   grade: "#E7DFD6",
 };
 
+/** Cor das marcas verticais nos gráficos (alteração de cardápio): neutra, para não confundir com as séries. */
+export const COR_MARCA = cor.texto;
+
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const brl0 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const num = new Intl.NumberFormat("pt-BR");
