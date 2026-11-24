@@ -64,13 +64,20 @@ class BaseHistoricaTest {
                       UNIQUE (id_operacao, id_plataforma, periodo_tipo, data_inicio))""");
             st.execute("""
                     CREATE TABLE gold.financeiro_periodo (id_financeiro bigserial PRIMARY KEY, id_operacao int, id_plataforma int,
-                      periodo_tipo varchar, data_inicio date, data_fim date, qtd_pedidos int, valor_itens numeric(12,2),
-                      ticket_medio numeric(12,2), incentivos_ifood numeric(12,2), incentivos_loja numeric(12,2),
-                      valor_bruto numeric(12,2), valor_liquido numeric(12,2), recebido_via_loja numeric(12,2),
-                      repassado_plataforma numeric(12,2), repasse numeric(12,2), taxa_repasse numeric(12,4),
-                      custo_plataforma numeric(12,4), conversao numeric(12,4), novos_clientes int, tempo_entrega numeric(10,2),
-                      data_carga timestamp DEFAULT now(), perc_incentivos_ifood numeric(12,4), perc_incentivos_loja numeric(12,4),
-                      qtd_cancelamentos int, alteracao_cardapio boolean DEFAULT false, tempo_aberto numeric(8,4),
+                      periodo_tipo varchar, data_inicio date, data_fim date, qtd_pedidos int, valor_itens numeric,
+                      ticket_medio numeric GENERATED ALWAYS AS (valor_itens / NULLIF(qtd_pedidos, 0)::numeric) STORED,
+                      incentivos_ifood numeric, incentivos_loja numeric,
+                      valor_bruto numeric, valor_liquido numeric, recebido_via_loja numeric, repassado_plataforma numeric,
+                      repasse numeric GENERATED ALWAYS AS (COALESCE(valor_liquido, 0) + COALESCE(recebido_via_loja, 0)) STORED,
+                      taxa_repasse numeric GENERATED ALWAYS AS ((valor_liquido + recebido_via_loja)
+                        / NULLIF(valor_bruto - repassado_plataforma, 0)) STORED,
+                      custo_plataforma numeric GENERATED ALWAYS AS (1 - (valor_liquido + recebido_via_loja)
+                        / NULLIF(valor_bruto - repassado_plataforma, 0)) STORED,
+                      conversao numeric, novos_clientes int, tempo_entrega numeric,
+                      data_carga timestamp DEFAULT now(),
+                      perc_incentivos_ifood numeric GENERATED ALWAYS AS (incentivos_ifood / NULLIF(valor_itens, 0)) STORED,
+                      perc_incentivos_loja numeric GENERATED ALWAYS AS (incentivos_loja / NULLIF(valor_itens, 0)) STORED,
+                      qtd_cancelamentos int, alteracao_cardapio boolean DEFAULT false, tempo_aberto numeric,
                       CONSTRAINT uk_financeiro_periodo UNIQUE (id_operacao, id_plataforma, periodo_tipo, data_inicio))""");
             st.execute("CREATE TABLE silver.dim_loja (id_loja serial PRIMARY KEY, nome_loja varchar)");
             st.execute("CREATE TABLE silver.dim_tipo_entrega (id_tipo_entrega serial PRIMARY KEY, tipo_entrega varchar UNIQUE)");
@@ -143,8 +150,8 @@ class BaseHistoricaTest {
             assertThat(rs.getBigDecimal(5)).isEqualByComparingTo("4");
             assertThat(rs.getBigDecimal(6)).isEqualByComparingTo("200");
             assertThat(rs.getBigDecimal(7)).isEqualByComparingTo("150");       // 140 + 10
-            assertThat(rs.getBigDecimal(8)).isEqualByComparingTo("0.7692");    // 150 / (200 - 5)
-            assertThat(rs.getBigDecimal(9)).isEqualByComparingTo("0.2308");
+            assertThat(rs.getBigDecimal(8).setScale(4, java.math.RoundingMode.HALF_UP)).isEqualByComparingTo("0.7692");    // 150 / (200 - 5)
+            assertThat(rs.getBigDecimal(9).setScale(4, java.math.RoundingMode.HALF_UP)).isEqualByComparingTo("0.2308");
             assertThat(rs.getBigDecimal(10)).isEqualByComparingTo("0.25");
             assertThat(rs.getBoolean(11)).isTrue();
             assertThat(rs.getDate(12).toString()).isEqualTo("2026-11-22");
@@ -186,9 +193,9 @@ class BaseHistoricaTest {
                 FROM gold.financeiro_periodo WHERE periodo_tipo = 'SEMANAL'""")) {
             rs.next();
             assertThat(rs.getBigDecimal(1)).isEqualByComparingTo("300");
-            assertThat(rs.getBigDecimal(2)).isNull();                     // apagado no site: some da gold também
+            assertThat(rs.getBigDecimal(2)).isEqualByComparingTo("0");    // em branco com bruto/líquido preenchidos: 0
             assertThat(rs.getBigDecimal(3)).isEqualByComparingTo("210");
-            assertThat(rs.getBigDecimal(4)).isEqualByComparingTo("0.7");
+            assertThat(rs.getBigDecimal(4)).isEqualByComparingTo("0.7");  // 210 / (300 - 0)
             assertThat(rs.getBoolean(5)).isFalse();
             assertThat(rs.getInt(6)).isEqualTo(12);
             assertThat(rs.getInt(7)).isEqualTo(1);
