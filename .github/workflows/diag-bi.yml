@@ -15,16 +15,14 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === faltando ===
-          SELECT o.id_operacao, l.nome_loja, o.nome_operacao, string_agg(DISTINCT a.id_loja_origem, ',') ids,
-                 g.data_inicio, g.qtd_pedidos, m.valor_bruto, m.valor_liquido, m.recebido_via_loja, m.repassado_plataforma, m.conversao
-          FROM gold.financeiro_periodo g
-          JOIN silver.dim_operacao o ON o.id_operacao = g.id_operacao
-          JOIN silver.dim_loja l ON l.id_loja = o.id_loja
-          LEFT JOIN silver.dim_operacao_alias a ON a.id_operacao = o.id_operacao AND a.id_plataforma = 1
-          LEFT JOIN silver.fato_metricas_periodo m ON m.id_operacao = g.id_operacao AND m.id_plataforma = 1 AND m.periodo_tipo = g.periodo_tipo AND m.data_inicio = g.data_inicio
-          WHERE g.periodo_tipo = 'SEMANAL' AND g.id_plataforma = 1 AND g.data_inicio >= '2026-10-19'
-          GROUP BY 1,2,3,5,6,7,8,9,10,11 ORDER BY 2,3,5;
+          \echo === fato por semana ===
+          SELECT date_trunc('week', data_hora_pedido)::date sem, count(*), count(DISTINCT id_operacao) ops FROM silver.fato_pedido WHERE data_hora_pedido >= '2026-10-12' GROUP BY 1 ORDER BY 1;
+          \echo === pedidos por semana ===
+          SELECT date_trunc('week', data_hora_pedido)::date sem, count(*), min(data_hora_pedido), max(data_hora_pedido) FROM public.pedidos WHERE data_hora_pedido >= '2026-10-12' GROUP BY 1 ORDER BY 1;
+          \echo === gold por semana ===
+          SELECT periodo_tipo, data_inicio, count(*), sum(qtd_pedidos), count(valor_bruto) FROM gold.financeiro_periodo WHERE data_inicio >= '2026-10-01' GROUP BY 1,2 ORDER BY 1,2;
+          \echo === metricas por semana ===
+          SELECT periodo_tipo, data_inicio, count(*), count(valor_bruto), max(data_carga) FROM silver.fato_metricas_periodo WHERE data_inicio >= '2026-10-01' GROUP BY 1,2 ORDER BY 1,2;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
