@@ -14,25 +14,18 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === LOJA ===
-          SELECT merchant_id, nome, ativo FROM ifood_merchant WHERE nome ~* '(vonte|oliva)';
-          \echo === DIAS ===
-          SELECT d.dia, d.pedidos, d.cancelados, d.gmv, d.coletado_em AT TIME ZONE 'America/Sao_Paulo' coletado FROM painel_dia d JOIN ifood_merchant m ON m.merchant_id=d.merchant_id
-           WHERE m.nome ~* '(vonte|oliva)' AND d.dia >= '2026-11-10' ORDER BY m.nome, d.dia;
-          \echo === RESUMOS ===
-          SELECT tipo, situacao, enviado_em AT TIME ZONE 'America/Sao_Paulo', left(corpo, 60) FROM whatsapp_envio WHERE tipo ILIKE 'resumo%' AND enviado_em > now() - interval '3 days' ORDER BY enviado_em DESC LIMIT 15;
-          \echo === COLETA LOJA ===
-          SELECT c.* FROM painel_coleta c JOIN ifood_merchant m ON m.merchant_id=c.merchant_id WHERE m.nome ~* '(vonte|oliva)';
-          \echo === DIA 19/11 GERAL ===
-          SELECT count(*) linhas, count(*) FILTER (WHERE pedidos=0) zeradas, min(coletado_em) AT TIME ZONE 'America/Sao_Paulo', max(coletado_em) AT TIME ZONE 'America/Sao_Paulo', sum(pedidos) FROM painel_dia WHERE dia='2026-11-19';
-          \echo === ZERADAS 19/11 ===
-          SELECT m.nome, d.coletado_em AT TIME ZONE 'America/Sao_Paulo' FROM painel_dia d JOIN ifood_merchant m ON m.merchant_id=d.merchant_id WHERE d.dia='2026-11-19' AND d.pedidos=0 ORDER BY 2, 1;
-          \echo === ZERADAS 19/11 QUE TINHAM VENDA EM 18/11 ===
-          SELECT m.nome, a.pedidos ped18 FROM painel_dia d JOIN painel_dia a ON a.merchant_id=d.merchant_id AND a.dia='2026-11-18' JOIN ifood_merchant m ON m.merchant_id=d.merchant_id WHERE d.dia='2026-11-19' AND d.pedidos=0 AND a.pedidos>0 ORDER BY 1;
-          \echo === COLETA (erros) ===
-          SELECT m.nome, c.* FROM painel_coleta c JOIN ifood_merchant m ON m.merchant_id=c.merchant_id WHERE c.ultimo_erro IS NOT NULL ORDER BY 1 LIMIT 40;
-          \echo === MONITOR STATUS LOJA 19/11 ===
-          SELECT id, estado, motivos, inicio AT TIME ZONE 'America/Sao_Paulo', fim AT TIME ZONE 'America/Sao_Paulo' FROM ifood_incidente i WHERE i.merchant_id IN (SELECT merchant_id FROM ifood_merchant WHERE nome ~* '(vonte|oliva)') AND i.inicio > '2026-11-18' ORDER BY i.inicio;
+          \echo === SEM AUTORIZACAO (403) ===
+          SELECT m.nome, c.ultimo_erro_em AT TIME ZONE 'America/Sao_Paulo' quando FROM painel_coleta c JOIN ifood_merchant m ON m.merchant_id=c.merchant_id
+           WHERE m.ativo AND c.ultimo_erro ILIKE '%autorizou%' AND (c.ultima_ok IS NULL OR c.ultima_ok < c.ultimo_erro_em) ORDER BY 1;
+          \echo === OUTROS ERROS ===
+          SELECT m.nome, left(c.ultimo_erro,120), c.ultimo_erro_em AT TIME ZONE 'America/Sao_Paulo' FROM painel_coleta c JOIN ifood_merchant m ON m.merchant_id=c.merchant_id
+           WHERE m.ativo AND c.ultimo_erro IS NOT NULL AND c.ultimo_erro NOT ILIKE '%autorizou%' AND (c.ultima_ok IS NULL OR c.ultima_ok < c.ultimo_erro_em) ORDER BY 1;
+          \echo === TOTAIS ===
+          SELECT count(*) FILTER (WHERE m.ativo) ativas, count(*) FILTER (WHERE m.ativo AND c.ultima_ok >= now() - interval '2 days') coletando FROM ifood_merchant m LEFT JOIN painel_coleta c ON c.merchant_id=m.merchant_id;
+          \echo === COLUNAS COLETA ===
+          SELECT column_name FROM information_schema.columns WHERE table_name='painel_coleta';
+          \echo === LANCAMENTOS MANUAIS ===
+          SELECT count(*), max(atualizado_em) FROM painel_manual;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
