@@ -88,13 +88,7 @@ public class BaseHistoricaService {
             log.warn("[base] falha ao gravar o relatório", e);
             throw new IllegalStateException("Não consegui gravar na base: " + e.getMessage());
         }
-        new Thread(() -> {
-            try {
-                bi.importar();
-            } catch (RuntimeException e) {
-                log.warn("[base] reimportação do BI falhou", e);
-            }
-        }, "base-reimporta-bi").start();
+        reimportarDepois();
         return r;
     }
 
@@ -130,44 +124,9 @@ public class BaseHistoricaService {
             }
             inserirPedidos(c, pedidos);
 
-            int noFato;
-            try (PreparedStatement ps = c.prepareStatement("""
-                    INSERT INTO silver.fato_pedido (id_pedido, id_operacao, id_plataforma, id_data, data_hora_pedido,
-                        valor_itens, incentivo_prom_ifood, incentivo_prom_loja, data_carga, status_final_pedido,
-                        canal_venda, tipo_entrega)
-                    SELECT p.id_completo_pedido, a.id_operacao, a.id_plataforma,
-                           to_char(p.data_hora_pedido, 'YYYYMMDD')::int, p.data_hora_pedido,
-                           p.valor_itens, p.incentivo_prom_ifood, p.incentivo_prom_loja, now(), p.status_final_pedido,
-                           p.canal_venda, p.tipo_entrega
-                    FROM public.pedidos p
-                    JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = ?
-                    WHERE p.id_completo_pedido = ANY(?)
-                    ON CONFLICT (id_pedido) DO UPDATE SET id_operacao = EXCLUDED.id_operacao,
-                        id_data = EXCLUDED.id_data, data_hora_pedido = EXCLUDED.data_hora_pedido,
-                        valor_itens = EXCLUDED.valor_itens, incentivo_prom_ifood = EXCLUDED.incentivo_prom_ifood,
-                        incentivo_prom_loja = EXCLUDED.incentivo_prom_loja, data_carga = EXCLUDED.data_carga,
-                        status_final_pedido = EXCLUDED.status_final_pedido, canal_venda = EXCLUDED.canal_venda,
-                        tipo_entrega = EXCLUDED.tipo_entrega""")) {
-                ps.setInt(1, IFOOD);
-                ps.setArray(2, arr);
-                noFato = ps.executeUpdate();
-            }
-
-            // operações e períodos tocados
-            Map<Integer, Set<LocalDate>> diasPorOperacao = new LinkedHashMap<>();
-            try (PreparedStatement ps = c.prepareStatement("""
-                    SELECT DISTINCT id_operacao, data_hora_pedido::date FROM silver.fato_pedido
-                    WHERE id_pedido = ANY(?) AND id_plataforma = ?""")) {
-                ps.setArray(1, arr);
-                ps.setInt(2, IFOOD);
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        diasPorOperacao.computeIfAbsent(rs.getInt(1), k -> new TreeSet<>()).add(rs.getDate(2).toLocalDate());
-                    }
-                }
-            }
-            List<Periodo> periodos = periodos(diasPorOperacao);
-            recalcularGold(c, periodos);
+            Processado pr = processar(c, arr);
+            int noFato = pr.noFato();
+            List<Periodo> periodos = pr.periodos();
 
             List<LojaSemOperacao> sem = semOperacao(c, arr);
             c.commit();
@@ -186,6 +145,50 @@ public class BaseHistoricaService {
         } finally {
             c.setAutoCommit(autoCommit);
         }
+    }
+
+    record Processado(int noFato, List<Periodo> periodos) {
+    }
+
+    /** Passa os pedidos (por ID completo) de public.pedidos para a fato e refaz a gold dos períodos tocados. */
+    static Processado processar(Connection c, Array ids) throws SQLException {
+        int noFato;
+        try (PreparedStatement ps = c.prepareStatement("""
+                INSERT INTO silver.fato_pedido (id_pedido, id_operacao, id_plataforma, id_data, data_hora_pedido,
+                    valor_itens, incentivo_prom_ifood, incentivo_prom_loja, data_carga, status_final_pedido,
+                    canal_venda, tipo_entrega)
+                SELECT p.id_completo_pedido, a.id_operacao, a.id_plataforma,
+                       to_char(p.data_hora_pedido, 'YYYYMMDD')::int, p.data_hora_pedido,
+                       p.valor_itens, p.incentivo_prom_ifood, p.incentivo_prom_loja, now(), p.status_final_pedido,
+                       p.canal_venda, p.tipo_entrega
+                FROM public.pedidos p
+                JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = ?
+                WHERE p.id_completo_pedido = ANY(?)
+                ON CONFLICT (id_pedido) DO UPDATE SET id_operacao = EXCLUDED.id_operacao,
+                    id_data = EXCLUDED.id_data, data_hora_pedido = EXCLUDED.data_hora_pedido,
+                    valor_itens = EXCLUDED.valor_itens, incentivo_prom_ifood = EXCLUDED.incentivo_prom_ifood,
+                    incentivo_prom_loja = EXCLUDED.incentivo_prom_loja, data_carga = EXCLUDED.data_carga,
+                    status_final_pedido = EXCLUDED.status_final_pedido, canal_venda = EXCLUDED.canal_venda,
+                    tipo_entrega = EXCLUDED.tipo_entrega""")) {
+            ps.setInt(1, IFOOD);
+            ps.setArray(2, ids);
+            noFato = ps.executeUpdate();
+        }
+        Map<Integer, Set<LocalDate>> diasPorOperacao = new LinkedHashMap<>();
+        try (PreparedStatement ps = c.prepareStatement("""
+                SELECT DISTINCT id_operacao, data_hora_pedido::date FROM silver.fato_pedido
+                WHERE id_pedido = ANY(?) AND id_plataforma = ?""")) {
+            ps.setArray(1, ids);
+            ps.setInt(2, IFOOD);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    diasPorOperacao.computeIfAbsent(rs.getInt(1), k -> new TreeSet<>()).add(rs.getDate(2).toLocalDate());
+                }
+            }
+        }
+        List<Periodo> periodos = periodos(diasPorOperacao);
+        recalcularGold(c, periodos, false);
+        return new Processado(noFato, periodos);
     }
 
     static void inserirPedidos(Connection c, List<Pedido> pedidos) throws SQLException {
@@ -235,7 +238,12 @@ public class BaseHistoricaService {
         return new ArrayList<>(out);
     }
 
-    static void recalcularGold(Connection c, List<Periodo> periodos) throws SQLException {
+    /**
+     * Refaz a gold dos períodos. {@code manuaisDaMetrica}: os valores manuais da gold passam a ser exatamente os da
+     * métrica (quando a métrica foi editada no site, inclusive para apagar um valor); senão, valor vazio na métrica
+     * mantém o que já estava na gold.
+     */
+    static void recalcularGold(Connection c, List<Periodo> periodos, boolean manuaisDaMetrica) throws SQLException {
         if (periodos.isEmpty()) {
             return;
         }
@@ -285,16 +293,8 @@ public class BaseHistoricaService {
                     qtd_pedidos = EXCLUDED.qtd_pedidos, valor_itens = EXCLUDED.valor_itens,
                     incentivos_ifood = EXCLUDED.incentivos_ifood, incentivos_loja = EXCLUDED.incentivos_loja,
                     qtd_cancelamentos = EXCLUDED.qtd_cancelamentos,
-                    valor_bruto = coalesce(EXCLUDED.valor_bruto, gold.financeiro_periodo.valor_bruto),
-                    valor_liquido = coalesce(EXCLUDED.valor_liquido, gold.financeiro_periodo.valor_liquido),
-                    recebido_via_loja = coalesce(EXCLUDED.recebido_via_loja, gold.financeiro_periodo.recebido_via_loja),
-                    repassado_plataforma = coalesce(EXCLUDED.repassado_plataforma, gold.financeiro_periodo.repassado_plataforma),
-                    conversao = coalesce(EXCLUDED.conversao, gold.financeiro_periodo.conversao),
-                    novos_clientes = coalesce(EXCLUDED.novos_clientes, gold.financeiro_periodo.novos_clientes),
-                    tempo_entrega = coalesce(EXCLUDED.tempo_entrega, gold.financeiro_periodo.tempo_entrega),
-                    alteracao_cardapio = coalesce(EXCLUDED.alteracao_cardapio, gold.financeiro_periodo.alteracao_cardapio),
-                    tempo_aberto = coalesce(EXCLUDED.tempo_aberto, gold.financeiro_periodo.tempo_aberto),
-                    data_carga = EXCLUDED.data_carga""".formatted(alvo))) {
+                    %s
+                    data_carga = EXCLUDED.data_carga""".formatted(alvo, manuais(manuaisDaMetrica)))) {
             ps.setArray(1, ops);
             ps.setArray(2, tipos);
             ps.setArray(3, inicios);
@@ -324,6 +324,16 @@ public class BaseHistoricaService {
         }
     }
 
+    static final List<String> MANUAIS = List.of("valor_bruto", "valor_liquido", "recebido_via_loja",
+            "repassado_plataforma", "conversao", "novos_clientes", "tempo_entrega", "alteracao_cardapio", "tempo_aberto");
+
+    static String manuais(boolean daMetrica) {
+        return MANUAIS.stream().map(m -> daMetrica
+                        ? m + " = EXCLUDED." + m + ","
+                        : m + " = coalesce(EXCLUDED." + m + ", gold.financeiro_periodo." + m + "),")
+                .collect(Collectors.joining("\n"));
+    }
+
     static List<LojaSemOperacao> semOperacao(Connection c, Array ids) throws SQLException {
         List<LojaSemOperacao> out = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement("""
@@ -339,5 +349,297 @@ public class BaseHistoricaService {
             }
         }
         return out;
+    }
+
+    // ------------------------------------------------------------------ métricas manuais (antes preenchidas no banco)
+
+    public record Metrica(int idOperacao, String loja, String operacao, String merchantId, Integer pedidos,
+                          BigDecimal faturamento, BigDecimal valorBruto, BigDecimal valorLiquido,
+                          BigDecimal recebidoViaLoja, BigDecimal repassadoPlataforma, BigDecimal conversao,
+                          Integer novosClientes, BigDecimal tempoEntrega, BigDecimal tempoAberto,
+                          boolean alteracaoCardapio, BigDecimal repasse, BigDecimal taxaRepasse) {
+    }
+
+    public record EdicaoMetrica(int idOperacao, String periodoTipo, LocalDate inicio, BigDecimal valorBruto,
+                                BigDecimal valorLiquido, BigDecimal recebidoViaLoja, BigDecimal repassadoPlataforma,
+                                BigDecimal conversao, Integer novosClientes, BigDecimal tempoEntrega,
+                                BigDecimal tempoAberto, Boolean alteracaoCardapio) {
+    }
+
+    static LocalDate[] periodo(String tipo, LocalDate inicio) {
+        if ("MENSAL".equalsIgnoreCase(tipo)) {
+            LocalDate m = inicio.withDayOfMonth(1);
+            return new LocalDate[]{m, m.with(TemporalAdjusters.lastDayOfMonth())};
+        }
+        LocalDate seg = inicio.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        return new LocalDate[]{seg, seg.plusDays(6)};
+    }
+
+    static String tipo(String t) {
+        return "MENSAL".equalsIgnoreCase(t) ? "MENSAL" : "SEMANAL";
+    }
+
+    /** Operações do iFood na base com as métricas manuais e os números da gold do período. */
+    public List<Metrica> metricas(String tipo, LocalDate inicio, Map<Integer, String> merchantPorOperacao) {
+        String t = tipo(tipo);
+        LocalDate ini = periodo(t, inicio)[0];
+        List<Metrica> out = new ArrayList<>();
+        try (Connection c = conectar(jdbcBase()); PreparedStatement ps = c.prepareStatement("""
+                SELECT o.id_operacao, l.nome_loja, o.nome_operacao, g.qtd_pedidos, g.valor_itens,
+                       m.valor_bruto, m.valor_liquido, m.recebido_via_loja, m.repassado_plataforma, m.conversao,
+                       m.novos_clientes, m.tempo_entrega, m.tempo_aberto, coalesce(m.alteracao_cardapio, false),
+                       g.repasse, g.taxa_repasse
+                FROM silver.dim_operacao o
+                JOIN silver.dim_loja l ON l.id_loja = o.id_loja
+                LEFT JOIN silver.fato_metricas_periodo m ON m.id_operacao = o.id_operacao AND m.id_plataforma = 1
+                 AND m.periodo_tipo = ? AND m.data_inicio = ?
+                LEFT JOIN gold.financeiro_periodo g ON g.id_operacao = o.id_operacao AND g.id_plataforma = 1
+                 AND g.periodo_tipo = ? AND g.data_inicio = ?
+                WHERE EXISTS (SELECT 1 FROM silver.dim_operacao_alias a WHERE a.id_operacao = o.id_operacao AND a.id_plataforma = 1)
+                ORDER BY l.nome_loja, o.nome_operacao""")) {
+            ps.setString(1, t);
+            ps.setDate(2, java.sql.Date.valueOf(ini));
+            ps.setString(3, t);
+            ps.setDate(4, java.sql.Date.valueOf(ini));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int op = rs.getInt(1);
+                    out.add(new Metrica(op, rs.getString(2), rs.getString(3), merchantPorOperacao.get(op),
+                            (Integer) rs.getObject(4), rs.getBigDecimal(5), rs.getBigDecimal(6), rs.getBigDecimal(7),
+                            rs.getBigDecimal(8), rs.getBigDecimal(9), rs.getBigDecimal(10), (Integer) rs.getObject(11),
+                            rs.getBigDecimal(12), rs.getBigDecimal(13), rs.getBoolean(14), rs.getBigDecimal(15),
+                            rs.getBigDecimal(16)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Não consegui ler a base: " + e.getMessage());
+        }
+        return out;
+    }
+
+    /** Grava as métricas do período na silver e refaz a gold dele. Depois reimporta no painel. */
+    public void salvarMetrica(EdicaoMetrica e) {
+        String t = tipo(e.periodoTipo());
+        LocalDate[] p = periodo(t, e.inicio());
+        validar(e);
+        try (Connection c = conectar(jdbcBase())) {
+            c.setAutoCommit(false);
+            try {
+                gravarMetrica(c, e, t, p[0], p[1]);
+                recalcularGold(c, List.of(new Periodo(e.idOperacao(), t, p[0], p[1])), true);
+                c.commit();
+            } catch (SQLException | RuntimeException ex) {
+                c.rollback();
+                throw ex;
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Não consegui gravar na base: " + ex.getMessage());
+        }
+        reimportarDepois();
+    }
+
+    static void validar(EdicaoMetrica e) {
+        if (e.conversao() != null && (e.conversao().signum() < 0 || e.conversao().compareTo(BigDecimal.ONE) > 0)) {
+            throw new IllegalArgumentException("Conversão deve estar entre 0% e 100%");
+        }
+        if (e.tempoAberto() != null && (e.tempoAberto().signum() < 0 || e.tempoAberto().compareTo(BigDecimal.ONE) > 0)) {
+            throw new IllegalArgumentException("Tempo aberto deve estar entre 0% e 100%");
+        }
+    }
+
+    static void gravarMetrica(Connection c, EdicaoMetrica e, String tipo, LocalDate ini, LocalDate fim) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement("""
+                INSERT INTO silver.fato_metricas_periodo (id_operacao, id_plataforma, periodo_tipo, data_inicio, data_fim,
+                    valor_bruto, valor_liquido, recebido_via_loja, repassado_plataforma, conversao, novos_clientes,
+                    tempo_entrega, tempo_aberto, alteracao_cardapio, data_carga)
+                VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+                ON CONFLICT (id_operacao, id_plataforma, periodo_tipo, data_inicio) DO UPDATE SET
+                    data_fim = EXCLUDED.data_fim, valor_bruto = EXCLUDED.valor_bruto, valor_liquido = EXCLUDED.valor_liquido,
+                    recebido_via_loja = EXCLUDED.recebido_via_loja, repassado_plataforma = EXCLUDED.repassado_plataforma,
+                    conversao = EXCLUDED.conversao, novos_clientes = EXCLUDED.novos_clientes,
+                    tempo_entrega = EXCLUDED.tempo_entrega, tempo_aberto = EXCLUDED.tempo_aberto,
+                    alteracao_cardapio = EXCLUDED.alteracao_cardapio, data_carga = EXCLUDED.data_carga""")) {
+            ps.setInt(1, e.idOperacao());
+            ps.setString(2, tipo);
+            ps.setDate(3, java.sql.Date.valueOf(ini));
+            ps.setDate(4, java.sql.Date.valueOf(fim));
+            ps.setBigDecimal(5, e.valorBruto());
+            ps.setBigDecimal(6, e.valorLiquido());
+            ps.setBigDecimal(7, e.recebidoViaLoja());
+            ps.setBigDecimal(8, e.repassadoPlataforma());
+            ps.setBigDecimal(9, e.conversao());
+            ps.setObject(10, e.novosClientes(), Types.INTEGER);
+            ps.setBigDecimal(11, e.tempoEntrega());
+            ps.setBigDecimal(12, e.tempoAberto());
+            ps.setBoolean(13, Boolean.TRUE.equals(e.alteracaoCardapio()));
+            ps.executeUpdate();
+        }
+    }
+
+    // ------------------------------------------------------------------ lojas sem operação
+
+    public record Operacao(int idOperacao, String loja, String operacao, Integer idLoja) {
+    }
+
+    public record NovaOperacao(String idLojaOrigem, String nomeOrigem, Integer idOperacao, Integer idLoja,
+                               String nomeLoja, String nomeOperacao, String tipoEntrega) {
+    }
+
+    /** Lojas com pedidos na base que ainda não têm operação (ficam fora da fato e da gold). */
+    public List<LojaSemOperacao> semOperacao() {
+        try (Connection c = conectar(jdbcBase()); Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("""
+                     SELECT p.id_loja, max(p.nome_loja), count(*) FROM public.pedidos p
+                     WHERE NOT EXISTS (SELECT 1 FROM silver.dim_operacao_alias a
+                                       WHERE a.id_loja_origem = p.id_loja AND a.id_plataforma = 1)
+                     GROUP BY 1 ORDER BY 3 DESC""")) {
+            List<LojaSemOperacao> out = new ArrayList<>();
+            while (rs.next()) {
+                out.add(new LojaSemOperacao(rs.getString(1), rs.getString(2), rs.getInt(3)));
+            }
+            return out;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Não consegui ler a base: " + e.getMessage());
+        }
+    }
+
+    public List<Operacao> operacoes() {
+        try (Connection c = conectar(jdbcBase()); Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("""
+                     SELECT o.id_operacao, l.nome_loja, o.nome_operacao, l.id_loja FROM silver.dim_operacao o
+                     JOIN silver.dim_loja l ON l.id_loja = o.id_loja ORDER BY l.nome_loja, o.nome_operacao""")) {
+            List<Operacao> out = new ArrayList<>();
+            while (rs.next()) {
+                out.add(new Operacao(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getInt(4)));
+            }
+            return out;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Não consegui ler a base: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Liga a loja do relatório (ID da loja no iFood) a uma operação: existente ou nova (com loja nova ou existente).
+     * Em seguida passa todos os pedidos dela para a fato e refaz a gold. Devolve quantos pedidos entraram.
+     */
+    public int cadastrarOperacao(NovaOperacao n) {
+        if (n.idLojaOrigem() == null || n.idLojaOrigem().isBlank()) {
+            throw new IllegalArgumentException("Falta o ID da loja");
+        }
+        int r;
+        try (Connection c = conectar(jdbcBase())) {
+            c.setAutoCommit(false);
+            try {
+                r = cadastrarOperacao(c, n);
+                c.commit();
+            } catch (SQLException | RuntimeException ex) {
+                c.rollback();
+                throw ex;
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Não consegui gravar na base: " + ex.getMessage());
+        }
+        reimportarDepois();
+        return r;
+    }
+
+    static int cadastrarOperacao(Connection c, NovaOperacao n) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT 1 FROM silver.dim_operacao_alias WHERE id_loja_origem = ? AND id_plataforma = 1")) {
+            ps.setString(1, n.idLojaOrigem().strip());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    throw new IllegalArgumentException("Essa loja já tem operação");
+                }
+            }
+        }
+        int op;
+        if (n.idOperacao() != null) {
+            op = n.idOperacao();
+        } else {
+            String nomeOperacao = n.nomeOperacao() == null ? "" : n.nomeOperacao().strip();
+            if (nomeOperacao.isEmpty()) {
+                throw new IllegalArgumentException("Dê um nome para a operação (ex.: Asa Norte)");
+            }
+            int idLoja;
+            if (n.idLoja() != null) {
+                idLoja = n.idLoja();
+            } else {
+                String nomeLoja = n.nomeLoja() == null ? "" : n.nomeLoja().strip();
+                if (nomeLoja.isEmpty()) {
+                    throw new IllegalArgumentException("Escolha a marca (loja) ou digite o nome de uma nova");
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO silver.dim_loja (nome_loja) VALUES (?) RETURNING id_loja")) {
+                    ps.setString(1, nomeLoja);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        rs.next();
+                        idLoja = rs.getInt(1);
+                    }
+                }
+            }
+            Integer tipoEntrega = null;
+            if (n.tipoEntrega() != null && !n.tipoEntrega().isBlank()) {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT id_tipo_entrega FROM silver.dim_tipo_entrega WHERE lower(tipo_entrega) = lower(?)")) {
+                    ps.setString(1, n.tipoEntrega().strip());
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            tipoEntrega = rs.getInt(1);
+                        }
+                    }
+                }
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO silver.dim_operacao (id_loja, nome_operacao, id_tipo_entrega) VALUES (?, ?, ?) RETURNING id_operacao")) {
+                ps.setInt(1, idLoja);
+                ps.setString(2, nomeOperacao);
+                ps.setObject(3, tipoEntrega, Types.INTEGER);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    op = rs.getInt(1);
+                }
+            }
+        }
+        try (PreparedStatement ps = c.prepareStatement("""
+                INSERT INTO silver.dim_operacao_alias (id_operacao, id_plataforma, nome_origem, id_loja_origem)
+                VALUES (?, 1, ?, ?)""")) {
+            ps.setInt(1, op);
+            ps.setString(2, n.nomeOrigem());
+            ps.setString(3, n.idLojaOrigem().strip());
+            ps.executeUpdate();
+        }
+        List<String> ids = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement("SELECT id_completo_pedido FROM public.pedidos WHERE id_loja = ?")) {
+            ps.setString(1, n.idLojaOrigem().strip());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getString(1));
+                }
+            }
+        }
+        if (ids.isEmpty()) {
+            return 0;
+        }
+        return processar(c, c.createArrayOf("varchar", ids.toArray())).noFato();
+    }
+
+    // ------------------------------------------------------------------ apoio
+
+    private BiImportService.Jdbc jdbcBase() {
+        if (!configurada()) {
+            throw new IllegalStateException("BI_DATABASE_URL não configurada");
+        }
+        return BiImportService.jdbc(cfg.biDatabaseUrl(), BiImportService.BANCO_BI);
+    }
+
+    private void reimportarDepois() {
+        new Thread(() -> {
+            try {
+                bi.importar();
+            } catch (RuntimeException e) {
+                log.warn("[base] reimportação do BI falhou", e);
+            }
+        }, "base-reimporta-bi").start();
     }
 }

@@ -79,7 +79,8 @@ export function Legenda({ series }) {
  * Linha no tempo. series: [{ nome, cor, valores: [n|null] }], rotulos: [string], formato: (n) => string.
  * O último ponto de cada série leva rótulo direto.
  */
-export function GraficoLinha({ series, rotulos, formato, altura = 200 }) {
+/** Linhas. marcas: [{ indice, rotulo }] = pontos verticais (ex.: alteração de cardápio). */
+export function GraficoLinha({ series, rotulos, formato, altura = 200, marcas = [] }) {
   const [ref, largura] = useLargura();
   const [foco, setFoco] = useState(null);
   const m = { e: 76, d: 16, t: 16, b: 26 };
@@ -118,6 +119,14 @@ export function GraficoLinha({ series, rotulos, formato, altura = 200 }) {
           ) : null
         )}
         {foco !== null && <line x1={x(foco)} x2={x(foco)} y1={m.t} y2={m.t + h} stroke={cor.textoSuave} strokeDasharray="3 3" />}
+        {marcas.map((mc) => (
+          <g key={`m${mc.indice}`}>
+            <line x1={x(mc.indice)} x2={x(mc.indice)} y1={m.t} y2={m.t + h} stroke={cor.serie2} strokeWidth={1.5} strokeDasharray="4 3" />
+            <circle cx={x(mc.indice)} cy={m.t} r={5} fill={cor.serie2} stroke="#FFFFFF" strokeWidth={2}>
+              <title>{mc.rotulo}</title>
+            </circle>
+          </g>
+        ))}
         {series.map((s) => {
           const pts = s.valores.map((v, i) => (v === null || v === undefined ? null : [x(i), y(v)]));
           let d = "";
@@ -149,7 +158,11 @@ export function GraficoLinha({ series, rotulos, formato, altura = 200 }) {
           x={x(foco)}
           y={m.t}
           largura={largura}
-          linhas={[{ rotulo: rotulos[foco] }, ...series.map((s) => ({ rotulo: s.nome, cor: s.cor, valor: s.valores[foco] == null ? "—" : formato(s.valores[foco]) }))]}
+          linhas={[
+            { rotulo: rotulos[foco] },
+            ...series.map((s) => ({ rotulo: s.nome, cor: s.cor, valor: s.valores[foco] == null ? "—" : formato(s.valores[foco]) })),
+            ...marcas.filter((mc) => mc.indice === foco).map((mc) => ({ rotulo: mc.rotulo, cor: cor.serie2, valor: "●" })),
+          ]}
         />
       )}
     </div>

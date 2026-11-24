@@ -72,6 +72,14 @@ class BaseHistoricaTest {
                       data_carga timestamp DEFAULT now(), perc_incentivos_ifood numeric(12,4), perc_incentivos_loja numeric(12,4),
                       qtd_cancelamentos int, alteracao_cardapio boolean DEFAULT false, tempo_aberto numeric(8,4),
                       CONSTRAINT uk_financeiro_periodo UNIQUE (id_operacao, id_plataforma, periodo_tipo, data_inicio))""");
+            st.execute("CREATE TABLE silver.dim_loja (id_loja serial PRIMARY KEY, nome_loja varchar)");
+            st.execute("CREATE TABLE silver.dim_tipo_entrega (id_tipo_entrega serial PRIMARY KEY, tipo_entrega varchar UNIQUE)");
+            st.execute("INSERT INTO silver.dim_tipo_entrega (tipo_entrega) VALUES ('Própria'), ('Parceira')");
+            st.execute("""
+                    CREATE TABLE silver.dim_operacao (id_operacao serial PRIMARY KEY, id_loja int NOT NULL,
+                      nome_operacao varchar, id_tipo_entrega int, super boolean DEFAULT false)""");
+            st.execute("INSERT INTO silver.dim_loja (nome_loja) VALUES ('Marca A')");
+            st.execute("SELECT setval('silver.dim_operacao_id_operacao_seq', 10)");
             st.execute("INSERT INTO silver.dim_operacao_alias (id_operacao, id_plataforma, nome_origem, id_loja_origem) VALUES (7, 1, 'Loja A', '111')");
             // semana de 16/11 com valores manuais (bruto, líquido, recebido…) e alteração de cardápio
             st.execute("""
@@ -162,5 +170,45 @@ class BaseHistoricaTest {
         assertThat(um("SELECT qtd_pedidos FROM gold.financeiro_periodo WHERE periodo_tipo = 'SEMANAL'")).isEqualTo(1);
         assertThat(um("SELECT qtd_cancelamentos FROM gold.financeiro_periodo WHERE periodo_tipo = 'SEMANAL'")).isEqualTo(2);
         assertThat(um("SELECT count(*) FROM gold.financeiro_periodo")).isEqualTo(2L);
+    }
+
+    @Test
+    void editarMetricaNoSiteSobrescreveAGold() throws SQLException {
+        BaseHistoricaService.gravar(c, relatorio(
+                RelatorioPedidosTest.linhaCsv("p-1", "Loja A", "111", "17/11/2026 20:00:00", "CONCLUIDO", "100")));
+        var e = new BaseHistoricaService.EdicaoMetrica(7, "SEMANAL", java.time.LocalDate.of(2026, 11, 19),
+                new BigDecimal("300"), new BigDecimal("210"), null, null, new BigDecimal("0.2"), 12, null, null, false);
+        BaseHistoricaService.gravarMetrica(c, e, "SEMANAL", java.time.LocalDate.of(2026, 11, 16), java.time.LocalDate.of(2026, 11, 22));
+        BaseHistoricaService.recalcularGold(c, java.util.List.of(new BaseHistoricaService.Periodo(7, "SEMANAL",
+                java.time.LocalDate.of(2026, 11, 16), java.time.LocalDate.of(2026, 11, 22))), true);
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("""
+                SELECT valor_bruto, recebido_via_loja, repasse, taxa_repasse, alteracao_cardapio, novos_clientes, qtd_pedidos
+                FROM gold.financeiro_periodo WHERE periodo_tipo = 'SEMANAL'""")) {
+            rs.next();
+            assertThat(rs.getBigDecimal(1)).isEqualByComparingTo("300");
+            assertThat(rs.getBigDecimal(2)).isNull();                     // apagado no site: some da gold também
+            assertThat(rs.getBigDecimal(3)).isEqualByComparingTo("210");
+            assertThat(rs.getBigDecimal(4)).isEqualByComparingTo("0.7");
+            assertThat(rs.getBoolean(5)).isFalse();
+            assertThat(rs.getInt(6)).isEqualTo(12);
+            assertThat(rs.getInt(7)).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void cadastrarOperacaoTrazOsPedidosParaAGold() throws SQLException {
+        var r = BaseHistoricaService.gravar(c, relatorio(
+                RelatorioPedidosTest.linhaCsv("n-1", "Loja Nova", "999", "17/11/2026 20:00:00", "CONCLUIDO", "50"),
+                RelatorioPedidosTest.linhaCsv("n-2", "Loja Nova", "999", "02/12/2026 20:00:00", "CONCLUIDO", "70")));
+        assertThat(r.noFato()).isZero();
+        int n = BaseHistoricaService.cadastrarOperacao(c, new BaseHistoricaService.NovaOperacao("999", "Loja Nova",
+                null, null, "Marca Nova", "Centro", "Parceira"));
+        assertThat(n).isEqualTo(2);
+        assertThat(um("SELECT nome_loja FROM silver.dim_loja WHERE id_loja = (SELECT id_loja FROM silver.dim_operacao WHERE nome_operacao = 'Centro')"))
+                .isEqualTo("Marca Nova");
+        assertThat(um("SELECT count(*) FROM gold.financeiro_periodo WHERE id_operacao = 11")).isEqualTo(4L); // 2 semanas e 2 meses
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> BaseHistoricaService.cadastrarOperacao(c,
+                        new BaseHistoricaService.NovaOperacao("999", "Loja Nova", 7, null, null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

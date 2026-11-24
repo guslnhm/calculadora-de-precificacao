@@ -573,6 +573,16 @@ export const painelApi = {
   enviarRelatorio: (arquivo) => enviarArquivo("/painel/base/relatorio", arquivo),
 };
 
+// Base histórica (banco "pedidos")
+export const baseApi = {
+  status: () => requisicao("GET", "/painel/base/status"),
+  metricas: (tipo, inicio) => requisicao("GET", `/painel/base/metricas${query({ tipo, inicio })}`),
+  salvarMetrica: (dados) => requisicao("PUT", "/painel/base/metricas", dados),
+  semOperacao: () => requisicao("GET", "/painel/base/sem-operacao"),
+  operacoes: () => requisicao("GET", "/painel/base/operacoes"),
+  cadastrarOperacao: (dados) => requisicao("POST", "/painel/base/operacoes", dados),
+};
+
 /** Envia um arquivo (multipart). */
 async function enviarArquivo(caminho, arquivo) {
   const form = new FormData();

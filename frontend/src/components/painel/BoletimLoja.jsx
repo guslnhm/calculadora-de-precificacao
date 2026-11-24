@@ -62,6 +62,9 @@ export default function BoletimLoja({ dados, onAtualizar, somenteLeitura = false
   const serie = dados.serie || [];
   const rotulos = serie.map((s) => rotuloPeriodo(s.periodo, true));
   const val = (f) => serie.map((s) => (s.metricas ? s.metricas[f] ?? null : null));
+  const marcasCardapio = serie
+    .map((s, i) => (s.alteracaoCardapio ? { indice: i, rotulo: "Alteração de cardápio" } : null))
+    .filter(Boolean);
   const conversaoBoa = a.conversao != null && a.conversao >= META_CONVERSAO;
   const rec = dados.recordes || {};
 
@@ -104,7 +107,14 @@ export default function BoletimLoja({ dados, onAtualizar, somenteLeitura = false
         <Bloco titulo="Faturamento" subtitulo={`últimos ${serie.length} períodos`}
                direita={<span style={{ fontSize: 12, color: cor.textoSuave }}>média {reaisCurto(rec.mediaFaturamento)} · recorde {reaisCurto(rec.recordeFaturamento)}</span>}>
           <GraficoLinha rotulos={rotulos} formato={(n, eixo) => (eixo ? reaisCurto(n) : reais(n, true))}
-                        series={[{ nome: "Faturamento", cor: cor.serie1, valores: val("faturamento") }]} />
+                        series={[{ nome: "Faturamento", cor: cor.serie1, valores: val("faturamento") }]}
+                        marcas={marcasCardapio} />
+          {marcasCardapio.length > 0 && (
+            <div style={{ fontSize: 12, color: cor.textoSuave, marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: cor.serie2 }} />
+              Alteração de cardápio feita pela consultoria
+            </div>
+          )}
         </Bloco>
         <Bloco titulo="Pedidos e novos clientes" subtitulo={`média ${inteiro(rec.mediaPedidos)} · recorde ${inteiro(rec.recordePedidos)} pedidos`}>
           <GraficoLinha rotulos={rotulos} formato={(n) => inteiro(n)}

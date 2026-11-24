@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { painelApi } from "../../services/api";
 import { botao, caixa, cor } from "./fmt";
+import LojasSemOperacao from "./LojasSemOperacao";
 
 // Envio do "Relatório de pedidos" do Portal do Parceiro para a base histórica (pedidos → silver → gold).
 
@@ -62,18 +63,9 @@ export default function EnviarRelatorio() {
           </div>
           {r.ignorados > 0 && <div style={{ color: cor.textoSuave }}>{r.ignorados} linha(s) sem ID, loja ou data foram ignoradas.</div>}
           <div style={{ color: cor.textoSuave }}>O painel reimporta a gold sozinho em seguida.</div>
-          {r.semOperacao?.length > 0 && (
-            <div style={{ marginTop: 6 }}>
-              <div style={{ color: cor.ruim, fontWeight: 600 }}>
-                {r.semOperacao.length} loja(s) sem operação cadastrada na base (os pedidos ficaram só na tabela pedidos):
-              </div>
-              {r.semOperacao.map((l) => (
-                <div key={l.idLoja}>• {l.nome} (ID {l.idLoja}) · {l.pedidos} pedido(s)</div>
-              ))}
-            </div>
-          )}
         </div>
       )}
+      <LojasSemOperacao atualizar={resultado} />
     </div>
   );
 }

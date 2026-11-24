@@ -38,7 +38,8 @@ public class BiImportService {
                    o.nome_operacao AS operacao, l.nome_loja AS loja, upper(f.periodo_tipo) AS periodo_tipo,
                    f.data_inicio, f.data_fim, f.qtd_pedidos, f.valor_itens, f.ticket_medio, f.incentivos_ifood,
                    f.incentivos_loja, f.valor_bruto, f.valor_liquido, f.repasse, f.taxa_repasse, f.conversao,
-                   f.novos_clientes, f.tempo_entrega, f.qtd_cancelamentos, f.tempo_aberto
+                   f.novos_clientes, f.tempo_entrega, f.qtd_cancelamentos, f.tempo_aberto,
+                   COALESCE(f.alteracao_cardapio, false) AS alteracao_cardapio
             FROM gold.financeiro_periodo f
             LEFT JOIN silver.dim_operacao o ON o.id_operacao = f.id_operacao
             LEFT JOIN silver.dim_loja l ON l.id_loja = o.id_loja

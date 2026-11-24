@@ -75,7 +75,7 @@ public class PainelService {
                            Map<String, Object> atualizacao) {
     }
 
-    public record PontoSerie(Periodo periodo, Metricas metricas) {
+    public record PontoSerie(Periodo periodo, Metricas metricas, boolean alteracaoCardapio) {
     }
 
     public record DiaLoja(LocalDate dia, int pedidos, int cancelados, BigDecimal faturamento,
@@ -206,8 +206,9 @@ public class PainelService {
         }
         Map<Periodo, Map<String, Metricas>> calc = calcular(periodos, chave);
         List<PontoSerie> serie = new ArrayList<>();
+        java.util.Set<LocalDate> alteracoes = repo.alteracoesCardapio(chave, p.tipo(), periodos.get(0).inicio(), p.inicio());
         for (Periodo q : periodos) {
-            serie.add(new PontoSerie(q, calc.get(q).get(chave)));
+            serie.add(new PontoSerie(q, calc.get(q).get(chave), alteracoes.contains(q.inicio())));
         }
         Metricas a = calc.get(p).get(chave);
         Metricas b = calc.get(p.anterior()) == null ? null : calc.get(p.anterior()).get(chave);
