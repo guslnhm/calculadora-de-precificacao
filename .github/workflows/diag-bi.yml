@@ -9,15 +9,52 @@ jobs:
       - uses: actions/checkout@v4
       - name: Ler estrutura e amostras (saída criptografada)
         env:
-          BI_URL_BASE: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL }}
+          BI_URL_BASE: ${{ secrets.BI_DATABASE_URL }}
         run: |
-          export BI_DATABASE_URL="$BI_URL_BASE"
+          export BI_DATABASE_URL=$(echo "$BI_URL_BASE" | sed -E 's#/[^/?]+(\?|$)#/pedidos\1#')
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === IDS SEM AUTORIZACAO ===
-          SELECT m.merchant_id, m.nome FROM painel_coleta c JOIN ifood_merchant m ON m.merchant_id=c.merchant_id
-           WHERE m.ativo AND c.ultimo_erro ILIKE '%autorizou%' AND (c.ultima_coleta IS NULL OR c.ultima_coleta < c.erro_em) ORDER BY 2;
+          \echo === PEDIDOS COLUNAS ===
+          SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='pedidos' ORDER BY ordinal_position;
+          \echo === INDICES ===
+          SELECT schemaname, tablename, indexdef FROM pg_indexes WHERE schemaname IN ('public','silver','gold') ORDER BY 1,2;
+          \echo === CONSTRAINTS ===
+          SELECT conrelid::regclass, conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE connamespace::regnamespace::text IN ('public','silver','gold') ORDER BY 1;
+          \echo === DATAS ===
+          SELECT 'pedidos', min(data_hora_pedido), max(data_hora_pedido), count(*) FROM public.pedidos
+          UNION ALL SELECT 'fato_pedido', min(data_hora_pedido)::text, max(data_hora_pedido)::text, count(*) FROM silver.fato_pedido
+          UNION ALL SELECT 'gold', min(data_inicio)::text, max(data_fim)::text, count(*) FROM gold.financeiro_periodo
+          UNION ALL SELECT 'metricas', min(data_inicio)::text, max(data_fim)::text, count(*) FROM silver.fato_metricas_periodo;
+          \echo === AMOSTRA PEDIDOS (2 linhas) ===
+          \x on
+          SELECT * FROM public.pedidos ORDER BY id DESC LIMIT 2;
+          SELECT * FROM silver.fato_pedido ORDER BY id_pedido DESC LIMIT 2;
+          SELECT * FROM silver.fato_metricas_periodo ORDER BY id_metrica DESC LIMIT 2;
+          SELECT * FROM gold.financeiro_periodo ORDER BY id_financeiro DESC LIMIT 2;
+          \x off
+          \echo === DATA_CARGA RECENTES ===
+          SELECT 'fato_pedido', data_carga::date, count(*) FROM silver.fato_pedido GROUP BY 2 ORDER BY 2 DESC LIMIT 5;
+          SELECT 'gold', data_carga::date, periodo_tipo, count(*) FROM gold.financeiro_periodo GROUP BY 2,3 ORDER BY 2 DESC LIMIT 8;
+          SELECT 'metricas', data_carga::date, periodo_tipo, count(*) FROM silver.fato_metricas_periodo GROUP BY 2,3 ORDER BY 2 DESC LIMIT 8;
+          \echo === GOLD vs FATO (1 operacao, semana recente) ===
+          WITH g AS (SELECT * FROM gold.financeiro_periodo WHERE periodo_tipo ILIKE 'seman%' ORDER BY data_inicio DESC, id_operacao LIMIT 3)
+          SELECT g.id_operacao, g.id_plataforma, g.data_inicio, g.data_fim, g.qtd_pedidos, g.valor_itens, g.ticket_medio, g.incentivos_ifood, g.incentivos_loja, g.valor_bruto, g.valor_liquido, g.qtd_cancelamentos,
+            (SELECT count(*) FROM silver.fato_pedido f WHERE f.id_operacao=g.id_operacao AND f.id_plataforma=g.id_plataforma AND f.data_hora_pedido::date BETWEEN g.data_inicio AND g.data_fim) n_total,
+            (SELECT count(*) FROM silver.fato_pedido f WHERE f.id_operacao=g.id_operacao AND f.id_plataforma=g.id_plataforma AND f.data_hora_pedido::date BETWEEN g.data_inicio AND g.data_fim AND f.status_final_pedido ILIKE 'CONCLU%') n_concl,
+            (SELECT sum(valor_itens) FROM silver.fato_pedido f WHERE f.id_operacao=g.id_operacao AND f.id_plataforma=g.id_plataforma AND f.data_hora_pedido::date BETWEEN g.data_inicio AND g.data_fim AND f.status_final_pedido ILIKE 'CONCLU%') itens_concl,
+            (SELECT sum(incentivo_prom_ifood) FROM silver.fato_pedido f WHERE f.id_operacao=g.id_operacao AND f.id_plataforma=g.id_plataforma AND f.data_hora_pedido::date BETWEEN g.data_inicio AND g.data_fim AND f.status_final_pedido ILIKE 'CONCLU%') inc_ifood,
+            (SELECT m.valor_bruto||' / '||m.valor_liquido||' / conv '||coalesce(m.conversao::text,'-') FROM silver.fato_metricas_periodo m WHERE m.id_operacao=g.id_operacao AND m.id_plataforma=g.id_plataforma AND m.data_inicio=g.data_inicio AND m.periodo_tipo=g.periodo_tipo LIMIT 1) metricas
+          FROM g;
+          \echo === STATUS DISTINTOS ===
+          SELECT status_final_pedido, count(*) FROM silver.fato_pedido GROUP BY 1;
+          SELECT periodo_tipo, count(*) FROM gold.financeiro_periodo GROUP BY 1;
+          \echo === CANAIS/PLATAFORMAS ===
+          SELECT * FROM silver.dim_plataforma;
+          SELECT canal_venda, count(*) FROM public.pedidos GROUP BY 1 ORDER BY 2 DESC LIMIT 6;
+          \echo === MAPA LOJA -> OPERACAO ===
+          SELECT * FROM silver.dim_operacao_alias LIMIT 5;
+          SELECT * FROM staging.mapa_operacao LIMIT 5;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
