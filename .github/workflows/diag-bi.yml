@@ -15,14 +15,12 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === 1. dim_data ===
-          SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema='silver' AND table_name='dim_data' ORDER BY ordinal_position;
-          SELECT min(id_data), max(id_data), count(*) FROM silver.dim_data;
-          SELECT * FROM silver.dim_data ORDER BY id_data DESC LIMIT 2;
-          \echo === 2. dim_plataforma ===
-          SELECT * FROM silver.dim_plataforma;
-          \echo === 3. pedidos sem dim_data ===
-          SELECT count(*) FROM public.pedidos p WHERE NOT EXISTS (SELECT 1 FROM silver.dim_data d WHERE d.id_data = to_char(p.data_hora_pedido,'YYYYMMDD')::int);
+          \echo === max pedidos ===
+          SELECT MAX(data_hora_pedido) FROM public.pedidos;
+          SELECT data_hora_pedido::date dia, count(*) FROM public.pedidos WHERE data_hora_pedido >= now() - interval '40 days' GROUP BY 1 ORDER BY 1;
+          \echo === max fato / gold ===
+          SELECT MAX(data_hora_pedido) FROM silver.fato_pedido;
+          SELECT periodo_tipo, MAX(data_inicio) FROM gold.financeiro_periodo GROUP BY 1;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
