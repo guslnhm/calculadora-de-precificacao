@@ -570,7 +570,34 @@ export const painelApi = {
   importarBi: () => requisicao("POST", "/painel/importar-bi"),
   operacoesBi: () => requisicao("GET", "/painel/operacoes-bi"),
   vincularOperacao: (idOperacao, merchantId) => requisicao("PUT", `/painel/operacoes-bi/${idOperacao}`, { merchantId }),
+  enviarRelatorio: (arquivo) => enviarArquivo("/painel/base/relatorio", arquivo),
 };
+
+/** Envia um arquivo (multipart). */
+async function enviarArquivo(caminho, arquivo) {
+  const form = new FormData();
+  form.append("arquivo", arquivo);
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}${caminho}`, {
+    method: "POST",
+    headers: token ? { Authorization: token } : {},
+    body: form,
+  });
+  const texto = await response.text();
+  let body = null;
+  try {
+    body = texto ? JSON.parse(texto) : null;
+  } catch {
+    body = texto;
+  }
+  if (!response.ok) {
+    const mensagem = response.status === 413
+      ? "Arquivo grande demais (máximo de 60 MB)"
+      : (body && (body.mensagem || body.erro || body.message)) || `Erro ${response.status} ao enviar o arquivo`;
+    throw new Error(typeof mensagem === "string" ? mensagem : JSON.stringify(mensagem));
+  }
+  return body;
+}
 
 export const authApi = {
   eu: () => requisicao("GET", "/auth/eu"),

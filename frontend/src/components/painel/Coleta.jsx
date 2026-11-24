@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { painelApi } from "../../services/api";
 import { dataHora } from "../monitor/ui";
 import { botao, caixa, campo, cor } from "./fmt";
+import EnviarRelatorio from "./EnviarRelatorio";
 
 /** Situação da coleta do Analytics, importação do BI antigo e vínculo das operações do BI com as lojas. */
 export default function Coleta() {
@@ -70,6 +71,8 @@ export default function Coleta() {
         </div>
         {msg && <div style={{ marginTop: 10, fontSize: 13, color: cor.textoSuave }}>{msg}</div>}
       </div>
+
+      {status.bancoBiConfigurado && <EnviarRelatorio />}
 
       <div style={caixa}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>Lojas ({(status.lojas || []).length}) · {comErro.length} com erro</div>
