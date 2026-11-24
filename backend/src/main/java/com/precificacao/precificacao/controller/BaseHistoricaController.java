@@ -5,6 +5,7 @@ import com.precificacao.precificacao.painel.PainelRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import com.precificacao.precificacao.painel.base.BaseHistoricaService;
 import com.precificacao.precificacao.painel.base.ConsultaBase;
+import com.precificacao.precificacao.painel.base.ValoresPortalCsv;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -88,6 +89,31 @@ public class BaseHistoricaController {
     @PostMapping("/operacoes")
     public Map<String, Object> cadastrarOperacao(@RequestBody BaseHistoricaService.NovaOperacao req) {
         return Map.of("pedidos", base.cadastrarOperacao(req));
+    }
+
+    /** Planilha com bruto, líquido, recebido via loja e repassado ao iFood por operação e semana. */
+    @PostMapping("/valores-portal")
+    public Map<String, Object> importarValoresPortal(@RequestParam("arquivo") MultipartFile arquivo) throws IOException {
+        List<BaseHistoricaService.ValoresPortal> linhas = ValoresPortalCsv.ler(arquivo.getBytes());
+        int n = base.importarValoresPortal(linhas);
+        // o que foi lançado antes no boletim deixa de valer para esses períodos: a base passa a mandar
+        for (BaseHistoricaService.ValoresPortal v : linhas) {
+            String tipo = BaseHistoricaService.tipo(v.periodoTipo());
+            LocalDate inicio = BaseHistoricaService.periodo(tipo, v.inicio())[0];
+            for (String chave : painel.chavesDaOperacao(v.idOperacao())) {
+                painel.apagarManual(chave, tipo, inicio);
+            }
+        }
+        return Map.of("linhas", n);
+    }
+
+    public record PedidoReprocessar(LocalDate de, LocalDate ate) {
+    }
+
+    /** Passa de novo para a silver e a gold os pedidos que já estão na base entre as datas. */
+    @PostMapping("/reprocessar")
+    public BaseHistoricaService.Reprocessado reprocessar(@RequestBody PedidoReprocessar req) {
+        return base.reprocessar(req.de(), req.ate());
     }
 
     public record PedidoConsulta(String sql, Integer limite) {

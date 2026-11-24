@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { baseApi } from "../../services/api";
+import { ImportarValoresPortal } from "./ImportarValoresPortal";
 import { botao, caixa, campo, cor, inteiro, percentual, reais, rotuloPeriodo } from "./fmt";
 
 // Lançamento dos valores do Portal do Parceiro direto na base histórica (silver.fato_metricas_periodo),
@@ -114,6 +115,8 @@ export default function LancamentosBase({ periodo, onSalvo }) {
   const pendentes = (linhas || []).filter(pendente).length;
 
   return (
+    <>
+    <ImportarValoresPortal onImportado={() => { carregar(); onSalvo?.(); }} />
     <div style={caixa}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
         <div style={{ minWidth: 0 }}>
@@ -154,5 +157,6 @@ export default function LancamentosBase({ periodo, onSalvo }) {
         </div>
       )}
     </div>
+    </>
   );
 }

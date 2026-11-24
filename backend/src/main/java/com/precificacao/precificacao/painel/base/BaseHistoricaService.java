@@ -461,25 +461,140 @@ public class BaseHistoricaService {
     static void gravarValoresPortal(Connection c, int idOperacao, String tipo, LocalDate ini, LocalDate fim,
                                     BigDecimal conversao, BigDecimal bruto, BigDecimal liquido, BigDecimal recebido,
                                     BigDecimal repassado) throws SQLException {
+        gravarValoresPortal(c, idOperacao, tipo, ini, fim, true, conversao, bruto, liquido, recebido, repassado);
+    }
+
+    /** comConversao = false: mantém a conversão que já está na métrica (importação dos valores financeiros). */
+    static void gravarValoresPortal(Connection c, int idOperacao, String tipo, LocalDate ini, LocalDate fim,
+                                    boolean comConversao, BigDecimal conversao, BigDecimal bruto, BigDecimal liquido,
+                                    BigDecimal recebido, BigDecimal repassado) throws SQLException {
         boolean temValores = bruto != null || liquido != null;
         try (PreparedStatement ps = c.prepareStatement("""
                 INSERT INTO silver.fato_metricas_periodo (id_operacao, id_plataforma, periodo_tipo, data_inicio, data_fim,
                     conversao, valor_bruto, valor_liquido, recebido_via_loja, repassado_plataforma, data_carga)
                 VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, now())
                 ON CONFLICT (id_operacao, id_plataforma, periodo_tipo, data_inicio) DO UPDATE SET
-                    data_fim = EXCLUDED.data_fim, conversao = EXCLUDED.conversao, data_carga = EXCLUDED.data_carga
-                    %s""".formatted(temValores ? VALORES_PORTAL : ""))) {
+                    data_fim = EXCLUDED.data_fim, data_carga = EXCLUDED.data_carga
+                    %s%s""".formatted(comConversao ? ", conversao = EXCLUDED.conversao" : "",
+                temValores ? VALORES_PORTAL : ""))) {
             ps.setInt(1, idOperacao);
             ps.setString(2, tipo);
             ps.setDate(3, java.sql.Date.valueOf(ini));
             ps.setDate(4, java.sql.Date.valueOf(fim));
-            ps.setBigDecimal(5, conversao);
+            ps.setBigDecimal(5, comConversao ? conversao : null);
             ps.setBigDecimal(6, bruto);
             ps.setBigDecimal(7, liquido);
             ps.setBigDecimal(8, recebido == null && temValores ? BigDecimal.ZERO : recebido);
             ps.setBigDecimal(9, repassado == null && temValores ? BigDecimal.ZERO : repassado);
             ps.executeUpdate();
         }
+    }
+
+    /** Uma linha da importação dos valores financeiros do Portal (semana ou mês de uma operação). */
+    public record ValoresPortal(int idOperacao, String periodoTipo, LocalDate inicio, BigDecimal valorBruto,
+                                BigDecimal valorLiquido, BigDecimal recebidoViaLoja, BigDecimal repassadoPlataforma) {
+    }
+
+    /**
+     * Grava em lote bruto, líquido, recebido via loja e repassado ao iFood (mantendo conversão, novos clientes,
+     * tempos e alteração de cardápio), recalcula a gold dos períodos e reimporta o painel uma vez só.
+     */
+    public int importarValoresPortal(List<ValoresPortal> linhas) {
+        if (linhas.isEmpty()) {
+            throw new IllegalArgumentException("Nenhuma linha para importar.");
+        }
+        try (Connection c = conectar(jdbcBase())) {
+            c.setAutoCommit(false);
+            try {
+                int n = importarValoresPortal(c, linhas);
+                c.commit();
+                reimportarDepois();
+                return n;
+            } catch (SQLException | RuntimeException ex) {
+                c.rollback();
+                throw ex;
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Não consegui gravar na base: " + ex.getMessage());
+        }
+    }
+
+    static int importarValoresPortal(Connection c, List<ValoresPortal> linhas) throws SQLException {
+        Set<Integer> existentes = new java.util.HashSet<>();
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("SELECT id_operacao FROM silver.dim_operacao")) {
+            while (rs.next()) {
+                existentes.add(rs.getInt(1));
+            }
+        }
+        List<Periodo> periodos = new ArrayList<>();
+        Set<String> vistos = new java.util.HashSet<>();
+        for (ValoresPortal v : linhas) {
+            if (!existentes.contains(v.idOperacao())) {
+                throw new IllegalArgumentException("Operação " + v.idOperacao() + " não existe na base.");
+            }
+            String t = tipo(v.periodoTipo());
+            LocalDate[] p = periodo(t, v.inicio());
+            gravarValoresPortal(c, v.idOperacao(), t, p[0], p[1], false, null, v.valorBruto(), v.valorLiquido(),
+                    v.recebidoViaLoja(), v.repassadoPlataforma());
+            if (vistos.add(v.idOperacao() + "|" + t + "|" + p[0])) {
+                periodos.add(new Periodo(v.idOperacao(), t, p[0], p[1]));
+            }
+        }
+        recalcularGold(c, periodos, true);
+        return linhas.size();
+    }
+
+    /** Resultado do reprocessamento dos pedidos que já estão na tabela pedidos. */
+    public record Reprocessado(int pedidos, int noFato, int semanas, int meses) {
+    }
+
+    /**
+     * Passa de novo para a silver e a gold os pedidos da tabela pedidos entre as datas (por exemplo os que
+     * entraram por fora do site e nunca foram processados).
+     */
+    public Reprocessado reprocessar(LocalDate de, LocalDate ate) {
+        if (de == null || ate == null || ate.isBefore(de)) {
+            throw new IllegalArgumentException("Informe o período (de / até).");
+        }
+        if (java.time.temporal.ChronoUnit.DAYS.between(de, ate) > 120) {
+            throw new IllegalArgumentException("Período muito longo: no máximo 120 dias por vez.");
+        }
+        Reprocessado r;
+        try (Connection c = conectar(jdbcBase())) {
+            c.setAutoCommit(false);
+            try {
+                r = reprocessar(c, de, ate);
+                c.commit();
+            } catch (SQLException | RuntimeException ex) {
+                c.rollback();
+                throw ex;
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Não consegui reprocessar: " + ex.getMessage());
+        }
+        reimportarDepois();
+        return r;
+    }
+
+    static Reprocessado reprocessar(Connection c, LocalDate de, LocalDate ate) throws SQLException {
+        List<String> ids = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement("""
+                SELECT DISTINCT id_completo_pedido FROM public.pedidos
+                WHERE data_hora_pedido >= ? AND data_hora_pedido < ? AND id_completo_pedido IS NOT NULL""")) {
+            ps.setDate(1, java.sql.Date.valueOf(de));
+            ps.setDate(2, java.sql.Date.valueOf(ate.plusDays(1)));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getString(1));
+                }
+            }
+        }
+        if (ids.isEmpty()) {
+            return new Reprocessado(0, 0, 0, 0);
+        }
+        Processado p = processar(c, c.createArrayOf("varchar", ids.toArray()));
+        int semanas = (int) p.periodos().stream().filter(x -> "SEMANAL".equals(x.tipo())).count();
+        return new Reprocessado(ids.size(), p.noFato(), semanas, p.periodos().size() - semanas);
     }
 
     static void validar(EdicaoMetrica e) {

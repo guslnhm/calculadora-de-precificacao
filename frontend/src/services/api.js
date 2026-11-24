@@ -582,6 +582,8 @@ export const baseApi = {
   operacoes: () => requisicao("GET", "/painel/base/operacoes"),
   cadastrarOperacao: (dados) => requisicao("POST", "/painel/base/operacoes", dados),
   consultar: (sql, limite) => requisicao("POST", "/painel/base/consulta", { sql, limite }),
+  importarValoresPortal: (arquivo) => enviarArquivo("/painel/base/valores-portal", arquivo),
+  reprocessar: (de, ate) => requisicao("POST", "/painel/base/reprocessar", { de, ate }),
 };
 
 /** Envia um arquivo (multipart). */
