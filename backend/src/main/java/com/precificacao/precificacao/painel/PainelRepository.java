@@ -218,8 +218,9 @@ public class PainelRepository {
                     INSERT INTO painel_bi_periodo (id_financeiro, id_operacao, plataforma, operacao, loja, periodo_tipo,
                         data_inicio, data_fim, qtd_pedidos, valor_itens, ticket_medio, incentivos_ifood, incentivos_loja,
                         valor_bruto, valor_liquido, repasse, taxa_repasse, conversao, novos_clientes, tempo_entrega,
-                        qtd_cancelamentos, tempo_aberto, importado_em, alteracao_cardapio)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        qtd_cancelamentos, tempo_aberto, importado_em, alteracao_cardapio, recebido_via_loja,
+                        repassado_plataforma)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT (id_financeiro) DO UPDATE SET id_operacao = EXCLUDED.id_operacao,
                         plataforma = EXCLUDED.plataforma, operacao = EXCLUDED.operacao, loja = EXCLUDED.loja,
                         periodo_tipo = EXCLUDED.periodo_tipo, data_inicio = EXCLUDED.data_inicio, data_fim = EXCLUDED.data_fim,
@@ -230,13 +231,15 @@ public class PainelRepository {
                         taxa_repasse = EXCLUDED.taxa_repasse, conversao = EXCLUDED.conversao,
                         novos_clientes = EXCLUDED.novos_clientes, tempo_entrega = EXCLUDED.tempo_entrega,
                         qtd_cancelamentos = EXCLUDED.qtd_cancelamentos, tempo_aberto = EXCLUDED.tempo_aberto,
-                        importado_em = EXCLUDED.importado_em, alteracao_cardapio = EXCLUDED.alteracao_cardapio
+                        importado_em = EXCLUDED.importado_em, alteracao_cardapio = EXCLUDED.alteracao_cardapio,
+                        recebido_via_loja = EXCLUDED.recebido_via_loja, repassado_plataforma = EXCLUDED.repassado_plataforma
                     """, r.get("id_financeiro"), r.get("id_operacao"), r.get("plataforma"), r.get("operacao"),
                     r.get("loja"), r.get("periodo_tipo"), r.get("data_inicio"), r.get("data_fim"), r.get("qtd_pedidos"),
                     r.get("valor_itens"), r.get("ticket_medio"), r.get("incentivos_ifood"), r.get("incentivos_loja"),
                     r.get("valor_bruto"), r.get("valor_liquido"), r.get("repasse"), r.get("taxa_repasse"),
                     r.get("conversao"), r.get("novos_clientes"), r.get("tempo_entrega"), r.get("qtd_cancelamentos"),
-                    r.get("tempo_aberto"), agora, Boolean.TRUE.equals(r.get("alteracao_cardapio")));
+                    r.get("tempo_aberto"), agora, Boolean.TRUE.equals(r.get("alteracao_cardapio")),
+                    r.get("recebido_via_loja"), r.get("repassado_plataforma"));
         }
         return n;
     }
@@ -324,7 +327,9 @@ public class PainelRepository {
     public record PeriodoBi(String chave, String plataforma, String periodoTipo, LocalDate inicio, LocalDate fim,
                             Integer pedidos, BigDecimal faturamento, BigDecimal ticket, BigDecimal repasse,
                             BigDecimal conversao, Integer novosClientes, BigDecimal tempoEntrega, Integer cancelamentos,
-                            BigDecimal tempoAberto, BigDecimal incentivosIfood, BigDecimal incentivosLoja) {
+                            BigDecimal tempoAberto, BigDecimal incentivosIfood, BigDecimal incentivosLoja,
+                            BigDecimal valorBruto, BigDecimal valorLiquido, BigDecimal recebidoViaLoja,
+                            BigDecimal repassadoPlataforma) {
     }
 
     /** Períodos do BI; chave = merchant_id quando vinculado, senão "bi:<id_operacao>". */
@@ -333,7 +338,8 @@ public class PainelRepository {
                 SELECT COALESCE(v.merchant_id, 'bi:' || b.id_operacao) AS chave, b.plataforma, b.periodo_tipo,
                        b.data_inicio, b.data_fim, b.qtd_pedidos, b.valor_itens, b.ticket_medio, b.repasse, b.conversao,
                        b.novos_clientes, b.tempo_entrega, b.qtd_cancelamentos, b.tempo_aberto,
-                       b.incentivos_ifood, b.incentivos_loja
+                       b.incentivos_ifood, b.incentivos_loja, b.valor_bruto, b.valor_liquido, b.recebido_via_loja,
+                       b.repassado_plataforma
                 FROM painel_bi_periodo b LEFT JOIN painel_operacao_vinculo v ON v.id_operacao = b.id_operacao
                 WHERE b.periodo_tipo = ? AND b.data_inicio BETWEEN ? AND ?
                 """, (rs, i) -> new PeriodoBi(rs.getString("chave"), rs.getString("plataforma"),
@@ -342,7 +348,8 @@ public class PainelRepository {
                 rs.getBigDecimal("repasse"), rs.getBigDecimal("conversao"), (Integer) rs.getObject("novos_clientes"),
                 rs.getBigDecimal("tempo_entrega"), (Integer) rs.getObject("qtd_cancelamentos"),
                 rs.getBigDecimal("tempo_aberto"), rs.getBigDecimal("incentivos_ifood"),
-                rs.getBigDecimal("incentivos_loja")), periodoTipo, Date.valueOf(de), Date.valueOf(ate));
+                rs.getBigDecimal("incentivos_loja"), rs.getBigDecimal("valor_bruto"), rs.getBigDecimal("valor_liquido"),
+                rs.getBigDecimal("recebido_via_loja"), rs.getBigDecimal("repassado_plataforma")), periodoTipo, Date.valueOf(de), Date.valueOf(ate));
     }
 
     public OffsetDateTime biImportadoEm() {
@@ -353,24 +360,65 @@ public class PainelRepository {
     // ----------------------------------------------------------------- manual
 
     public record Manual(String chave, String periodoTipo, LocalDate inicio, BigDecimal conversao, BigDecimal repasse,
-                         OffsetDateTime atualizadoEm, String atualizadoPor) {
+                         OffsetDateTime atualizadoEm, String atualizadoPor, BigDecimal valorBruto,
+                         BigDecimal valorLiquido, BigDecimal recebidoViaLoja, BigDecimal repassadoPlataforma) {
+
+        public Manual(String chave, String periodoTipo, LocalDate inicio, BigDecimal conversao, BigDecimal repasse,
+                      OffsetDateTime atualizadoEm, String atualizadoPor) {
+            this(chave, periodoTipo, inicio, conversao, repasse, atualizadoEm, atualizadoPor, null, null, null, null);
+        }
     }
 
     public void salvarManual(String chave, String periodoTipo, LocalDate inicio, BigDecimal conversao,
                              BigDecimal repasse, String usuario, OffsetDateTime agora) {
+        salvarManual(new Manual(chave, periodoTipo, inicio, conversao, repasse, agora, usuario));
+    }
+
+    /** Grava (substitui) os valores do Portal da loja no período. */
+    public void salvarManual(Manual m) {
         jdbc.update("""
-                INSERT INTO painel_manual (chave, periodo_tipo, data_inicio, conversao, repasse, atualizado_em, atualizado_por)
-                VALUES (?,?,?,?,?,?,?)
+                INSERT INTO painel_manual (chave, periodo_tipo, data_inicio, conversao, repasse, atualizado_em, atualizado_por,
+                    valor_bruto, valor_liquido, recebido_via_loja, repassado_plataforma)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT (chave, periodo_tipo, data_inicio) DO UPDATE SET conversao = EXCLUDED.conversao,
-                    repasse = EXCLUDED.repasse, atualizado_em = EXCLUDED.atualizado_em, atualizado_por = EXCLUDED.atualizado_por
-                """, chave, periodoTipo, Date.valueOf(inicio), conversao, repasse, agora, usuario);
+                    repasse = EXCLUDED.repasse, atualizado_em = EXCLUDED.atualizado_em, atualizado_por = EXCLUDED.atualizado_por,
+                    valor_bruto = EXCLUDED.valor_bruto, valor_liquido = EXCLUDED.valor_liquido,
+                    recebido_via_loja = EXCLUDED.recebido_via_loja, repassado_plataforma = EXCLUDED.repassado_plataforma
+                """, m.chave(), m.periodoTipo(), Date.valueOf(m.inicio()), m.conversao(), m.repasse(), m.atualizadoEm(),
+                m.atualizadoPor(), m.valorBruto(), m.valorLiquido(), m.recebidoViaLoja(), m.repassadoPlataforma());
+    }
+
+    /** Apaga o lançamento manual (a base histórica passa a valer). */
+    public void apagarManual(String chave, String periodoTipo, LocalDate inicio) {
+        jdbc.update("DELETE FROM painel_manual WHERE chave = ? AND periodo_tipo = ? AND data_inicio = ?",
+                chave, periodoTipo, Date.valueOf(inicio));
+    }
+
+    /** Chaves do painel ligadas à operação do BI: a loja vinculada e "bi:<id>". */
+    public List<String> chavesDaOperacao(int idOperacao) {
+        List<String> out = new ArrayList<>(jdbc.queryForList(
+                "SELECT merchant_id FROM painel_operacao_vinculo WHERE id_operacao = ? AND merchant_id IS NOT NULL",
+                String.class, idOperacao));
+        out.add("bi:" + idOperacao);
+        return out;
+    }
+
+    /** Operações do BI ligadas à chave do painel (merchant_id ou "bi:<id>"). */
+    public List<Integer> operacoesDaChave(String chave) {
+        if (chave.startsWith("bi:")) {
+            return List.of(Integer.parseInt(chave.substring(3)));
+        }
+        return jdbc.queryForList("SELECT id_operacao FROM painel_operacao_vinculo WHERE merchant_id = ? ORDER BY 1",
+                Integer.class, chave);
     }
 
     public List<Manual> manuais(String periodoTipo, LocalDate de, LocalDate ate) {
         return jdbc.query("SELECT * FROM painel_manual WHERE periodo_tipo = ? AND data_inicio BETWEEN ? AND ?",
                 (rs, i) -> new Manual(rs.getString("chave"), rs.getString("periodo_tipo"), data(rs, "data_inicio"),
                         rs.getBigDecimal("conversao"), rs.getBigDecimal("repasse"),
-                        rs.getObject("atualizado_em", OffsetDateTime.class), rs.getString("atualizado_por")),
+                        rs.getObject("atualizado_em", OffsetDateTime.class), rs.getString("atualizado_por"),
+                        rs.getBigDecimal("valor_bruto"), rs.getBigDecimal("valor_liquido"),
+                        rs.getBigDecimal("recebido_via_loja"), rs.getBigDecimal("repassado_plataforma")),
                 periodoTipo, Date.valueOf(de), Date.valueOf(ate));
     }
 

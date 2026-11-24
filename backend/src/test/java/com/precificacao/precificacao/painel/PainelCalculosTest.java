@@ -165,4 +165,42 @@ class PainelCalculosTest {
         assertThat(t).contains("*Vo no Box - Asa Norte*\n🧾 152 pedidos · R$ 9.870 · ticket R$ 64,93\n❌ 3 cancelados (1,9%)\n⏸️ 2 fechamentos · 1h20 · ≈ R$ 640 em vendas");
         assertThat(t).endsWith("*Qg - Asa Norte*\n✅ sem fechamentos");
     }
+
+    static PainelRepository.PeriodoBi bi(String bruto, String liquido, String recebido, String repassado, String repasse) {
+        return new PainelRepository.PeriodoBi("m1", "IFOOD", "SEMANAL", LocalDate.parse("2026-11-16"),
+                LocalDate.parse("2026-11-22"), 10, new BigDecimal("1000"), null, repasse == null ? null : new BigDecimal(repasse),
+                new BigDecimal("0.2"), null, null, 0, null, null, null,
+                bruto == null ? null : new BigDecimal(bruto), liquido == null ? null : new BigDecimal(liquido),
+                recebido == null ? null : new BigDecimal(recebido), repassado == null ? null : new BigDecimal(repassado));
+    }
+
+    @Test
+    void taxaDeRepasseECustoDaPlataformaPelosValoresDoPortal() {
+        // repasse = 140 + 10 = 150; taxa = 150 / (200 - 5) = 0,7692; custo = 0,2308
+        PainelService.Portal manual = PainelService.Portal.de(new PainelRepository.Manual("m1", "SEMANAL",
+                LocalDate.parse("2026-11-16"), new BigDecimal("0.19"), null, null, null, new BigDecimal("200"),
+                new BigDecimal("140"), new BigDecimal("10"), new BigDecimal("5")), bi("999", "1", null, null, "1"));
+        assertThat(manual.repasse()).isEqualByComparingTo("150");
+        assertThat(manual.taxa()).isEqualByComparingTo("0.7692");
+        assertThat(manual.custo()).isEqualByComparingTo("0.2308");
+        assertThat(manual.conversao()).isEqualByComparingTo("0.19");
+        assertThat(manual.repasseManual()).isTrue();
+
+        // sem lançamento: valores da base; recebido e repassado em branco contam como 0
+        PainelService.Portal base = PainelService.Portal.de(null, bi("300", "210", null, null, null));
+        assertThat(base.repasse()).isEqualByComparingTo("210");
+        assertThat(base.taxa()).isEqualByComparingTo("0.7");
+        assertThat(base.custo()).isEqualByComparingTo("0.3");
+        assertThat(base.conversao()).isEqualByComparingTo("0.2");
+        assertThat(base.repasseManual()).isFalse();
+
+        // lançamento antigo (só repasse em R$): usa o bruto da base para a taxa
+        PainelService.Portal antigo = PainelService.Portal.de(new PainelRepository.Manual("m1", "SEMANAL",
+                LocalDate.parse("2026-11-16"), null, new BigDecimal("160"), null, null), bi("200", null, null, null, null));
+        assertThat(antigo.taxa()).isEqualByComparingTo("0.8");
+
+        // sem bruto não há taxa
+        assertThat(PainelService.Portal.de(null, bi(null, "100", null, null, null)).taxa()).isNull();
+        assertThat(PainelService.Portal.de(null, null).repasse()).isNull();
+    }
 }
