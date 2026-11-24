@@ -15,66 +15,28 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === VALIDA PEDIDOS/ITENS/INCENTIVOS (semanal, desde jul/26) ===
-          WITH g AS (SELECT * FROM gold.financeiro_periodo WHERE id_plataforma=1 AND data_inicio >= '2026-07-01'),
-          c AS (SELECT g.id_financeiro, g.periodo_tipo, g.qtd_pedidos, g.qtd_cancelamentos, g.valor_itens, g.incentivos_ifood, g.incentivos_loja,
-                 count(f.*) FILTER (WHERE f.status_final_pedido <> 'CANCELADO') q1,
-                 count(f.*) FILTER (WHERE f.status_final_pedido = 'CANCELADO') canc,
-                 coalesce(sum(f.valor_itens) FILTER (WHERE f.status_final_pedido <> 'CANCELADO'),0) it1,
-                 coalesce(sum(f.valor_itens) FILTER (WHERE f.status_final_pedido = 'CONCLUIDO'),0) it2,
-                 coalesce(sum(f.incentivo_prom_ifood) FILTER (WHERE f.status_final_pedido <> 'CANCELADO'),0) ii,
-                 coalesce(sum(f.incentivo_prom_loja) FILTER (WHERE f.status_final_pedido <> 'CANCELADO'),0) il
-               FROM g LEFT JOIN silver.fato_pedido f ON f.id_operacao=g.id_operacao AND f.id_plataforma=g.id_plataforma
-                 AND f.data_hora_pedido >= g.data_inicio AND f.data_hora_pedido < g.data_fim + 1
-               GROUP BY 1,2,3,4,5,6,7)
-          SELECT periodo_tipo, count(*) linhas,
-            count(*) FILTER (WHERE qtd_pedidos=q1) qtd_ok,
-            count(*) FILTER (WHERE qtd_cancelamentos=canc) canc_ok,
-            count(*) FILTER (WHERE abs(valor_itens-it1)<0.02) itens_ok_semcanc,
-            count(*) FILTER (WHERE abs(valor_itens-it2)<0.02) itens_ok_concl,
-            count(*) FILTER (WHERE abs(incentivos_ifood-ii)<0.02) inc_ifood_ok,
-            count(*) FILTER (WHERE abs(incentivos_loja-il)<0.02) inc_loja_ok,
-            count(*) FILTER (WHERE q1=0) sem_pedidos_no_fato
-          FROM c GROUP BY 1;
-          \echo === EXEMPLOS QUE NAO BATEM ===
-          WITH g AS (SELECT * FROM gold.financeiro_periodo WHERE id_plataforma=1 AND periodo_tipo='SEMANAL' AND data_inicio >= '2026-09-01'),
-          c AS (SELECT g.id_operacao, g.data_inicio, g.qtd_pedidos, g.qtd_cancelamentos, g.valor_itens,
-                 count(f.*) FILTER (WHERE f.status_final_pedido <> 'CANCELADO') q1, count(f.*) FILTER (WHERE f.status_final_pedido = 'CANCELADO') canc,
-                 coalesce(sum(f.valor_itens) FILTER (WHERE f.status_final_pedido <> 'CANCELADO'),0) it1,
-                 string_agg(DISTINCT f.status_final_pedido, ',') sts
-               FROM g LEFT JOIN silver.fato_pedido f ON f.id_operacao=g.id_operacao AND f.id_plataforma=1 AND f.data_hora_pedido >= g.data_inicio AND f.data_hora_pedido < g.data_fim + 1
-               GROUP BY 1,2,3,4,5)
-          SELECT * FROM c WHERE qtd_pedidos<>q1 OR abs(valor_itens-it1)>=0.02 LIMIT 12;
-          \echo === VALIDA REPASSE/TAXAS ===
-          SELECT count(*) linhas,
-            count(*) FILTER (WHERE abs(repasse-(valor_liquido+recebido_via_loja))<0.02) repasse_ok,
-            count(*) FILTER (WHERE abs(taxa_repasse - round(repasse/nullif(valor_bruto-repassado_plataforma,0),4))<0.00011) taxa_ok,
-            count(*) FILTER (WHERE abs(custo_plataforma-(1-taxa_repasse))<0.00011) custo_ok,
-            count(*) FILTER (WHERE abs(ticket_medio-round(valor_itens/nullif(qtd_pedidos,0),2))<0.011) ticket_ok,
-            count(*) FILTER (WHERE abs(perc_incentivos_ifood-round(incentivos_ifood/nullif(valor_itens,0),4))<0.00011) pif_ok,
-            count(*) FILTER (WHERE valor_bruto IS NULL) bruto_nulo
-          FROM gold.financeiro_periodo WHERE data_inicio >= '2026-07-01';
-          \echo === METRICAS x GOLD ===
-          SELECT count(*) gold, count(m.*) com_metrica,
-            count(*) FILTER (WHERE abs(g.valor_bruto-m.valor_bruto)<0.02 AND abs(g.valor_liquido-m.valor_liquido)<0.02) iguais,
-            count(*) FILTER (WHERE g.conversao IS NOT DISTINCT FROM m.conversao) conv_igual,
-            count(*) FILTER (WHERE g.alteracao_cardapio IS NOT DISTINCT FROM m.alteracao_cardapio) alt_igual
-          FROM gold.financeiro_periodo g LEFT JOIN silver.fato_metricas_periodo m USING (id_operacao, id_plataforma, periodo_tipo, data_inicio)
-          WHERE g.data_inicio >= '2026-07-01';
-          \echo === ALTERACAO CARDAPIO MARCADAS ===
-          SELECT periodo_tipo, count(*) FILTER (WHERE alteracao_cardapio) marcadas, count(*) total, min(data_inicio) FILTER (WHERE alteracao_cardapio), max(data_inicio) FILTER (WHERE alteracao_cardapio) FROM gold.financeiro_periodo GROUP BY 1;
-          \echo === PLATAFORMAS NA GOLD ===
-          SELECT id_plataforma, periodo_tipo, count(*), max(data_inicio) FROM gold.financeiro_periodo GROUP BY 1,2 ORDER BY 1,2;
-          \echo === LOJAS DO CSV SEM ALIAS (amostra de ids recentes do public.pedidos) ===
-          SELECT p.id_loja, max(p.nome_loja), count(*) FROM public.pedidos p LEFT JOIN silver.dim_operacao_alias a ON a.id_loja_origem=p.id_loja AND a.id_plataforma=1
-           WHERE a.id_alias IS NULL AND p.data_hora_pedido >= '2026-10-01' GROUP BY 1 ORDER BY 3 DESC LIMIT 15;
-          \echo === TEMPO_ENTREGA / NOVOS / TEMPO_ABERTO preenchidos? ===
-          SELECT periodo_tipo, count(*) total, count(tempo_entrega) te, count(novos_clientes) nc, count(tempo_aberto) ta, count(conversao) conv FROM silver.fato_metricas_periodo WHERE data_inicio >= '2026-07-01' GROUP BY 1;
-          \echo === DUPLICADOS EM PEDIDOS ===
-          SELECT count(*) - count(DISTINCT id_completo_pedido) dup FROM public.pedidos WHERE data_hora_pedido >= '2026-09-01';
-          SELECT count(*) - count(DISTINCT id_pedido) FROM silver.fato_pedido;
-          \echo === DIM_DATA RANGE ===
-          SELECT min(data), max(data) FROM silver.dim_data;
+          \echo === TIPOS FATO/GOLD/METRICAS ===
+          SELECT table_schema, table_name, column_name, data_type, numeric_precision, numeric_scale, column_default, is_nullable FROM information_schema.columns
+           WHERE (table_schema='silver' AND table_name IN ('fato_pedido','fato_metricas_periodo','dim_operacao','dim_loja','dim_operacao_alias')) OR (table_schema='gold' AND table_name='financeiro_periodo') ORDER BY 1,2,ordinal_position;
+          \echo === COBERTURA OUT/26: pedidos com alias x fato ===
+          SELECT p.canal_venda, count(*) pedidos, count(f.id_pedido) no_fato
+          FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem=p.id_loja AND a.id_plataforma=1
+          LEFT JOIN silver.fato_pedido f ON f.id_pedido = p.id_completo_pedido
+          WHERE p.data_hora_pedido >= '2026-10-01' AND p.data_hora_pedido < '2026-11-01' GROUP BY 1;
+          \echo === fato id_operacao == alias? (amostra divergencias) ===
+          SELECT count(*) FILTER (WHERE f.id_operacao = a.id_operacao) iguais, count(*) FILTER (WHERE f.id_operacao <> a.id_operacao) dif
+          FROM silver.fato_pedido f JOIN public.pedidos p ON p.id_completo_pedido=f.id_pedido JOIN silver.dim_operacao_alias a ON a.id_loja_origem=p.id_loja AND a.id_plataforma=1
+          WHERE f.data_hora_pedido >= '2026-10-01';
+          \echo === alias duplicado por id_loja ===
+          SELECT id_loja_origem, count(*) FROM silver.dim_operacao_alias WHERE id_plataforma=1 GROUP BY 1 HAVING count(*)>1;
+          \echo === dim_operacao amostra ===
+          SELECT * FROM silver.dim_operacao ORDER BY id_operacao DESC LIMIT 5;
+          SELECT * FROM silver.dim_loja ORDER BY id_loja DESC LIMIT 5;
+          SELECT * FROM silver.dim_tipo_entrega;
+          \echo === seq ===
+          SELECT sequence_schema, sequence_name FROM information_schema.sequences;
+          \echo === permissoes do usuario ===
+          SELECT current_user, rolsuper FROM pg_roles WHERE rolname=current_user;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
