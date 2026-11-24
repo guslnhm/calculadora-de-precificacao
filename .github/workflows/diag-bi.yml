@@ -9,29 +9,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Ler estrutura e amostras (saída criptografada)
         env:
-          BI_URL_BASE: ${{ secrets.BI_DATABASE_URL }}
+          BI_URL_BASE: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL }}
         run: |
-          export BI_DATABASE_URL=$(echo "$BI_URL_BASE" | sed -E 's#/[^/?]+(\?|$)#/pedidos\1#')
+          export BI_DATABASE_URL="$BI_URL_BASE"
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === OBJETOS ===
-          SELECT n.nspname, c.relname, c.relkind, c.reltuples::bigint FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-           WHERE n.nspname NOT IN ('pg_catalog','information_schema','pg_toast') AND c.relkind IN ('r','v','m','p') ORDER BY 1,2;
-          \echo === FUNCOES/PROCEDURES ===
-          SELECT n.nspname, p.proname, p.prokind FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname NOT IN ('pg_catalog','information_schema') ORDER BY 1,2;
-          \echo === GATILHOS ===
-          SELECT event_object_schema, event_object_table, trigger_name, action_statement FROM information_schema.triggers;
-          \echo === COLUNAS GOLD ===
-          SELECT table_schema, table_name, column_name, data_type FROM information_schema.columns WHERE table_schema='gold' ORDER BY 1,2,ordinal_position;
-          \echo === COLUNAS COM CARDAPIO/ALTERACAO/MARCO ===
-          SELECT table_schema, table_name, column_name, data_type FROM information_schema.columns
-           WHERE column_name ~* '(card|alter|marc|mudan|acao|evento|obs|nota|estrat)' AND table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2;
-          \echo === DEFINICOES DE VIEWS ===
-          SELECT schemaname, viewname, left(definition, 1500) FROM pg_views WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1,2;
-          \echo === BRONZE/PUBLIC TABELAS GRANDES: COLUNAS ===
-          SELECT table_schema, table_name, string_agg(column_name, ', ' ORDER BY ordinal_position) FROM information_schema.columns
-           WHERE table_schema IN ('public','bronze','raw','silver') GROUP BY 1,2 ORDER BY 1,2;
+          \echo === IDS SEM AUTORIZACAO ===
+          SELECT m.merchant_id, m.nome FROM painel_coleta c JOIN ifood_merchant m ON m.merchant_id=c.merchant_id
+           WHERE m.ativo AND c.ultimo_erro ILIKE '%autorizou%' AND (c.ultima_coleta IS NULL OR c.ultima_coleta < c.erro_em) ORDER BY 2;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
