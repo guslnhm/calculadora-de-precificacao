@@ -15,20 +15,14 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === 1. colunas geradas / default em silver e gold ===
-          SELECT table_schema, table_name, column_name, is_generated, generation_expression, column_default
-          FROM information_schema.columns
-          WHERE table_schema IN ('silver','gold','public') AND (is_generated <> 'NEVER' OR (column_default IS NOT NULL AND column_default NOT LIKE 'nextval%'))
-          ORDER BY 1,2,ordinal_position;
-          \echo === 2. triggers ===
-          SELECT event_object_schema, event_object_table, trigger_name, event_manipulation, action_statement
-          FROM information_schema.triggers WHERE event_object_schema IN ('silver','gold','public');
-          \echo === 3. colunas da gold ===
-          SELECT column_name, data_type, is_nullable FROM information_schema.columns
-          WHERE table_schema='gold' AND table_name='financeiro_periodo' ORDER BY ordinal_position;
-          \echo === 4. constraints silver/gold ===
-          SELECT conrelid::regclass, conname, pg_get_constraintdef(oid) FROM pg_constraint
-          WHERE connamespace IN ('silver'::regnamespace,'gold'::regnamespace) ORDER BY 1;
+          \echo === 1. dim_data ===
+          SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema='silver' AND table_name='dim_data' ORDER BY ordinal_position;
+          SELECT min(id_data), max(id_data), count(*) FROM silver.dim_data;
+          SELECT * FROM silver.dim_data ORDER BY id_data DESC LIMIT 2;
+          \echo === 2. dim_plataforma ===
+          SELECT * FROM silver.dim_plataforma;
+          \echo === 3. pedidos sem dim_data ===
+          SELECT count(*) FROM public.pedidos p WHERE NOT EXISTS (SELECT 1 FROM silver.dim_data d WHERE d.id_data = to_char(p.data_hora_pedido,'YYYYMMDD')::int);
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
