@@ -15,40 +15,20 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === 1. JOIN POR NOME+ID (seu script) x SO ID: pedidos de lojas com alias ===
-          SELECT count(*) FILTER (WHERE upper(trim(a.nome_origem)) = upper(trim(p.nome_loja))) nome_e_id,
-                 count(*) so_id,
-                 count(f.id_pedido) ja_no_fato,
-                 count(*) FILTER (WHERE f.id_pedido IS NULL) fora_do_fato
-          FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
-          LEFT JOIN silver.fato_pedido f ON f.id_pedido = p.id_completo_pedido;
-          \echo === 1b. fora do fato por loja (nome diferente do alias) ===
-          SELECT a.nome_origem alias, p.nome_loja relatorio, count(*), min(p.data_hora_pedido)::date, max(p.data_hora_pedido)::date
-          FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
-          LEFT JOIN silver.fato_pedido f ON f.id_pedido = p.id_completo_pedido
-          WHERE f.id_pedido IS NULL GROUP BY 1,2 ORDER BY 3 DESC LIMIT 15;
-          \echo === 2. status mudou depois (DO NOTHING) : fato x pedidos ===
-          SELECT count(*) FILTER (WHERE f.status_final_pedido IS DISTINCT FROM p.status_final_pedido) status_dif,
-                 count(*) FILTER (WHERE f.valor_itens IS DISTINCT FROM p.valor_itens) valor_dif
-          FROM silver.fato_pedido f JOIN public.pedidos p ON p.id_completo_pedido = f.id_pedido;
-          \echo === 3. gold sem linha de metrica / metrica vazia ===
-          SELECT g.periodo_tipo, count(*) gold, count(m.id_metrica) com_metrica,
-                 count(*) FILTER (WHERE m.id_metrica IS NOT NULL AND m.valor_bruto IS NULL) metrica_vazia,
-                 count(*) FILTER (WHERE m.id_metrica IS NULL AND g.valor_bruto IS NOT NULL) gold_com_bruto_sem_metrica
-          FROM gold.financeiro_periodo g LEFT JOIN silver.fato_metricas_periodo m USING (id_operacao, id_plataforma, periodo_tipo, data_inicio)
-          WHERE g.id_plataforma = 1 GROUP BY 1;
-          \echo === 4. mensal: cancelamentos ===
-          WITH g AS (SELECT * FROM gold.financeiro_periodo WHERE id_plataforma=1 AND periodo_tipo='MENSAL' AND data_inicio >= '2026-07-01')
-          SELECT g.id_operacao, g.data_inicio, g.qtd_cancelamentos,
-            count(f.*) FILTER (WHERE f.status_final_pedido = 'CANCELADO') canc_fato,
-            (SELECT sum(s.qtd_cancelamentos) FROM gold.financeiro_periodo s WHERE s.id_operacao=g.id_operacao AND s.periodo_tipo='SEMANAL' AND s.data_inicio BETWEEN g.data_inicio - 6 AND g.data_fim) soma_semanas
-          FROM g LEFT JOIN silver.fato_pedido f ON f.id_operacao=g.id_operacao AND f.id_plataforma=1 AND f.data_hora_pedido >= g.data_inicio AND f.data_hora_pedido < g.data_fim + 1
-          GROUP BY 1,2,3 HAVING g.qtd_cancelamentos <> count(f.*) FILTER (WHERE f.status_final_pedido = 'CANCELADO') LIMIT 8;
-          \echo === 5. colunas derivadas preenchidas na ultima semana ===
-          SELECT data_inicio, count(*), count(repasse) repasse, count(taxa_repasse) taxa, count(ticket_medio) ticket, count(perc_incentivos_ifood) perc
-          FROM gold.financeiro_periodo WHERE periodo_tipo='SEMANAL' AND id_plataforma=1 GROUP BY 1 ORDER BY 1 DESC LIMIT 4;
-          \echo === 6. id_plataforma das metricas mensais / semana mais recente ===
-          SELECT periodo_tipo, max(data_inicio) FROM silver.fato_metricas_periodo GROUP BY 1;
+          \echo === 1. colunas geradas / default em silver e gold ===
+          SELECT table_schema, table_name, column_name, is_generated, generation_expression, column_default
+          FROM information_schema.columns
+          WHERE table_schema IN ('silver','gold','public') AND (is_generated <> 'NEVER' OR (column_default IS NOT NULL AND column_default NOT LIKE 'nextval%'))
+          ORDER BY 1,2,ordinal_position;
+          \echo === 2. triggers ===
+          SELECT event_object_schema, event_object_table, trigger_name, event_manipulation, action_statement
+          FROM information_schema.triggers WHERE event_object_schema IN ('silver','gold','public');
+          \echo === 3. colunas da gold ===
+          SELECT column_name, data_type, is_nullable FROM information_schema.columns
+          WHERE table_schema='gold' AND table_name='financeiro_periodo' ORDER BY ordinal_position;
+          \echo === 4. constraints silver/gold ===
+          SELECT conrelid::regclass, conname, pg_get_constraintdef(oid) FROM pg_constraint
+          WHERE connamespace IN ('silver'::regnamespace,'gold'::regnamespace) ORDER BY 1;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
