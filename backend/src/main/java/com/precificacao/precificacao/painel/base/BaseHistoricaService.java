@@ -521,7 +521,8 @@ public class BaseHistoricaService {
 
     static int importarValoresPortal(Connection c, List<ValoresPortal> linhas) throws SQLException {
         Set<Integer> existentes = new java.util.HashSet<>();
-        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("SELECT id_operacao FROM silver.dim_operacao")) {
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery(
+                "SELECT id_operacao FROM silver.dim_operacao UNION SELECT id_operacao FROM silver.dim_operacao_alias")) {
             while (rs.next()) {
                 existentes.add(rs.getInt(1));
             }
