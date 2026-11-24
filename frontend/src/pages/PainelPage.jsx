@@ -4,12 +4,14 @@ import BoletimLoja from "../components/painel/BoletimLoja";
 import Carteira from "../components/painel/Carteira";
 import Coleta from "../components/painel/Coleta";
 import Lancamentos from "../components/painel/Lancamentos";
+import LancamentosBase from "../components/painel/LancamentosBase";
+import { baseApi } from "../services/api";
 import { campo, cor, moverPeriodo, rotuloPeriodo } from "../components/painel/fmt";
 
 const ABAS = [
   { id: "carteira", rotulo: "Carteira" },
   { id: "loja", rotulo: "Boletim da loja" },
-  { id: "lancamentos", rotulo: "Conversão e repasse" },
+  { id: "lancamentos", rotulo: "Valores do Portal" },
   { id: "coleta", rotulo: "Dados e coleta" },
 ];
 
@@ -28,6 +30,12 @@ export default function PainelPage({ mentorado = false }) {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const jaAbriuSozinho = useRef(false);
+  const [baseConfigurada, setBaseConfigurada] = useState(false);
+
+  useEffect(() => {
+    if (mentorado) return;
+    baseApi.status().then((s) => setBaseConfigurada(!!s.configurada)).catch(() => {});
+  }, [mentorado]);
 
   const carregarCarteira = useCallback(async () => {
     setCarregando(true);
@@ -144,7 +152,8 @@ export default function PainelPage({ mentorado = false }) {
       {aba === "loja" && (lojaChave
         ? <BoletimLoja dados={loja} onAtualizar={carregarLoja} somenteLeitura={mentorado} />
         : <div style={{ color: cor.textoSuave }}>Escolha uma loja acima, ou clique numa loja na aba Carteira.</div>)}
-      {aba === "lancamentos" && !mentorado && <Lancamentos dados={carteira} onSalvo={carregarCarteira} />}
+      {aba === "lancamentos" && !mentorado && baseConfigurada && <LancamentosBase periodo={carteira?.periodo} onSalvo={carregarCarteira} />}
+      {aba === "lancamentos" && !mentorado && !baseConfigurada && <Lancamentos dados={carteira} onSalvo={carregarCarteira} />}
       {aba === "coleta" && !mentorado && <Coleta />}
     </div>
   );

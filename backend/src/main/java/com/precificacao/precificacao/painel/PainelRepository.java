@@ -218,8 +218,8 @@ public class PainelRepository {
                     INSERT INTO painel_bi_periodo (id_financeiro, id_operacao, plataforma, operacao, loja, periodo_tipo,
                         data_inicio, data_fim, qtd_pedidos, valor_itens, ticket_medio, incentivos_ifood, incentivos_loja,
                         valor_bruto, valor_liquido, repasse, taxa_repasse, conversao, novos_clientes, tempo_entrega,
-                        qtd_cancelamentos, tempo_aberto, importado_em)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        qtd_cancelamentos, tempo_aberto, importado_em, alteracao_cardapio)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT (id_financeiro) DO UPDATE SET id_operacao = EXCLUDED.id_operacao,
                         plataforma = EXCLUDED.plataforma, operacao = EXCLUDED.operacao, loja = EXCLUDED.loja,
                         periodo_tipo = EXCLUDED.periodo_tipo, data_inicio = EXCLUDED.data_inicio, data_fim = EXCLUDED.data_fim,
@@ -230,13 +230,13 @@ public class PainelRepository {
                         taxa_repasse = EXCLUDED.taxa_repasse, conversao = EXCLUDED.conversao,
                         novos_clientes = EXCLUDED.novos_clientes, tempo_entrega = EXCLUDED.tempo_entrega,
                         qtd_cancelamentos = EXCLUDED.qtd_cancelamentos, tempo_aberto = EXCLUDED.tempo_aberto,
-                        importado_em = EXCLUDED.importado_em
+                        importado_em = EXCLUDED.importado_em, alteracao_cardapio = EXCLUDED.alteracao_cardapio
                     """, r.get("id_financeiro"), r.get("id_operacao"), r.get("plataforma"), r.get("operacao"),
                     r.get("loja"), r.get("periodo_tipo"), r.get("data_inicio"), r.get("data_fim"), r.get("qtd_pedidos"),
                     r.get("valor_itens"), r.get("ticket_medio"), r.get("incentivos_ifood"), r.get("incentivos_loja"),
                     r.get("valor_bruto"), r.get("valor_liquido"), r.get("repasse"), r.get("taxa_repasse"),
                     r.get("conversao"), r.get("novos_clientes"), r.get("tempo_entrega"), r.get("qtd_cancelamentos"),
-                    r.get("tempo_aberto"), agora);
+                    r.get("tempo_aberto"), agora, Boolean.TRUE.equals(r.get("alteracao_cardapio")));
         }
         return n;
     }
@@ -284,6 +284,16 @@ public class PainelRepository {
 
     public record OperacaoBi(int idOperacao, String plataforma, String operacao, String loja, String merchantId,
                              String metodo) {
+    }
+
+    /** Períodos (início) com alteração de cardápio marcada na base, para a loja do painel. */
+    public java.util.Set<LocalDate> alteracoesCardapio(String chave, String tipo, LocalDate de, LocalDate ate) {
+        return new java.util.HashSet<>(jdbc.queryForList("""
+                SELECT DISTINCT b.data_inicio FROM painel_bi_periodo b
+                LEFT JOIN painel_operacao_vinculo v ON v.id_operacao = b.id_operacao
+                WHERE b.alteracao_cardapio AND b.periodo_tipo = ? AND b.data_inicio BETWEEN ? AND ?
+                  AND COALESCE(v.merchant_id, 'bi:' || b.id_operacao) = ?""", LocalDate.class,
+                tipo, java.sql.Date.valueOf(de), java.sql.Date.valueOf(ate), chave));
     }
 
     public List<OperacaoBi> operacoesBi() {
