@@ -492,7 +492,15 @@ public class BaseHistoricaService {
 
     /** Uma linha da importação dos valores financeiros do Portal (semana ou mês de uma operação). */
     public record ValoresPortal(int idOperacao, String periodoTipo, LocalDate inicio, BigDecimal valorBruto,
-                                BigDecimal valorLiquido, BigDecimal recebidoViaLoja, BigDecimal repassadoPlataforma) {
+                                BigDecimal valorLiquido, BigDecimal recebidoViaLoja, BigDecimal repassadoPlataforma,
+                                BigDecimal conversao, Integer novosClientes, BigDecimal tempoEntrega,
+                                BigDecimal tempoAberto) {
+
+        public ValoresPortal(int idOperacao, String periodoTipo, LocalDate inicio, BigDecimal valorBruto,
+                             BigDecimal valorLiquido, BigDecimal recebidoViaLoja, BigDecimal repassadoPlataforma) {
+            this(idOperacao, periodoTipo, inicio, valorBruto, valorLiquido, recebidoViaLoja, repassadoPlataforma,
+                    null, null, null, null);
+        }
     }
 
     /**
@@ -537,12 +545,45 @@ public class BaseHistoricaService {
             LocalDate[] p = periodo(t, v.inicio());
             gravarValoresPortal(c, v.idOperacao(), t, p[0], p[1], false, null, v.valorBruto(), v.valorLiquido(),
                     v.recebidoViaLoja(), v.repassadoPlataforma());
+            gravarIndicadores(c, v.idOperacao(), t, p[0], v);
             if (vistos.add(v.idOperacao() + "|" + t + "|" + p[0])) {
                 periodos.add(new Periodo(v.idOperacao(), t, p[0], p[1]));
             }
         }
         recalcularGold(c, periodos, true);
         return linhas.size();
+    }
+
+    /** Conversão, novos clientes, tempo de entrega e tempo aberto da linha; o que veio em branco fica como está. */
+    static void gravarIndicadores(Connection c, int idOperacao, String tipo, LocalDate inicio, ValoresPortal v)
+            throws SQLException {
+        if (v.conversao() == null && v.novosClientes() == null && v.tempoEntrega() == null && v.tempoAberto() == null) {
+            return;
+        }
+        for (BigDecimal pct : new BigDecimal[] {v.conversao(), v.tempoAberto()}) {
+            if (pct != null && (pct.signum() < 0 || pct.compareTo(BigDecimal.ONE) > 0)) {
+                throw new IllegalArgumentException("Operação " + idOperacao + " em " + inicio
+                        + ": conversão e tempo aberto vão de 0 a 1 (ex.: 0,2606 = 26,06%).");
+            }
+        }
+        try (PreparedStatement ps = c.prepareStatement("""
+                UPDATE silver.fato_metricas_periodo SET conversao = coalesce(?, conversao),
+                    novos_clientes = coalesce(?, novos_clientes), tempo_entrega = coalesce(?, tempo_entrega),
+                    tempo_aberto = coalesce(?, tempo_aberto), data_carga = now()
+                WHERE id_operacao = ? AND id_plataforma = 1 AND periodo_tipo = ? AND data_inicio = ?""")) {
+            ps.setBigDecimal(1, v.conversao());
+            if (v.novosClientes() == null) {
+                ps.setNull(2, Types.INTEGER);
+            } else {
+                ps.setInt(2, v.novosClientes());
+            }
+            ps.setBigDecimal(3, v.tempoEntrega());
+            ps.setBigDecimal(4, v.tempoAberto());
+            ps.setInt(5, idOperacao);
+            ps.setString(6, tipo);
+            ps.setDate(7, java.sql.Date.valueOf(inicio));
+            ps.executeUpdate();
+        }
     }
 
     /** Resultado do reprocessamento dos pedidos que já estão na tabela pedidos. */
