@@ -252,4 +252,65 @@ class BaseHistoricaTest {
         assertThat((BigDecimal) um("SELECT conversao FROM silver.fato_metricas_periodo WHERE periodo_tipo = 'SEMANAL'"))
                 .isEqualByComparingTo("0.1");
     }
+
+    @Test
+    void importarValoresDoPortalEmLoteMantemConversaoENovosClientes() throws SQLException {
+        BaseHistoricaService.gravar(c, relatorio(
+                RelatorioPedidosTest.linhaCsv("p-1", "Loja A", "111", "17/11/2026 20:00:00", "CONCLUIDO", "100")));
+        try (Statement st = c.createStatement()) {
+            st.execute("UPDATE silver.fato_metricas_periodo SET novos_clientes = 9 WHERE periodo_tipo = 'SEMANAL'");
+        }
+        String csv = """
+                id_operacao;loja;inicio;valor_bruto;valor_liquido;recebido_via_loja;repassado_ifood
+                7;Loja A;16/11/2026;1.000,50;700,25;50;0,50
+                7;Loja A;2026-11-09;500;300;;
+                """;
+        var linhas = ValoresPortalCsv.ler(csv.getBytes(StandardCharsets.UTF_8));
+        assertThat(linhas).hasSize(2);
+        assertThat(linhas.get(0).valorBruto()).isEqualByComparingTo("1000.50");
+        assertThat(linhas.get(1).recebidoViaLoja()).isNull();
+        assertThat(BaseHistoricaService.importarValoresPortal(c, linhas)).isEqualTo(2);
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("""
+                SELECT valor_bruto, valor_liquido, recebido_via_loja, repassado_plataforma, repasse, conversao,
+                       novos_clientes, alteracao_cardapio, qtd_pedidos
+                FROM gold.financeiro_periodo WHERE periodo_tipo = 'SEMANAL' AND data_inicio = '2026-11-16'""")) {
+            rs.next();
+            assertThat(rs.getBigDecimal(1)).isEqualByComparingTo("1000.50");
+            assertThat(rs.getBigDecimal(2)).isEqualByComparingTo("700.25");
+            assertThat(rs.getBigDecimal(3)).isEqualByComparingTo("50");
+            assertThat(rs.getBigDecimal(4)).isEqualByComparingTo("0.50");
+            assertThat(rs.getBigDecimal(5)).isEqualByComparingTo("750.25");
+            assertThat(rs.getBigDecimal(6)).isEqualByComparingTo("0.25");   // conversão da métrica, intacta
+            assertThat(rs.getInt(7)).isEqualTo(9);
+            assertThat(rs.getBoolean(8)).isTrue();
+            assertThat(rs.getInt(9)).isEqualTo(1);
+        }
+        // semana sem pedidos e sem métrica: cria a linha; recebido/repassado em branco viram 0
+        assertThat((BigDecimal) um("SELECT repasse FROM gold.financeiro_periodo WHERE data_inicio = '2026-11-09'"))
+                .isEqualByComparingTo("300");
+        assertThat((BigDecimal) um("SELECT repassado_plataforma FROM silver.fato_metricas_periodo WHERE data_inicio = '2026-11-09'"))
+                .isEqualByComparingTo("0");
+        // operação que não existe: nada é gravado
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> BaseHistoricaService.importarValoresPortal(c,
+                        ValoresPortalCsv.ler("id_operacao;inicio;valor_bruto;valor_liquido\n99;16/11/2026;1;1".getBytes(StandardCharsets.UTF_8))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("99");
+    }
+
+    @Test
+    void reprocessarPassaParaAGoldOsPedidosQueFicaramSoNaTabelaPedidos() throws SQLException {
+        // pedido gravado direto na tabela pedidos (como pelo processo antigo), sem passar pela silver
+        BaseHistoricaService.inserirPedidos(c, relatorio(
+                RelatorioPedidosTest.linhaCsv("p-9", "Loja A", "111", "03/11/2026 12:00:00", "CONCLUIDO", "80")).pedidos());
+        assertThat(um("SELECT count(*) FROM silver.fato_pedido")).isEqualTo(0L);
+        var r = BaseHistoricaService.reprocessar(c, java.time.LocalDate.of(2026, 11, 2), java.time.LocalDate.of(2026, 11, 8));
+        assertThat(r.pedidos()).isEqualTo(1);
+        assertThat(r.noFato()).isEqualTo(1);
+        assertThat(r.semanas()).isEqualTo(1);
+        assertThat(r.meses()).isEqualTo(1);
+        assertThat(um("SELECT qtd_pedidos FROM gold.financeiro_periodo WHERE periodo_tipo = 'SEMANAL' AND data_inicio = '2026-11-02'"))
+                .isEqualTo(1);
+        // fora do período: nada
+        assertThat(BaseHistoricaService.reprocessar(c, java.time.LocalDate.of(2026, 1, 1), java.time.LocalDate.of(2026, 1, 7)).pedidos())
+                .isZero();
+    }
 }

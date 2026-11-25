@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { painelApi } from "../../services/api";
 import { botao, caixa, cor } from "./fmt";
 import LojasSemOperacao from "./LojasSemOperacao";
+import { ReprocessarPedidos } from "./ImportarValoresPortal";
 
 // Envio do "Relatório de pedidos" do Portal do Parceiro para a base histórica (pedidos → silver → gold).
 
@@ -66,6 +67,7 @@ export default function EnviarRelatorio() {
         </div>
       )}
       <LojasSemOperacao atualizar={resultado} />
+      <ReprocessarPedidos />
     </div>
   );
 }
