@@ -15,15 +15,11 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === lacunas antigas ===
-          SELECT g.periodo_tipo, g.data_inicio, g.data_fim, g.id_operacao, l.nome_loja || ' - ' || o.nome_operacao nome,
-                 (SELECT string_agg(a.id_loja_origem, ',') FROM silver.dim_operacao_alias a WHERE a.id_operacao = g.id_operacao AND a.id_plataforma = 1) ids,
-                 g.qtd_pedidos, (g.valor_bruto IS NULL) sb, (g.conversao IS NULL) sc, (g.novos_clientes IS NULL) sn, (g.tempo_entrega IS NULL) st, (g.tempo_aberto IS NULL) sa
-          FROM gold.financeiro_periodo g JOIN silver.dim_operacao o ON o.id_operacao = g.id_operacao JOIN silver.dim_loja l ON l.id_loja = o.id_loja
-          WHERE g.id_plataforma = 1 AND g.qtd_pedidos > 0
-            AND ((g.periodo_tipo = 'SEMANAL' AND g.data_inicio BETWEEN '2026-08-24' AND '2026-10-19') OR (g.periodo_tipo = 'MENSAL' AND g.data_inicio BETWEEN '2026-08-01' AND '2026-10-01'))
-            AND (g.valor_bruto IS NULL OR g.conversao IS NULL OR g.novos_clientes IS NULL OR g.tempo_aberto IS NULL)
-          ORDER BY 1, 4, 2;
+          \echo === ref mensal ===
+          SELECT id_operacao, data_inicio, valor_bruto, valor_liquido, recebido_via_loja, repassado_plataforma, conversao, novos_clientes, tempo_entrega, tempo_aberto
+          FROM silver.fato_metricas_periodo WHERE id_plataforma=1 AND periodo_tipo='MENSAL' AND id_operacao IN (1,2,3,4) AND data_inicio IN ('2026-09-01','2026-10-01') ORDER BY 1,2;
+          \echo === soma semanal set ===
+          SELECT id_operacao, sum(valor_bruto), sum(valor_liquido), sum(recebido_via_loja) FROM silver.fato_metricas_periodo WHERE id_plataforma=1 AND periodo_tipo='SEMANAL' AND id_operacao IN (1,2) AND data_inicio BETWEEN '2026-09-01' AND '2026-09-28' GROUP BY 1;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
