@@ -15,16 +15,11 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === faltando por semana (iFood, com pedidos) ===
-          SELECT periodo_tipo, data_inicio, count(*) linhas,
-                 count(*) FILTER (WHERE valor_bruto IS NULL) sem_bruto,
-                 count(*) FILTER (WHERE valor_liquido IS NULL) sem_liq,
-                 count(*) FILTER (WHERE conversao IS NULL) sem_conv,
-                 count(*) FILTER (WHERE novos_clientes IS NULL) sem_novos,
-                 count(*) FILTER (WHERE tempo_entrega IS NULL) sem_tempo,
-                 count(*) FILTER (WHERE tempo_aberto IS NULL) sem_aberto
-          FROM gold.financeiro_periodo WHERE id_plataforma = 1 AND qtd_pedidos > 0 AND data_inicio >= '2026-07-01'
-          GROUP BY 1,2 ORDER BY 1,2;
+          \echo === ref 19/10 e 12/10 ===
+          SELECT id_operacao, data_inicio, qtd_pedidos, conversao, novos_clientes, tempo_entrega, tempo_aberto FROM silver.fato_metricas_periodo
+          WHERE id_plataforma = 1 AND periodo_tipo='SEMANAL' AND id_operacao IN (1,2,3,4,26,39) AND data_inicio IN ('2026-10-12','2026-10-19') ORDER BY 1,2;
+          \echo === tipos ===
+          SELECT column_name, data_type, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_schema='silver' AND table_name='fato_metricas_periodo' AND column_name IN ('conversao','novos_clientes','tempo_entrega','tempo_aberto');
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
