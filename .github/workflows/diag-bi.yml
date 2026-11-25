@@ -15,11 +15,15 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === ref 19/10 e 12/10 ===
-          SELECT id_operacao, data_inicio, conversao, novos_clientes, tempo_entrega, tempo_aberto FROM silver.fato_metricas_periodo
-          WHERE id_plataforma = 1 AND periodo_tipo='SEMANAL' AND id_operacao IN (1,2,3,4,26,39) AND data_inicio IN ('2026-10-12','2026-10-19') ORDER BY 1,2;
-          \echo === tipos ===
-          SELECT column_name, data_type, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_schema='silver' AND table_name='fato_metricas_periodo' AND column_name IN ('conversao','novos_clientes','tempo_entrega','tempo_aberto');
+          \echo === lacunas antigas ===
+          SELECT g.periodo_tipo, g.data_inicio, g.data_fim, g.id_operacao, l.nome_loja || ' - ' || o.nome_operacao nome,
+                 (SELECT string_agg(a.id_loja_origem, ',') FROM silver.dim_operacao_alias a WHERE a.id_operacao = g.id_operacao AND a.id_plataforma = 1) ids,
+                 g.qtd_pedidos, (g.valor_bruto IS NULL) sb, (g.conversao IS NULL) sc, (g.novos_clientes IS NULL) sn, (g.tempo_entrega IS NULL) st, (g.tempo_aberto IS NULL) sa
+          FROM gold.financeiro_periodo g JOIN silver.dim_operacao o ON o.id_operacao = g.id_operacao JOIN silver.dim_loja l ON l.id_loja = o.id_loja
+          WHERE g.id_plataforma = 1 AND g.qtd_pedidos > 0
+            AND ((g.periodo_tipo = 'SEMANAL' AND g.data_inicio BETWEEN '2026-08-24' AND '2026-10-19') OR (g.periodo_tipo = 'MENSAL' AND g.data_inicio BETWEEN '2026-08-01' AND '2026-10-01'))
+            AND (g.valor_bruto IS NULL OR g.conversao IS NULL OR g.novos_clientes IS NULL OR g.tempo_aberto IS NULL)
+          ORDER BY 1, 4, 2;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
