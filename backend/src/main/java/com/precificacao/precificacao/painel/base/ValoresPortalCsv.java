@@ -12,7 +12,9 @@ import java.util.Map;
 
 /**
  * Planilha (CSV com ";") dos valores financeiros do Portal por operação e período:
- * id_operacao; [loja]; [periodo_tipo]; inicio; valor_bruto; valor_liquido; recebido_via_loja; repassado_ifood.
+ * id_operacao; [loja]; [periodo_tipo]; inicio; [valor_bruto; valor_liquido; recebido_via_loja; repassado_ifood];
+ * [conversao; novos_clientes; tempo_entrega; tempo_aberto]. Conversão e tempo aberto de 0 a 1 (0,2606 = 26,06%).
+ * Célula em branco não muda o valor que já está na base (exceto os financeiros, como antes).
  * Números em reais com vírgula ou ponto; datas em dd/mm/aaaa ou aaaa-mm-dd. Colunas extras são ignoradas.
  */
 public final class ValoresPortalCsv {
@@ -34,8 +36,15 @@ public final class ValoresPortalCsv {
         }
         int op = indice(col, "id_operacao");
         int ini = indice(col, "inicio", "semana", "data_inicio");
-        int bruto = indice(col, "valor_bruto");
-        int liq = indice(col, "valor_liquido");
+        Integer bruto = col.get("valor_bruto");
+        Integer liq = col.get("valor_liquido");
+        Integer conv = col.get("conversao");
+        Integer novos = col.get("novos_clientes");
+        Integer entrega = col.get("tempo_entrega");
+        Integer aberto = col.get("tempo_aberto");
+        if (bruto == null && liq == null && conv == null && novos == null && entrega == null && aberto == null) {
+            throw new IllegalArgumentException("Falta a coluna valor_bruto (ou conversao, novos_clientes, tempo_entrega, tempo_aberto).");
+        }
         Integer rec = col.get("recebido_via_loja");
         Integer repd = col.containsKey("repassado_ifood") ? col.get("repassado_ifood") : col.get("repassado_plataforma");
         Integer tipo = col.get("periodo_tipo");
@@ -48,8 +57,8 @@ public final class ValoresPortalCsv {
             try {
                 out.add(new BaseHistoricaService.ValoresPortal(Integer.parseInt(campo(c, op)),
                         tipo == null || campo(c, tipo).isEmpty() ? "SEMANAL" : campo(c, tipo),
-                        data(campo(c, ini)), numero(campo(c, bruto)), numero(campo(c, liq)),
-                        rec == null ? null : numero(campo(c, rec)), repd == null ? null : numero(campo(c, repd))));
+                        data(campo(c, ini)), opcional(c, bruto), opcional(c, liq), opcional(c, rec), opcional(c, repd),
+                        opcional(c, conv), inteiro(opcional(c, novos)), opcional(c, entrega), opcional(c, aberto)));
             } catch (RuntimeException e) {
                 throw new IllegalArgumentException("Linha " + (n + 1) + " inválida: " + e.getMessage());
             }
@@ -68,6 +77,14 @@ public final class ValoresPortalCsv {
 
     private static String campo(String[] c, int i) {
         return i < c.length ? c[i].strip().replace("\"", "") : "";
+    }
+
+    private static BigDecimal opcional(String[] c, Integer i) {
+        return i == null ? null : numero(campo(c, i));
+    }
+
+    private static Integer inteiro(BigDecimal v) {
+        return v == null ? null : v.intValueExact();
     }
 
     static LocalDate data(String s) {

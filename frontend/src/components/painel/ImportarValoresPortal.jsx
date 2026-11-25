@@ -28,9 +28,10 @@ export function ImportarValoresPortal({ onImportado }) {
     <div style={{ ...caixa, display: "grid", gap: 8, marginBottom: 12 }}>
       <div style={{ fontWeight: 700 }}>Importar planilha de valores do Portal</div>
       <div style={{ fontSize: 12, color: cor.textoSuave, lineHeight: 1.5 }}>
-        CSV com ";" e as colunas id_operacao, inicio (segunda-feira da semana), valor_bruto, valor_liquido,
-        recebido_via_loja e repassado_ifood. Grava só esses valores (conversão, novos clientes, tempos e alteração de
-        cardápio ficam como estão) e recalcula a gold de todas as semanas de uma vez.
+        CSV com ";": id_operacao, inicio (segunda-feira da semana) e as colunas que quiser entre valor_bruto,
+        valor_liquido, recebido_via_loja, repassado_ifood, conversao, novos_clientes, tempo_entrega e tempo_aberto
+        (conversão e tempo aberto de 0 a 1, ex.: 0,2606). Célula em branco não muda o que já está na base; o resto
+        (alteração de cardápio etc.) fica como está. A gold é recalculada de uma vez no fim.
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <input type="file" accept=".csv,text/csv" onChange={(e) => setArquivo(e.target.files?.[0] || null)} style={{ fontSize: 13 }} />

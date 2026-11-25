@@ -313,4 +313,36 @@ class BaseHistoricaTest {
         assertThat(BaseHistoricaService.reprocessar(c, java.time.LocalDate.of(2026, 1, 1), java.time.LocalDate.of(2026, 1, 7)).pedidos())
                 .isZero();
     }
+
+    @Test
+    void importarIndicadoresDoPortalSemMexerNosValores() throws SQLException {
+        BaseHistoricaService.gravar(c, relatorio(
+                RelatorioPedidosTest.linhaCsv("p-1", "Loja A", "111", "17/11/2026 20:00:00", "CONCLUIDO", "100")));
+        String csv = """
+                id_operacao;inicio;conversao;novos_clientes;tempo_entrega;tempo_aberto
+                7;16/11/2026;0,2748;76;24;0,964
+                7;09/11/2026;0,3;;;
+                """;
+        var linhas = ValoresPortalCsv.ler(csv.getBytes(StandardCharsets.UTF_8));
+        assertThat(linhas.get(0).novosClientes()).isEqualTo(76);
+        assertThat(linhas.get(0).valorBruto()).isNull();
+        BaseHistoricaService.importarValoresPortal(c, linhas);
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("""
+                SELECT conversao, novos_clientes, tempo_entrega, tempo_aberto, valor_bruto, alteracao_cardapio
+                FROM gold.financeiro_periodo WHERE periodo_tipo = 'SEMANAL' AND data_inicio = '2026-11-16'""")) {
+            rs.next();
+            assertThat(rs.getBigDecimal(1)).isEqualByComparingTo("0.2748");
+            assertThat(rs.getInt(2)).isEqualTo(76);
+            assertThat(rs.getBigDecimal(3)).isEqualByComparingTo("24");
+            assertThat(rs.getBigDecimal(4)).isEqualByComparingTo("0.964");
+            assertThat(rs.getBigDecimal(5)).isEqualByComparingTo("200");   // bruto da métrica do setup, intacto
+            assertThat(rs.getBoolean(6)).isTrue();
+        }
+        assertThat((BigDecimal) um("SELECT conversao FROM gold.financeiro_periodo WHERE data_inicio = '2026-11-09'"))
+                .isEqualByComparingTo("0.3");
+        // conversão em % por engano: recusa
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> BaseHistoricaService.importarValoresPortal(c,
+                        ValoresPortalCsv.ler("id_operacao;inicio;conversao\n7;16/11/2026;27,48".getBytes(StandardCharsets.UTF_8))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("de 0 a 1");
+    }
 }
