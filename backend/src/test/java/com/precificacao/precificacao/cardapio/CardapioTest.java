@@ -113,7 +113,7 @@ public class CardapioTest {
         ifood.statusOpcao("o-coca", "UNAVAILABLE");
         monitor.ciclo();
         assertThat(wpp.para("zs-group")).containsExactly(
-                "⚠️ *Burger Moema*\n⏸️ *2 itens pausados*:\n• X-Bacon\n• Coca 350ml (complemento)");
+                "⚠️ *Burger Moema*\n⏸️ *2 itens pausados*:\n• X-Bacon\n• Coca 350ml (complemento)\n📲 direto no iFood (Portal, Gestor de Pedidos ou PDV)");
 
         relogio.passar(Duration.ofMinutes(45));
         wpp.enviadas.clear();
@@ -141,7 +141,7 @@ public class CardapioTest {
         relogio.passar(Duration.ofMinutes(50));
         lojaAberta(true);
         monitor.ciclo();
-        assertThat(wpp.para("zs-group")).containsExactly("⚠️ *Burger Moema*\n⏸️ *Item pausado:* X-Bacon desde 12:10");
+        assertThat(wpp.para("zs-group")).containsExactly("⚠️ *Burger Moema*\n⏸️ *Item pausado:* X-Bacon desde 12:10\n📲 direto no iFood (Portal, Gestor de Pedidos ou PDV)");
     }
 
     @Test
@@ -151,13 +151,13 @@ public class CardapioTest {
         ifood.statusCategoria("cat-lanches", "UNAVAILABLE");
         ifood.statusItem("i-promo", "UNAVAILABLE"); // categoria ignorada pela configuração
         monitor.ciclo();
-        assertThat(wpp.para("zs-group")).containsExactly("⚠️ *Burger Moema*\n⏸️ *Categoria pausada:* Lanches");
+        assertThat(wpp.para("zs-group")).containsExactly("⚠️ *Burger Moema*\n⏸️ *Categoria pausada:* Lanches\n📲 direto no iFood (Portal, Gestor de Pedidos ou PDV)");
     }
 
     // ------------------------------------------------------------------ alterações pela tela
 
     @Test
-    void pausarPelaTelaRegistraNaoAvisaEDaParaDesfazer() {
+    void pausarPelaTelaAvisaComOAutorEDaParaDesfazer() {
         monitor.ciclo();
         Alteracao a = service.alterarStatus(LOJA, "ITEM", "i-xbacon", "UNAVAILABLE", "Gustavo");
         assertThat(a.situacao()).isEqualTo("FEITA");
@@ -165,8 +165,11 @@ public class CardapioTest {
         assertThat(a.usuario()).isEqualTo("Gustavo");
         assertThat(escrita.chamadas).containsExactly("status ITEM i-xbacon UNAVAILABLE");
         assertThat(item(service.cardapio(LOJA, false), "i-xbacon").status()).isEqualTo("UNAVAILABLE");
+        // aviso com o autor, na hora
+        assertThat(wpp.para("zs-group")).containsExactly("⚠️ *Burger Moema*\n⏸️ *Item pausado:* X-Bacon\n👤 pelo site, por Gustavo");
+        wpp.enviadas.clear();
 
-        // o próximo ciclo lê do iFood já pausado: não avisa, porque fomos nós que pausamos
+        // o próximo ciclo lê do iFood já pausado: não avisa de novo
         relogio.passar(Duration.ofMinutes(10));
         monitor.ciclo();
         assertThat(wpp.enviadas).isEmpty();

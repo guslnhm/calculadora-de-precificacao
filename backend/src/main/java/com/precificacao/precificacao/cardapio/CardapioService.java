@@ -202,9 +202,16 @@ public class CardapioService {
         }
         Cardapio novoCardapio = alterar(c, tipo, id, campo, novo);
         repo.salvarCardapio(novoCardapio);
-        monitor.registrar(merchantId, novoCardapio, true); // não vira alerta: foi a gente que mudou
+        monitor.registrar(merchantId, novoCardapio, true); // o monitor não alerta: o aviso sai abaixo, com o autor
         long aid = repo.registrarAlteracao(merchantId, tipo, id, e.nome(), campo, antes, novo, usuario, agora,
                 "FEITA", null, desfazId);
+        if ("STATUS".equals(campo) && CardapioModelos.PAUSADO.equals(novo) && !CardapioModelos.PAUSADO.equals(antes)) {
+            try {
+                monitor.avisarPausaPeloSite(merchantId, e.nome(), CardapioModelos.COMPLEMENTO.equals(tipo), usuario);
+            } catch (RuntimeException ex) {
+                // aviso no WhatsApp não pode desfazer a pausa já feita
+            }
+        }
         return repo.alteracao(aid).orElseThrow();
     }
 
