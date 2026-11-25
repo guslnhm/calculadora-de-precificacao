@@ -16,7 +16,7 @@ jobs:
           cat > q.sql <<'SQL'
           \pset pager off
           \echo === ref 19/10 e 12/10 ===
-          SELECT id_operacao, data_inicio, qtd_pedidos, conversao, novos_clientes, tempo_entrega, tempo_aberto FROM silver.fato_metricas_periodo
+          SELECT id_operacao, data_inicio, conversao, novos_clientes, tempo_entrega, tempo_aberto FROM silver.fato_metricas_periodo
           WHERE id_plataforma = 1 AND periodo_tipo='SEMANAL' AND id_operacao IN (1,2,3,4,26,39) AND data_inicio IN ('2026-10-12','2026-10-19') ORDER BY 1,2;
           \echo === tipos ===
           SELECT column_name, data_type, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_schema='silver' AND table_name='fato_metricas_periodo' AND column_name IN ('conversao','novos_clientes','tempo_entrega','tempo_aberto');
