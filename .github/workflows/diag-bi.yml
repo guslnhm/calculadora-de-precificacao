@@ -15,11 +15,16 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === pedidos fora da silver por loja (19/10+) ===
-          SELECT p.id_loja, max(p.nome_loja) nome, (SELECT a.id_operacao FROM silver.dim_operacao_alias a WHERE a.id_loja_origem = p.id_loja LIMIT 1) op,
-                 min(p.data_hora_pedido)::date de, max(p.data_hora_pedido)::date ate, count(*)
-          FROM public.pedidos p LEFT JOIN silver.fato_pedido f ON f.id_pedido = p.id_completo_pedido
-          WHERE p.data_hora_pedido >= '2026-10-19' AND f.id_pedido IS NULL GROUP BY 1 ORDER BY 6 DESC LIMIT 30;
+          \echo === faltando por semana (iFood, com pedidos) ===
+          SELECT periodo_tipo, data_inicio, count(*) linhas,
+                 count(*) FILTER (WHERE valor_bruto IS NULL) sem_bruto,
+                 count(*) FILTER (WHERE valor_liquido IS NULL) sem_liq,
+                 count(*) FILTER (WHERE conversao IS NULL) sem_conv,
+                 count(*) FILTER (WHERE novos_clientes IS NULL) sem_novos,
+                 count(*) FILTER (WHERE tempo_entrega IS NULL) sem_tempo,
+                 count(*) FILTER (WHERE tempo_aberto IS NULL) sem_aberto
+          FROM gold.financeiro_periodo WHERE id_plataforma = 1 AND qtd_pedidos > 0 AND data_inicio >= '2026-07-01'
+          GROUP BY 1,2 ORDER BY 1,2;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
