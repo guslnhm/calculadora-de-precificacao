@@ -15,14 +15,23 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === fato por semana ===
-          SELECT date_trunc('week', data_hora_pedido)::date sem, count(*), count(DISTINCT id_operacao) ops FROM silver.fato_pedido WHERE data_hora_pedido >= '2026-10-12' GROUP BY 1 ORDER BY 1;
-          \echo === pedidos por semana ===
-          SELECT date_trunc('week', data_hora_pedido)::date sem, count(*), min(data_hora_pedido), max(data_hora_pedido) FROM public.pedidos WHERE data_hora_pedido >= '2026-10-12' GROUP BY 1 ORDER BY 1;
-          \echo === gold por semana ===
-          SELECT periodo_tipo, data_inicio, count(*), sum(qtd_pedidos), count(valor_bruto) FROM gold.financeiro_periodo WHERE data_inicio >= '2026-10-01' GROUP BY 1,2 ORDER BY 1,2;
-          \echo === metricas por semana ===
-          SELECT periodo_tipo, data_inicio, count(*), count(valor_bruto), max(data_carga) FROM silver.fato_metricas_periodo WHERE data_inicio >= '2026-10-01' GROUP BY 1,2 ORDER BY 1,2;
+          \echo === fato vs pedidos por semana ===
+          SELECT date_trunc('week', p.data_hora_pedido)::date sem, count(DISTINCT p.id_completo_pedido) pedidos, count(DISTINCT f.id_pedido) fato
+          FROM public.pedidos p LEFT JOIN silver.fato_pedido f ON f.id_pedido = p.id_completo_pedido
+          WHERE p.data_hora_pedido >= '2026-10-19' GROUP BY 1 ORDER BY 1;
+          \echo === gold semanal ===
+          SELECT data_inicio, count(*) linhas, sum(qtd_pedidos) pedidos, count(valor_bruto) com_bruto, count(taxa_repasse) com_taxa,
+                 round(avg(taxa_repasse),4) taxa_media, round(min(taxa_repasse),3) mn, round(max(taxa_repasse),3) mx
+          FROM gold.financeiro_periodo WHERE periodo_tipo='SEMANAL' AND id_plataforma=1 AND data_inicio >= '2026-10-12' GROUP BY 1 ORDER BY 1;
+          \echo === gold mensal ===
+          SELECT data_inicio, count(*), sum(qtd_pedidos), count(valor_bruto) FROM gold.financeiro_periodo WHERE periodo_tipo='MENSAL' AND id_plataforma=1 AND data_inicio >= '2026-09-01' GROUP BY 1 ORDER BY 1;
+          \echo === amostras ===
+          SELECT id_operacao, data_inicio, qtd_pedidos, valor_bruto, valor_liquido, recebido_via_loja, repassado_plataforma, repasse, round(taxa_repasse,4), conversao, novos_clientes
+          FROM gold.financeiro_periodo WHERE periodo_tipo='SEMANAL' AND id_operacao IN (1,7,26,4) AND data_inicio BETWEEN '2026-10-19' AND '2026-11-16' ORDER BY 1,2;
+          \echo === semanas sem bruto com pedidos ===
+          SELECT g.id_operacao, l.nome_loja, o.nome_operacao, g.data_inicio, g.qtd_pedidos FROM gold.financeiro_periodo g
+          JOIN silver.dim_operacao o ON o.id_operacao=g.id_operacao JOIN silver.dim_loja l ON l.id_loja=o.id_loja
+          WHERE g.periodo_tipo='SEMANAL' AND g.id_plataforma=1 AND g.data_inicio BETWEEN '2026-10-26' AND '2026-11-16' AND g.valor_bruto IS NULL AND g.qtd_pedidos > 0 ORDER BY 4,2;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
