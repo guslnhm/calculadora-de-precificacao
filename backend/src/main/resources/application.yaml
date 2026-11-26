@@ -75,6 +75,15 @@ painel:
   dias-historico: 180
   semanas-curva: 8
 
+# 99Food Open Platform (só leitura do financeiro). Credenciais só nas variáveis do Railway.
+food99:
+  app-id: ${FOOD99_APP_ID:}
+  app-secret: ${FOOD99_APP_SECRET:}
+  base-url: ${FOOD99_BASE_URL:https://openapi.99food.com}
+  coleta-ativa: ${FOOD99_COLETA_ATIVA:true}
+  dias-reler: 10
+  divisor-valores: ${FOOD99_DIVISOR_VALORES:100}
+
 whatsapp:
   provider: ${WHATSAPP_PROVIDER:console}
   zapi-instance-id: ${ZAPI_INSTANCE_ID:}

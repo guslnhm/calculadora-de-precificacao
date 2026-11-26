@@ -586,6 +586,13 @@ export const baseApi = {
   reprocessar: (de, ate) => requisicao("POST", "/painel/base/reprocessar", { de, ate }),
 };
 
+export const food99Api = {
+  situacao: () => requisicao("GET", "/painel/99food/situacao"),
+  link: () => requisicao("POST", "/painel/99food/link-autorizacao"),
+  coletar: (de, ate) => requisicao("POST", `/painel/99food/coletar${query({ de, ate })}`),
+  dias: (de, ate) => requisicao("GET", `/painel/99food/dias${query({ de, ate })}`),
+};
+
 /** Envia um arquivo (multipart). */
 async function enviarArquivo(caminho, arquivo) {
   const form = new FormData();
