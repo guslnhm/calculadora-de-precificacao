@@ -275,7 +275,7 @@ public final class Destaques {
             f.setMaximumFractionDigits(0);
             f.setMinimumFractionDigits(0);
         }
-        return f.format(v).replace(' ', ' ');
+        return f.format(v).replace('\u00a0', ' ').replace('\u202f', ' ');
     }
 
     private static String pct(BigDecimal v, int casas) {
