@@ -63,6 +63,7 @@ monitor:
     somente-com-loja-aberta: true
     workers: ${MONITOR_ITENS_WORKERS:3}
     ignorar-categorias: ${MONITOR_ITENS_IGNORAR_CATEGORIAS:}
+    avisar-pausas: ${MONITOR_ITENS_AVISAR_PAUSAS:false}
 
 # Painel (substitui o Power BI). Credenciais do app de BI (módulo Analytics) e banco do BI antigo.
 painel:

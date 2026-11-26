@@ -205,7 +205,8 @@ public class MonitorItensService {
 
     /** Uma mensagem por grupo, juntando todas as lojas dele. */
     void despachar(List<Mudancas> mudancas) {
-        if (mudancas.isEmpty()) {
+        // aviso na hora desligado (MONITOR_ITENS_AVISAR_PAUSAS=false): as pausas ficam registradas e entram no resumo do dia
+        if (mudancas.isEmpty() || !cfg.avisarPausas()) {
             return;
         }
         List<Grupo> todos = grupos.listar(true);

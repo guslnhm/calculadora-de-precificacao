@@ -16,6 +16,7 @@ import java.util.TreeSet;
  * @param somenteComLojaAberta com a loja fechada só registra; avisa quando ela abrir com a pausa ainda ativa
  * @param ignorarCategorias    nomes exatos de categorias que não devem ser monitoradas
  * @param resumoHorario        horário (HH:mm) do resumo de itens pausados do início do dia; vazio desliga
+ * @param avisarPausas         manda mensagem na hora em que um item é pausado (desligado: só o resumo do início do dia)
  */
 @ConfigurationProperties(prefix = "monitor.itens")
 public record ItensProperties(
@@ -26,8 +27,15 @@ public record ItensProperties(
         @DefaultValue("true") boolean somenteComLojaAberta,
         @DefaultValue("3") int workers,
         @DefaultValue("") List<String> ignorarCategorias,
-        @DefaultValue("10:00") String resumoHorario
+        @DefaultValue("10:00") String resumoHorario,
+        @DefaultValue("false") boolean avisarPausas
 ) {
+    public ItensProperties(boolean ativo, int intervaloMinutos, boolean complementos, boolean alertarNaoVendavel,
+                           boolean somenteComLojaAberta, int workers, List<String> ignorarCategorias, String resumoHorario) {
+        this(ativo, intervaloMinutos, complementos, alertarNaoVendavel, somenteComLojaAberta, workers, ignorarCategorias,
+                resumoHorario, false);
+    }
+
     public Set<String> categoriasIgnoradas() {
         Set<String> s = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         if (ignorarCategorias != null) {
