@@ -37,6 +37,8 @@ public final class LeitorKpis {
         public BigDecimal gmvCancelado = BigDecimal.ZERO;
         public Integer novosClientes;
         public BigDecimal incentivoLoja;
+        /** Taxa de entrega paga pelo cliente (netDeliveryFee); null se o iFood não mandou. */
+        public BigDecimal taxaEntrega;
         public BigDecimal tempoEntrega;
         public BigDecimal tempoPreparo;
         public BigDecimal atraso;
@@ -66,6 +68,7 @@ public final class LeitorKpis {
         ObjectNode metrics = agg.putObject("metrics");
         metrics.putArray("gmv").add("sum");
         metrics.putArray("benefitByTypePartnerTotalValue").add("sum");
+        metrics.putArray("netDeliveryFee").add("sum");
         for (String m : METRICAS_MEDIA) {
             metrics.putArray(m).add("avg");
         }
@@ -159,6 +162,10 @@ public final class LeitorKpis {
             d.gmv = d.gmv.add(gmv);
             BigDecimal inc = metrica(item, "benefitByTypePartnerTotalValue", "sum");
             d.incentivoLoja = (d.incentivoLoja == null ? BigDecimal.ZERO : d.incentivoLoja).add(inc);
+            if (item.path("netDeliveryFee").path("sum").isNumber()) {
+                BigDecimal frete = metrica(item, "netDeliveryFee", "sum");
+                d.taxaEntrega = (d.taxaEntrega == null ? BigDecimal.ZERO : d.taxaEntrega).add(frete);
+            }
             // médias de tempo ponderadas pela quantidade de pedidos de cada status
             Map<String, BigDecimal[]> sm = somasMedias.computeIfAbsent(dia, k -> new LinkedHashMap<>());
             for (String m : METRICAS_MEDIA) {

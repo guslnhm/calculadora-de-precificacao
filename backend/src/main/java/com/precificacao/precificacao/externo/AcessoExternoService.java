@@ -53,7 +53,8 @@ public class AcessoExternoService {
     /** Um dia de uma loja na resposta para fora. */
     public record Venda(LocalDate data, String merchantId, String loja, int pedidos, int cancelados,
                         BigDecimal faturamento, BigDecimal faturamentoCancelado, BigDecimal ticketMedio,
-                        Integer novosClientes, OffsetDateTime atualizadoEm) {
+                        Integer novosClientes, OffsetDateTime atualizadoEm, String idLojaPortal,
+                        BigDecimal valorItens, BigDecimal taxaEntrega, BigDecimal descontoLoja) {
     }
 
     private final AcessoExternoRepository repo;
@@ -158,12 +159,25 @@ public class AcessoExternoService {
             BigDecimal ticket = d.pedidos() > 0 && d.faturamento() != null
                     ? d.faturamento().divide(BigDecimal.valueOf(d.pedidos()), 2, RoundingMode.HALF_UP) : null;
             out.add(new Venda(d.data(), d.merchantId(), d.loja(), d.pedidos(), d.cancelados(), d.faturamento(),
-                    d.faturamentoCancelado(), ticket, d.novosClientes(), d.atualizadoEm()));
+                    d.faturamentoCancelado(), ticket, d.novosClientes(), d.atualizadoEm(), d.idLojaPortal(),
+                    valorItens(d), d.taxaEntrega(), d.descontoLoja()));
         }
         return out;
     }
 
     // ------------------------------------------------------------------ apoio
+
+    /**
+     * Valor dos itens sem frete e antes dos descontos bancados pela loja: faturamento (GMV) - frete + desconto da loja.
+     * Null enquanto o dia ainda não tem a taxa de entrega coletada.
+     */
+    static BigDecimal valorItens(Dia d) {
+        if (d.faturamento() == null || d.taxaEntrega() == null) {
+            return null;
+        }
+        BigDecimal desc = d.descontoLoja() == null ? BigDecimal.ZERO : d.descontoLoja();
+        return d.faturamento().subtract(d.taxaEntrega()).add(desc);
+    }
 
     private Acesso buscar(long id) {
         return repo.porId(id).map(l -> acesso(l, repo.lojasIfood()))
