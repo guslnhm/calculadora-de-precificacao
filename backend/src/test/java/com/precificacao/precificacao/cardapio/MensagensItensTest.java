@@ -36,7 +36,7 @@ class MensagensItensTest {
         String[] blocos = texto.split("\n\n");
         assertThat(blocos).hasSize(2);
         assertThat(blocos[0]).startsWith("⚠️ *La Boulangerie 306 sul*\n⏸️ *12 itens pausados*:\n• Pão 1\n")
-                .endsWith("• Pão 10\n• … e mais 2");
+                .endsWith("• Pão 11\n• Pão 12").doesNotContain("e mais");
         assertThat(blocos[1]).isEqualTo(
                 "✅ *La Boulangerie Sudoeste*\n▶️ *Item voltou:* Baguette Tradition (ficou 2h24 pausado)");
     }
