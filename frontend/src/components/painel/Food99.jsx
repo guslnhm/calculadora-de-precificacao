@@ -23,9 +23,13 @@ export default function Food99() {
   const [ate, setAte] = useState(iso(new Date(hoje.getTime() - 86400000)));
 
   const carregar = useCallback(() => {
-    setErro("");
-    food99Api.situacao().then(setSit).catch((e) => setErro(e.message));
-    food99Api.dias(de, ate).then(setDias).catch((e) => setErro(e.message));
+    Promise.all([food99Api.situacao(), food99Api.dias(de, ate)])
+      .then(([s, d]) => {
+        setSit(s);
+        setDias(d);
+        setErro("");
+      })
+      .catch((e) => setErro(e.message));
   }, [de, ate]);
 
   useEffect(() => {
