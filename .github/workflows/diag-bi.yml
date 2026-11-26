@@ -15,27 +15,38 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === max pedidos ===
-          SELECT max(data_hora_pedido) FROM public.pedidos;
-          \echo === tipos ===
-          SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='pedidos' AND column_name IN ('valor_itens','total_pago_cliente','taxa_entrega_cliente','incentivo_prom_ifood','incentivo_prom_loja','taxa_servico','taxas_comissoes','valor_liquido','forma_pagamento','status_final_pedido');
-          \echo === formas pagamento e status ===
-          SELECT status_final_pedido, forma_pagamento, count(*) FROM public.pedidos WHERE data_hora_pedido >= '2026-11-16' AND data_hora_pedido < '2026-11-23' GROUP BY 1,2 ORDER BY 3 DESC LIMIT 25;
-          \echo === relatorio x portal (semanas) ===
+          \echo === formula relatorio x portal (todas ops, 4 semanas) ===
           WITH p AS (
             SELECT a.id_operacao, date_trunc('week', p.data_hora_pedido)::date sem,
-                   sum(p.valor_itens::numeric) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') itens,
-                   sum(p.valor_liquido::numeric) liq,
-                   sum(p.taxas_comissoes::numeric) taxas,
-                   sum(p.incentivo_prom_loja::numeric) inc_loja,
-                   sum(p.total_pago_cliente::numeric) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') pago,
-                   count(*) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') ped
+                   sum(p.valor_itens) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') itens,
+                   sum(p.taxa_entrega_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.tipo_entrega ILIKE '%pr_pria%') entrega_propria,
+                   sum(p.valor_liquido) liq,
+                   sum(p.total_pago_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.forma_pagamento NOT ILIKE 'Pgto via APP%') offline
             FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
-            WHERE p.data_hora_pedido >= '2026-10-26' AND p.data_hora_pedido < '2026-11-23' AND a.id_operacao IN (1,2,3,4,26,39,124)
-            GROUP BY 1,2)
-          SELECT p.id_operacao, p.sem, p.ped, p.itens, g.valor_bruto, p.liq, g.valor_liquido, g.recebido_via_loja, g.repasse, p.taxas, p.inc_loja, p.pago
-          FROM p LEFT JOIN gold.financeiro_periodo g ON g.id_operacao = p.id_operacao AND g.id_plataforma = 1 AND g.periodo_tipo = 'SEMANAL' AND g.data_inicio = p.sem
-          ORDER BY 1,2;
+            WHERE p.data_hora_pedido >= '2026-10-26' AND p.data_hora_pedido < '2026-11-23'
+            GROUP BY 1,2), c AS (
+            SELECT p.*, g.valor_bruto, g.repasse, g.recebido_via_loja, g.taxa_repasse,
+                   (p.liq + coalesce(p.offline,0)) / nullif(p.itens + coalesce(p.entrega_propria,0), 0) taxa_rel
+            FROM p JOIN gold.financeiro_periodo g ON g.id_operacao = p.id_operacao AND g.id_plataforma = 1 AND g.periodo_tipo = 'SEMANAL' AND g.data_inicio = p.sem
+            WHERE g.taxa_repasse IS NOT NULL AND p.itens > 500)
+          SELECT count(*) n,
+                 round(avg(taxa_rel - taxa_repasse)*100, 2) dif_media_pp,
+                 round(percentile_cont(0.5) WITHIN GROUP (ORDER BY abs(taxa_rel - taxa_repasse))*100, 2) dif_abs_mediana_pp,
+                 round(percentile_cont(0.9) WITHIN GROUP (ORDER BY abs(taxa_rel - taxa_repasse))*100, 2) dif_abs_p90_pp,
+                 round(avg(abs((itens + coalesce(entrega_propria,0)) - valor_bruto) / valor_bruto)*100, 2) dif_bruto_pct,
+                 round(avg(abs(coalesce(offline,0) - recebido_via_loja)),2) dif_recebido_reais
+          FROM c;
+          \echo === amostra por op (16/11) ===
+          WITH p AS (
+            SELECT a.id_operacao, sum(p.valor_itens) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') itens,
+                   sum(p.taxa_entrega_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.tipo_entrega ILIKE '%pr_pria%') ep,
+                   sum(p.valor_liquido) liq, sum(p.total_pago_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.forma_pagamento NOT ILIKE 'Pgto via APP%') off
+            FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
+            WHERE p.data_hora_pedido >= '2026-11-16' AND p.data_hora_pedido < '2026-11-23' GROUP BY 1)
+          SELECT p.id_operacao, round(p.itens + coalesce(p.ep,0),2) bruto_rel, g.valor_bruto, round(coalesce(p.off,0),2) rec_rel, g.recebido_via_loja,
+                 round((p.liq+coalesce(p.off,0))/nullif(p.itens+coalesce(p.ep,0),0),4) taxa_rel, round(g.taxa_repasse,4) taxa_portal
+          FROM p JOIN gold.financeiro_periodo g ON g.id_operacao = p.id_operacao AND g.id_plataforma=1 AND g.periodo_tipo='SEMANAL' AND g.data_inicio='2026-11-16'
+          WHERE g.taxa_repasse IS NOT NULL ORDER BY abs((p.liq+coalesce(p.off,0))/nullif(p.itens+coalesce(p.ep,0),0) - g.taxa_repasse) DESC LIMIT 15;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
