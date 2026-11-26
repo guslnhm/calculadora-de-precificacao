@@ -15,11 +15,27 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === ref mensal ===
-          SELECT id_operacao, data_inicio, valor_bruto, valor_liquido, recebido_via_loja, repassado_plataforma, conversao, novos_clientes, tempo_entrega, tempo_aberto
-          FROM silver.fato_metricas_periodo WHERE id_plataforma=1 AND periodo_tipo='MENSAL' AND id_operacao IN (1,2,3,4) AND data_inicio IN ('2026-09-01','2026-10-01') ORDER BY 1,2;
-          \echo === soma semanal set ===
-          SELECT id_operacao, sum(valor_bruto), sum(valor_liquido), sum(recebido_via_loja) FROM silver.fato_metricas_periodo WHERE id_plataforma=1 AND periodo_tipo='SEMANAL' AND id_operacao IN (1,2) AND data_inicio BETWEEN '2026-09-01' AND '2026-09-28' GROUP BY 1;
+          \echo === max pedidos ===
+          SELECT max(data_hora_pedido) FROM public.pedidos;
+          \echo === tipos ===
+          SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='pedidos' AND column_name IN ('valor_itens','total_pago_cliente','taxa_entrega_cliente','incentivo_prom_ifood','incentivo_prom_loja','taxa_servico','taxas_comissoes','valor_liquido','forma_pagamento','status_final_pedido');
+          \echo === formas pagamento e status ===
+          SELECT status_final_pedido, forma_pagamento, count(*) FROM public.pedidos WHERE data_hora_pedido >= '2026-11-16' AND data_hora_pedido < '2026-11-23' GROUP BY 1,2 ORDER BY 3 DESC LIMIT 25;
+          \echo === relatorio x portal (semanas) ===
+          WITH p AS (
+            SELECT a.id_operacao, date_trunc('week', p.data_hora_pedido)::date sem,
+                   sum(p.valor_itens::numeric) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') itens,
+                   sum(p.valor_liquido::numeric) liq,
+                   sum(p.taxas_comissoes::numeric) taxas,
+                   sum(p.incentivo_prom_loja::numeric) inc_loja,
+                   sum(p.total_pago_cliente::numeric) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') pago,
+                   count(*) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') ped
+            FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
+            WHERE p.data_hora_pedido >= '2026-10-26' AND p.data_hora_pedido < '2026-11-23' AND a.id_operacao IN (1,2,3,4,26,39,124)
+            GROUP BY 1,2)
+          SELECT p.id_operacao, p.sem, p.ped, p.itens, g.valor_bruto, p.liq, g.valor_liquido, g.recebido_via_loja, g.repasse, p.taxas, p.inc_loja, p.pago
+          FROM p LEFT JOIN gold.financeiro_periodo g ON g.id_operacao = p.id_operacao AND g.id_plataforma = 1 AND g.periodo_tipo = 'SEMANAL' AND g.data_inicio = p.sem
+          ORDER BY 1,2;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
