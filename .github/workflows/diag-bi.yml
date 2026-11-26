@@ -15,12 +15,21 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === cobertura por dia ===
-          SELECT data_hora_pedido::date dia, count(*) FILTER (WHERE status_final_pedido<>'CANCELADO') ped, count(*) FILTER (WHERE status_final_pedido<>'CANCELADO' AND valor_liquido IS NULL) sem FROM public.pedidos WHERE data_hora_pedido >= '2026-11-20' GROUP BY 1 ORDER BY 1;
-          \echo === sem liquido 25 por hora ===
-          SELECT extract(hour from data_hora_pedido) h, count(*) FILTER (WHERE status_final_pedido<>'CANCELADO') ped, count(*) FILTER (WHERE status_final_pedido<>'CANCELADO' AND valor_liquido IS NULL) sem FROM public.pedidos WHERE data_hora_pedido >= '2026-11-25' AND data_hora_pedido < '2026-11-26' GROUP BY 1 ORDER BY 1;
-          \echo === sem liquido 25 por pagamento e status ===
-          SELECT coalesce(forma_pagamento,'?') fp, status_final_pedido st, count(*) n, count(*) FILTER (WHERE valor_liquido IS NULL) sem FROM public.pedidos WHERE data_hora_pedido >= '2026-11-25' AND data_hora_pedido < '2026-11-26' GROUP BY 1,2 ORDER BY 3 DESC LIMIT 15;
+          \echo === colunas pedidos ===
+          SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='pedidos';
+          \echo === por dia, 4 maiores lojas ifood 16 a 22/11 ===
+          WITH top AS (SELECT p.id_loja FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
+                       WHERE p.data_hora_pedido >= '2026-11-16' AND p.data_hora_pedido < '2026-11-23' GROUP BY 1 ORDER BY count(*) DESC LIMIT 4)
+          SELECT p.id_loja, max(p.nome_loja) loja, p.data_hora_pedido::date dia, o.id_tipo_entrega te,
+                 count(*) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') ped,
+                 count(*) FILTER (WHERE p.status_final_pedido = 'CANCELADO') canc,
+                 sum(p.valor_itens) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') itens,
+                 sum(p.taxa_entrega_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') taxa,
+                 sum(p.total_pago_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') pago
+          FROM public.pedidos p JOIN top USING (id_loja)
+          JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1 JOIN silver.dim_operacao o ON o.id_operacao = a.id_operacao
+          WHERE p.data_hora_pedido >= '2026-11-16' AND p.data_hora_pedido < '2026-11-23'
+          GROUP BY 1,3,4 ORDER BY 1,3;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
