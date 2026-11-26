@@ -15,19 +15,12 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === max ===
-          SELECT max(data_hora_pedido), count(*) FILTER (WHERE data_hora_pedido >= '2026-11-24') FROM public.pedidos;
-          \echo === diario por op ===
-          SELECT a.id_operacao, p.data_hora_pedido::date dia, count(*) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') ped,
-                 sum(p.valor_itens) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') itens,
-                 sum(p.taxa_entrega_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') entrega,
-                 sum(p.valor_liquido) liq,
-                 sum(p.total_pago_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND ((p.forma_pagamento ILIKE '%Vale Refei%' AND p.forma_pagamento NOT ILIKE '%IFOOD MEAL%') OR p.forma_pagamento ILIKE 'Pgto na Entrega%')) rec,
-                 o.id_tipo_entrega
-          FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
-          JOIN silver.dim_operacao o ON o.id_operacao = a.id_operacao
-          WHERE p.data_hora_pedido >= '2026-11-24' AND p.data_hora_pedido < '2026-11-26' AND a.id_operacao IN (1,3,4,8,39,113,124)
-          GROUP BY 1,2,8 ORDER BY 1,2;
+          \echo === 25/11 liq zerado ===
+          SELECT p.data_hora_pedido::date dia, p.status_final_pedido, count(*), count(*) FILTER (WHERE p.valor_liquido IS NULL) liq_nulo, count(*) FILTER (WHERE p.valor_liquido = 0) liq_zero,
+                 count(*) FILTER (WHERE p.taxas_comissoes = 0 OR p.taxas_comissoes IS NULL) sem_taxa
+          FROM public.pedidos p WHERE p.data_hora_pedido >= '2026-11-23' GROUP BY 1,2 ORDER BY 1,2;
+          \echo === op 1 dia 25 por hora ===
+          SELECT extract(hour from data_hora_pedido) h, count(*), sum(valor_itens), sum(valor_liquido), sum(taxas_comissoes) FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja WHERE a.id_operacao = 1 AND p.data_hora_pedido::date = '2026-11-25' GROUP BY 1 ORDER BY 1;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
