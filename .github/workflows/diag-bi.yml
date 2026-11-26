@@ -15,11 +15,34 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === op 8 e 39 por forma de pagamento (16/11) ===
-          SELECT a.id_operacao, p.forma_pagamento, p.status_final_pedido st, count(*), sum(p.valor_itens) itens, sum(p.total_pago_cliente) pago, sum(p.valor_liquido) liq, sum(p.taxas_comissoes) tx, sum(p.incentivo_prom_ifood) inc_if, sum(p.taxa_servico) serv
-          FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
-          WHERE p.data_hora_pedido >= '2026-11-16' AND p.data_hora_pedido < '2026-11-23' AND a.id_operacao IN (8, 39)
-          GROUP BY 1,2,3 ORDER BY 1, 4 DESC;
+          \echo === tipos de entrega ===
+          SELECT tipo_entrega, count(*) FROM public.pedidos WHERE data_hora_pedido >= '2026-11-16' GROUP BY 1;
+          \echo === formula v2 ===
+          CREATE TEMP TABLE c AS
+          WITH p AS (
+            SELECT a.id_operacao, date_trunc('week', p.data_hora_pedido)::date sem,
+                   sum(p.valor_itens) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') itens,
+                   sum(p.taxa_entrega_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.tipo_entrega NOT ILIKE '%parceir%' AND p.tipo_entrega NOT ILIKE '%ifood%' AND p.tipo_entrega NOT ILIKE '%retir%') ep,
+                   sum(p.valor_liquido) liq,
+                   sum(p.total_pago_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND ((p.forma_pagamento ILIKE '%Vale Refei%' AND p.forma_pagamento NOT ILIKE '%IFOOD MEAL%') OR p.forma_pagamento ILIKE 'Pgto na Entrega%')) rec
+            FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
+            WHERE p.data_hora_pedido >= '2026-10-26' AND p.data_hora_pedido < '2026-11-23'
+            GROUP BY 1,2)
+          SELECT p.*, g.valor_bruto, g.valor_liquido, g.recebido_via_loja, g.repassado_plataforma, g.taxa_repasse,
+                 (p.liq + coalesce(p.rec,0)) / nullif(p.itens, 0) taxa_itens,
+                 (p.liq + coalesce(p.rec,0)) / nullif(p.itens + coalesce(p.ep,0), 0) taxa_ep
+          FROM p JOIN gold.financeiro_periodo g ON g.id_operacao = p.id_operacao AND g.id_plataforma = 1 AND g.periodo_tipo = 'SEMANAL' AND g.data_inicio = p.sem
+          WHERE g.taxa_repasse IS NOT NULL AND p.itens > 500;
+          SELECT count(*) n,
+                 round(avg(taxa_itens - taxa_repasse)*100, 2) med_itens_pp, round((percentile_cont(0.5) WITHIN GROUP (ORDER BY abs(taxa_itens - taxa_repasse)))::numeric*100, 2) mediana_abs_itens_pp,
+                 round(avg(taxa_ep - taxa_repasse)*100, 2) med_ep_pp, round((percentile_cont(0.5) WITHIN GROUP (ORDER BY abs(taxa_ep - taxa_repasse)))::numeric*100, 2) mediana_abs_ep_pp,
+                 round((percentile_cont(0.9) WITHIN GROUP (ORDER BY abs(taxa_ep - taxa_repasse)))::numeric*100, 2) p90_abs_ep_pp,
+                 count(*) FILTER (WHERE abs(coalesce(rec,0) - recebido_via_loja) < 1) rec_bate,
+                 count(*) FILTER (WHERE abs(itens + coalesce(ep,0) - valor_bruto) < 1) bruto_bate
+          FROM c;
+          \echo === piores ===
+          SELECT id_operacao, sem, round(itens,2) itens, round(coalesce(ep,0),2) ep, valor_bruto, round(coalesce(rec,0),2) rec, recebido_via_loja, round(liq,2) liq, valor_liquido, round(taxa_ep,4) taxa_rel, round(taxa_repasse,4) taxa_portal
+          FROM c ORDER BY abs(taxa_ep - taxa_repasse) DESC LIMIT 12;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
