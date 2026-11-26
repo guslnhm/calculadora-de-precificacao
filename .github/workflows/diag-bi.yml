@@ -17,9 +17,9 @@ jobs:
           \pset pager off
           \echo === semana 16 a 22/11 por loja ===
           SELECT p.id_loja, count(*) ped,
-                 sum(valor_itens) itens, sum(taxa_entrega_cliente) taxa, sum(taxa_servico) serv,
-                 sum(incentivo_prom_ifood) inc_ifood, sum(incentivo_prom_loja) inc_loja, sum(incentivo_prom_rede) inc_rede,
-                 sum(total_pago_cliente) pago, sum(valor_itens_cancelados) itens_canc
+                 sum(valor_itens) itens, sum(taxa_entrega_cliente) taxa, sum(nullif(replace(taxa_servico::text, ',', '.'),'')::numeric) serv,
+                 sum(nullif(replace(incentivo_prom_ifood::text, ',', '.'),'')::numeric) inc_ifood, sum(nullif(replace(incentivo_prom_loja::text, ',', '.'),'')::numeric) inc_loja, sum(nullif(replace(incentivo_prom_rede::text, ',', '.'),'')::numeric) inc_rede,
+                 sum(total_pago_cliente) pago, sum(nullif(replace(valor_itens_cancelados::text, ',', '.'),'')::numeric) itens_canc
           FROM public.pedidos p
           WHERE p.id_loja IN ('1109497','1945022','269080','702315') AND p.status_final_pedido <> 'CANCELADO'
             AND p.data_hora_pedido >= '2026-11-16' AND p.data_hora_pedido < '2026-11-23'
