@@ -68,7 +68,7 @@ public class CardapioTest {
 
         MonitorProperties mcfg = new MonitorProperties(true, true, 30, 2, List.of("ERROR"), true, 30, true, List.of(),
                 4, 60, 10, "08:00");
-        ItensProperties icfg = new ItensProperties(true, 10, true, true, true, 2, List.of("Promoções da casa"), "10:00");
+        ItensProperties icfg = new ItensProperties(true, 10, true, true, true, 2, List.of("Promoções da casa"), "10:00", true);
         IfoodProperties ifp = new IfoodProperties("", "", "http://x", "America/Sao_Paulo", 5, 4);
         monitor = new MonitorItensService(icfg, mcfg, new LeitorCardapio(ifood, relogio), repo, monitorRepo, grupos,
                 new EnvioWhatsapp(mcfg, wpp, monitorRepo, relogio), relogio, ifp);
@@ -100,6 +100,22 @@ public class CardapioTest {
     }
 
     // ------------------------------------------------------------------ monitor de itens
+
+    @Test
+    void avisoNaHoraDesligadoSoRegistraAPausa() {
+        MonitorProperties mcfg = new MonitorProperties(true, true, 30, 2, List.of("ERROR"), true, 30, true, List.of(),
+                4, 60, 10, "08:00");
+        IfoodProperties ifp = new IfoodProperties("", "", "http://x", "America/Sao_Paulo", 5, 4);
+        MonitorItensService semAviso = new MonitorItensService(new ItensProperties(true, 10, true, true, true, 2, List.of(), "10:00", false),
+                mcfg, new LeitorCardapio(ifood, relogio), repo, monitorRepo, grupos,
+                new EnvioWhatsapp(mcfg, wpp, monitorRepo, relogio), relogio, ifp);
+        semAviso.ciclo();
+        relogio.passar(Duration.ofMinutes(10));
+        ifood.statusItem("i-xbacon", "UNAVAILABLE");
+        assertThat(semAviso.ciclo()).isNotEmpty(); // a pausa foi detectada…
+        assertThat(wpp.enviadas).isEmpty();        // …mas ninguém recebe mensagem na hora
+        assertThat(repo.pausadosAgora()).extracting(p -> p.get("nome")).contains("X-Bacon");
+    }
 
     @Test
     void primeiraLeituraNaoAvisaEPausaDepoisAvisa() {

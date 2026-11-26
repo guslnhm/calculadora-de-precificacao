@@ -42,18 +42,45 @@ import java.util.stream.Collectors;
  *  - nenhuma loja que costuma vender nesse dia está zerada.
  * Se isso não acontecer até o meio-dia, sai mesmo assim. Depois do envio, se os números do iFood mudarem
  * (até 14h30), reenvia "(atualizado)" uma vez, só para os grupos das lojas que mudaram.
+ *
+ * Só entram na mensagem as lojas com algo relevante no dia: recorde de pedidos ou de faturamento (contra o
+ * histórico do Painel, com pelo menos 28 dias de vendas), cancelamentos bem acima do normal da loja, ou loja
+ * fechada 1h ou mais no horário de funcionamento. Grupo sem nenhuma loja assim não recebe nada.
  */
 @Service
 public class ResumoDiarioService {
 
     static final int MAX_LOJAS = 30;
+    /** Dias com venda no histórico para valer recorde. */
+    static final int MIN_DIAS_RECORDE = 28;
+    /** Janela da média de cancelamentos. */
+    static final int DIAS_MEDIA_CANCELADOS = 28;
+    /** Cancelamentos: pelo menos N no dia e X vezes a média da loja. */
+    static final int MIN_CANCELADOS = 5;
+    static final double VEZES_MEDIA_CANCELADOS = 3.0;
+    /** Loja fechada no horário de funcionamento por pelo menos isso. */
+    static final long MIN_MINUTOS_FECHADA = 60;
+    static final int DIAS_HISTORICO = 180;
     static final LocalTime LIMITE_ESPERA = LocalTime.of(12, 0);
     static final LocalTime LIMITE_CORRECAO = LocalTime.of(14, 30);
     private static final Locale BR = new Locale("pt", "BR");
 
     /** Números de uma loja no dia. pedidos == null: sem dados do Analytics. */
     public record Loja(String nome, Integer pedidos, BigDecimal faturamento, Integer cancelados,
-                       int fechamentos, long minutosFechada, BigDecimal perda) {
+                       int fechamentos, long minutosFechada, BigDecimal perda, List<String> destaques) {
+        public Loja(String nome, Integer pedidos, BigDecimal faturamento, Integer cancelados,
+                    int fechamentos, long minutosFechada, BigDecimal perda) {
+            this(nome, pedidos, faturamento, cancelados, fechamentos, minutosFechada, perda, List.of());
+        }
+
+        public boolean relevante() {
+            return !destaques.isEmpty();
+        }
+    }
+
+    /** O que a loja já fez antes do dia: maiores marcas e média de cancelamentos. */
+    public record Historico(int diasComVenda, int maxPedidos, LocalDate diaMaxPedidos, BigDecimal maxFaturamento,
+                            LocalDate diaMaxFaturamento, double mediaCancelados) {
     }
 
     private final PainelRepository repo;
@@ -212,12 +239,20 @@ public class ResumoDiarioService {
             }
             List<Loja> doGrupo = ids.stream().map(lojas::get).toList();
             String texto = mensagem(d, doGrupo);
+            if (texto == null) {
+                continue;   // nada relevante nas lojas do grupo
+            }
             if (atualizado) {
                 texto = texto.replaceFirst("\\*\n", " (atualizado)*\n");
                 texto = texto.replaceFirst("^(📊 \\*Resumo iFood — [^*]+)\\*$", "$1 (atualizado)*");
             }
             envio.enviar("resumo", g, texto);
             enviados.put(g.nome(), texto);
+        }
+        if (enviados.isEmpty() && !atualizado) {
+            // registra que o resumo de hoje já foi avaliado, para não tentar de novo a cada ciclo
+            monitorRepo.registrarEnvio("resumo", null, null, List.of(), "(nada relevante no resumo de " + d + ")",
+                    "SOMBRA", null, agora);
         }
         return enviados;
     }
@@ -243,6 +278,7 @@ public class ResumoDiarioService {
             }
         }
         Map<String, Map<ChaveHora, BigDecimal>> curvas = repo.curvas();
+        Map<String, Historico> hist = historicos(repo.dias(null, d.minusDays(DIAS_HISTORICO), d.minusDays(1)), d);
         Map<String, Loja> out = new LinkedHashMap<>();
         for (String m : repo.lojasAtivas()) {
             LinhaDia l = dias.get(m);
@@ -253,41 +289,103 @@ public class ResumoDiarioService {
                 min += Duration.between(i.inicio(), i.fim()).toMinutes();
                 perda = perda.add(Perdas.estimar(curvas.get(m), i.inicio(), i.fim(), zona).valor());
             }
-            out.put(m, new Loja(nomes.getOrDefault(m, m), l == null ? null : l.pedidos(), l == null ? null : l.gmv(),
-                    l == null ? null : l.cancelados(), lista.size(), min, perda));
+            Loja loja = new Loja(nomes.getOrDefault(m, m), l == null ? null : l.pedidos(), l == null ? null : l.gmv(),
+                    l == null ? null : l.cancelados(), lista.size(), min, perda);
+            out.put(m, comDestaques(loja, hist.get(m)));
         }
         return out;
     }
 
+    static Map<String, Historico> historicos(List<LinhaDia> linhas, LocalDate d) {
+        Map<String, List<LinhaDia>> porLoja = new HashMap<>();
+        for (LinhaDia l : linhas) {
+            if (l.dia().isBefore(d)) {
+                porLoja.computeIfAbsent(l.merchantId(), k -> new ArrayList<>()).add(l);
+            }
+        }
+        Map<String, Historico> out = new HashMap<>();
+        LocalDate inicioMedia = d.minusDays(DIAS_MEDIA_CANCELADOS);
+        porLoja.forEach((m, dias) -> {
+            int comVenda = 0;
+            int maxPed = 0;
+            LocalDate diaPed = null;
+            BigDecimal maxFat = BigDecimal.ZERO;
+            LocalDate diaFat = null;
+            int canc = 0;
+            int diasMedia = 0;
+            for (LinhaDia l : dias) {
+                if (l.pedidos() <= 0) {
+                    continue;
+                }
+                comVenda++;
+                if (l.pedidos() > maxPed) {
+                    maxPed = l.pedidos();
+                    diaPed = l.dia();
+                }
+                if (l.gmv() != null && l.gmv().compareTo(maxFat) > 0) {
+                    maxFat = l.gmv();
+                    diaFat = l.dia();
+                }
+                if (!l.dia().isBefore(inicioMedia)) {
+                    canc += l.cancelados();
+                    diasMedia++;
+                }
+            }
+            out.put(m, new Historico(comVenda, maxPed, diaPed, maxFat, diaFat, diasMedia == 0 ? 0 : (double) canc / diasMedia));
+        });
+        return out;
+    }
+
+    /** Marca o que foi relevante no dia (recordes, cancelamentos fora do normal, loja fechada muito tempo). */
+    static Loja comDestaques(Loja l, Historico h) {
+        List<String> d = new ArrayList<>();
+        DateTimeFormatter f = DateTimeFormatter.ofPattern("dd/MM");
+        if (l.pedidos() != null && h != null && h.diasComVenda() >= MIN_DIAS_RECORDE) {
+            if (l.faturamento() != null && h.diaMaxFaturamento() != null && l.faturamento().compareTo(h.maxFaturamento()) > 0) {
+                d.add("🏆 *Recorde de faturamento!* (antes " + reais(h.maxFaturamento()) + ", em " + h.diaMaxFaturamento().format(f) + ")");
+            }
+            if (h.diaMaxPedidos() != null && l.pedidos() > h.maxPedidos()) {
+                d.add("🏆 *Recorde de pedidos!* (antes " + inteiro(h.maxPedidos()) + ", em " + h.diaMaxPedidos().format(f) + ")");
+            }
+        }
+        int c = l.cancelados() == null ? 0 : l.cancelados();
+        double media = h == null ? 0 : h.mediaCancelados();
+        if (l.pedidos() != null && c >= MIN_CANCELADOS && c >= VEZES_MEDIA_CANCELADOS * media) {
+            String normal = media < 0.5 ? "quase nunca tem cancelamento"
+                    : "costuma ter " + String.format(BR, media < 10 ? "%.1f" : "%.0f", media).replace(",0", "") + " por dia";
+            d.add("🚨 *Cancelamentos acima do normal:* " + c + " (a loja " + normal + ")");
+        }
+        if (l.minutosFechada() >= MIN_MINUTOS_FECHADA) {
+            d.add("⏰ *Loja ficou fechada " + com.precificacao.precificacao.monitor.Mensagens.duracao(Duration.ofMinutes(l.minutosFechada()))
+                    + "* no horário de funcionamento");
+        }
+        return new Loja(l.nome(), l.pedidos(), l.faturamento(), l.cancelados(), l.fechamentos(), l.minutosFechada(), l.perda(), d);
+    }
+
     /**
+     * Só as lojas com destaque; null se nenhuma.
      * <pre>
      * 📊 *Resumo iFood — segunda, 17/11*
-     * 3 lojas · 412 pedidos · R$ 26.310 · 5 cancelados
      *
      * *Vo no Box - Asa Norte*
+     * 🏆 *Recorde de faturamento!* (antes R$ 9.400, em 02/11)
+     * ⏰ *Loja ficou fechada 1h20* no horário de funcionamento
      * 🧾 152 pedidos · R$ 9.870 · ticket R$ 64,93
      * ❌ 3 cancelados (1,9%)
      * ⏸️ 2 fechamentos · 1h20 · ≈ R$ 640 em vendas
+     *
+     * _As outras 2 lojas do grupo tiveram um dia sem nada fora do normal._
      * </pre>
      */
-    static String mensagem(LocalDate d, List<Loja> lojas) {
+    static String mensagem(LocalDate d, List<Loja> todas) {
+        List<Loja> lojas = todas.stream().filter(Loja::relevante).toList();
+        if (lojas.isEmpty()) {
+            return null;
+        }
         String dia = d.getDayOfWeek().getDisplayName(TextStyle.FULL, BR).replace("-feira", "") + ", "
                 + d.format(DateTimeFormatter.ofPattern("dd/MM"));
         List<String> blocos = new ArrayList<>();
         StringBuilder topo = new StringBuilder("📊 *Resumo iFood — ").append(dia).append("*");
-        if (lojas.size() > 1) {
-            int ped = lojas.stream().mapToInt(l -> l.pedidos() == null ? 0 : l.pedidos()).sum();
-            int canc = lojas.stream().mapToInt(l -> l.cancelados() == null ? 0 : l.cancelados()).sum();
-            BigDecimal fat = lojas.stream().map(l -> l.faturamento() == null ? BigDecimal.ZERO : l.faturamento())
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            long comFechamento = lojas.stream().filter(l -> l.fechamentos() > 0).count();
-            topo.append("\n").append(lojas.size()).append(" lojas · ").append(inteiro(ped)).append(" pedidos · ")
-                    .append(reais(fat)).append(" · ").append(canc).append(canc == 1 ? " cancelado" : " cancelados");
-            if (comFechamento > 0) {
-                topo.append("\n⏸️ ").append(comFechamento).append(comFechamento == 1 ? " loja teve" : " lojas tiveram")
-                        .append(" fechamento");
-            }
-        }
         blocos.add(topo.toString());
         List<Loja> ordem = new ArrayList<>(lojas);
         ordem.sort(Comparator.comparing((Loja l) -> l.faturamento() == null ? BigDecimal.ZERO : l.faturamento()).reversed()
@@ -298,12 +396,18 @@ public class ResumoDiarioService {
         if (ordem.size() > MAX_LOJAS) {
             blocos.add("… e mais " + (ordem.size() - MAX_LOJAS) + " loja(s) no Painel da calculadora.");
         }
+        int normais = todas.size() - lojas.size();
+        if (normais > 0) {
+            blocos.add("_" + (normais == 1 ? "A outra loja do grupo teve um dia sem nada fora do normal."
+                    : "As outras " + normais + " lojas do grupo tiveram um dia sem nada fora do normal.") + "_");
+        }
         return String.join("\n\n", blocos);
     }
 
     static String bloco(Loja l) {
         List<String> linhas = new ArrayList<>();
         linhas.add("*" + l.nome() + "*");
+        linhas.addAll(l.destaques());
         if (l.pedidos() != null) {   // sem dados de vendas (loja sem acesso ao app de BI): mostra só os fechamentos
             String ticket = l.pedidos() > 0 && l.faturamento() != null
                     ? " · ticket " + reaisCentavos(l.faturamento().divide(BigDecimal.valueOf(l.pedidos()), 2, RoundingMode.HALF_UP))

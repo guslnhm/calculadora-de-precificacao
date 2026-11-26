@@ -157,13 +157,46 @@ class PainelCalculosTest {
     }
 
     @Test
-    void resumoDoDiaAnterior() {
-        var a = new ResumoDiarioService.Loja("Vo no Box - Asa Norte", 152, new BigDecimal("9870.00"), 3, 2, 80, new BigDecimal("640.40"));
-        var b = new ResumoDiarioService.Loja("Qg - Asa Norte", null, null, null, 0, 0, BigDecimal.ZERO);
-        String t = ResumoDiarioService.mensagem(LocalDate.parse("2026-11-16"), List.of(b, a));
-        assertThat(t).startsWith("📊 *Resumo iFood — segunda, 16/11*\n2 lojas · 152 pedidos · R$ 9.870 · 3 cancelados\n⏸️ 1 loja teve fechamento");
-        assertThat(t).contains("*Vo no Box - Asa Norte*\n🧾 152 pedidos · R$ 9.870 · ticket R$ 64,93\n❌ 3 cancelados (1,9%)\n⏸️ 2 fechamentos · 1h20 · ≈ R$ 640 em vendas");
-        assertThat(t).endsWith("*Qg - Asa Norte*\n✅ sem fechamentos");
+    void resumoDoDiaAnteriorSoComOQueFoiRelevante() {
+        LocalDate d = LocalDate.parse("2026-11-16");
+        // 30 dias de histórico: até 140 pedidos / R$ 9.400 por dia, cerca de 1 cancelamento por dia
+        List<PainelRepository.LinhaDia> linhas = new java.util.ArrayList<>();
+        for (int i = 1; i <= 30; i++) {
+            for (String m : List.of("a", "b", "c")) {
+                int ped = i == 14 ? 140 : 100;
+                BigDecimal fat = new BigDecimal(i == 14 ? "9400.00" : "6000.00");
+                linhas.add(new PainelRepository.LinhaDia(m, d.minusDays(i), ped, 1, fat, null, null, null, null, null, null));
+            }
+        }
+        var hist = ResumoDiarioService.historicos(linhas, d);
+        assertThat(hist.get("a").diasComVenda()).isEqualTo(30);
+        assertThat(hist.get("a").mediaCancelados()).isEqualTo(1.0);
+
+        // a: recorde de faturamento e fechada 1h20; b: 15 cancelamentos; c: dia normal (fechada só 20 min)
+        var a = ResumoDiarioService.comDestaques(new ResumoDiarioService.Loja("Vo no Box - Asa Norte", 152,
+                new BigDecimal("9870.00"), 3, 2, 80, new BigDecimal("640.40")), hist.get("a"));
+        var b = ResumoDiarioService.comDestaques(new ResumoDiarioService.Loja("Qg - Asa Norte", 90,
+                new BigDecimal("5000.00"), 15, 0, 0, BigDecimal.ZERO), hist.get("b"));
+        var c = ResumoDiarioService.comDestaques(new ResumoDiarioService.Loja("Calmo", 100,
+                new BigDecimal("6000.00"), 1, 1, 20, BigDecimal.ZERO), hist.get("c"));
+        assertThat(c.relevante()).isFalse();
+
+        String t = ResumoDiarioService.mensagem(d, List.of(c, b, a));
+        assertThat(t).startsWith("📊 *Resumo iFood — segunda, 16/11*\n\n*Vo no Box - Asa Norte*\n"
+                + "🏆 *Recorde de faturamento!* (antes R$ 9.400, em 02/11)\n"
+                + "🏆 *Recorde de pedidos!* (antes 140, em 02/11)\n"
+                + "⏰ *Loja ficou fechada 1h20* no horário de funcionamento\n"
+                + "🧾 152 pedidos · R$ 9.870 · ticket R$ 64,93");
+        assertThat(t).contains("*Qg - Asa Norte*\n🚨 *Cancelamentos acima do normal:* 15 (a loja costuma ter 1 por dia)");
+        assertThat(t).doesNotContain("Calmo");
+        assertThat(t).endsWith("_A outra loja do grupo teve um dia sem nada fora do normal._");
+
+        // só dia normal: não sai mensagem
+        assertThat(ResumoDiarioService.mensagem(d, List.of(c))).isNull();
+        // sem histórico suficiente não tem recorde
+        var nova = ResumoDiarioService.comDestaques(new ResumoDiarioService.Loja("Nova", 50, new BigDecimal("3000"), 0, 0, 0,
+                BigDecimal.ZERO), new ResumoDiarioService.Historico(10, 40, d.minusDays(3), new BigDecimal("2000"), d.minusDays(3), 0));
+        assertThat(nova.relevante()).isFalse();
     }
 
     static PainelRepository.PeriodoBi bi(String bruto, String liquido, String recebido, String repassado, String repasse) {
