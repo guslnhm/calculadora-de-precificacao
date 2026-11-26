@@ -6,6 +6,7 @@ import Coleta from "../components/painel/Coleta";
 import Lancamentos from "../components/painel/Lancamentos";
 import LancamentosBase from "../components/painel/LancamentosBase";
 import ConsultaBase from "../components/painel/ConsultaBase";
+import Food99 from "../components/painel/Food99";
 import { baseApi } from "../services/api";
 import { campo, cor, moverPeriodo, rotuloPeriodo } from "../components/painel/fmt";
 
@@ -15,6 +16,7 @@ const ABAS = [
   { id: "lancamentos", rotulo: "Valores do Portal" },
   { id: "coleta", rotulo: "Dados e coleta" },
   { id: "sql", rotulo: "Consultas SQL", precisaBase: true },
+  { id: "99food", rotulo: "99Food" },
 ];
 
 const ABAS_MENTORADO = ["carteira", "loja"];
@@ -108,7 +110,7 @@ export default function PainelPage({ mentorado = false }) {
             {mentorado ? "Resultados da sua operação no iFood · atualizado todo dia com os números de ontem" : "Resultados das lojas · iFood (Analytics, D-1) + histórico do BI"}
           </div>
         </div>
-        {aba !== "coleta" && aba !== "sql" && (
+        {aba !== "coleta" && aba !== "sql" && aba !== "99food" && (
           <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ display: "flex", border: `1px solid ${cor.bordaCampo}`, borderRadius: 8, overflow: "hidden" }}>
               {["SEMANAL", "MENSAL"].map((t) => (
@@ -158,6 +160,7 @@ export default function PainelPage({ mentorado = false }) {
       {aba === "lancamentos" && !mentorado && !baseConfigurada && <Lancamentos dados={carteira} onSalvo={carregarCarteira} />}
       {aba === "coleta" && !mentorado && <Coleta />}
       {aba === "sql" && !mentorado && baseConfigurada && <ConsultaBase />}
+      {aba === "99food" && !mentorado && <Food99 />}
     </div>
   );
 }
