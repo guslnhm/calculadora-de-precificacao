@@ -26,7 +26,6 @@ import java.util.Map;
  */
 public final class MensagensItens {
 
-    static final int MAX_NOMES = 10;
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
     static final Map<String, String> CONTEXTOS = Map.of("DEFAULT", "Delivery", "INDOOR", "Salão",
             "WHITELABEL", "Cardápio digital");
@@ -80,8 +79,6 @@ public final class MensagensItens {
         return String.join(Mensagens.SEPARADOR, blocos);
     }
 
-    static final int MAX_NOMES_RESUMO = 15;
-
     /**
      * Resumo do início do dia: o que está pausado agora em cada loja do grupo.
      * <pre>
@@ -101,10 +98,7 @@ public final class MensagensItens {
             List<String> nomes = new ArrayList<>(new LinkedHashSet<>(e.getValue().stream()
                     .map(p -> nomeCurto(p) + contexto(p.contexto()) + desde(p.inicio(), hoje, zona)).toList()));
             l.add("⚠️ *" + e.getKey() + "* · " + nomes.size() + (nomes.size() == 1 ? " pausado" : " pausados"));
-            nomes.stream().limit(MAX_NOMES_RESUMO).forEach(n -> l.add("• " + n));
-            if (nomes.size() > MAX_NOMES_RESUMO) {
-                l.add("• … e mais " + (nomes.size() - MAX_NOMES_RESUMO));
-            }
+            nomes.forEach(n -> l.add("• " + n));
             blocos.add(String.join("\n", l));
         });
         return String.join(Mensagens.SEPARADOR, blocos);
@@ -128,10 +122,7 @@ public final class MensagensItens {
             return;
         }
         l.add(emoji + "*" + unicos.size() + " " + variosTitulo + "*" + desde + ":");
-        unicos.stream().limit(MAX_NOMES).forEach(n -> l.add("• " + n));
-        if (unicos.size() > MAX_NOMES) {
-            l.add("• … e mais " + (unicos.size() - MAX_NOMES));
-        }
+        unicos.forEach(n -> l.add("• " + n));
     }
 
     static String nomeCurto(Pausa p) {
