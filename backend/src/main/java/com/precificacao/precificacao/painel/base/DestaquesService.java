@@ -24,14 +24,14 @@ import java.util.Map;
 /**
  * Destaques do dia anterior (custo do iFood acima do limite e recordes) para o(s) grupo(s) admin.
  * Sai uma vez por dia, a partir do horário do resumo diário, assim que o relatório de pedidos de ontem estiver na
- * base (pelo menos metade dos pedidos do mesmo dia da semana anterior). Se ao meio-dia o relatório ainda não
+ * base (pelo menos metade dos pedidos do mesmo dia da semana anterior). Se às 15h o relatório ainda não
  * chegou, avisa uma vez o grupo admin.
  */
 @Service
 public class DestaquesService {
 
     private static final Logger log = LoggerFactory.getLogger(DestaquesService.class);
-    static final LocalTime LEMBRETE = LocalTime.of(12, 0);
+    static final LocalTime LEMBRETE = LocalTime.of(15, 0);
     static final Duration INTERVALO_CHECAGEM = Duration.ofMinutes(5);
 
     private final BaseHistoricaService base;
