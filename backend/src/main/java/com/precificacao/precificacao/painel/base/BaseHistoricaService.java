@@ -843,6 +843,20 @@ public class BaseHistoricaService {
         }
     }
 
+    /** Consulta qualquer na base histórica (conexão aberta e fechada aqui). */
+    @FunctionalInterface
+    public interface NaBase<T> {
+        T executar(Connection c) throws SQLException;
+    }
+
+    public <T> T naBase(NaBase<T> f) {
+        try (Connection c = conectar(jdbcBase())) {
+            return f.executar(c);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Falha na base histórica: " + e.getMessage(), e);
+        }
+    }
+
     private BiImportService.Jdbc jdbcBase() {
         if (!configurada()) {
             throw new IllegalStateException("BI_DATABASE_URL não configurada");
