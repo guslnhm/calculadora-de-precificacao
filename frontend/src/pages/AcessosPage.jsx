@@ -4,6 +4,7 @@ import { cor } from "../components/painel/fmt";
 import AbaAdesao from "../components/acesso/AbaAdesao";
 import AbaConvites from "../components/acesso/AbaConvites";
 import AbaUsuarios from "../components/acesso/AbaUsuarios";
+import AbaExterno from "../components/acesso/AbaExterno";
 
 // Acessos ao site: convites para mentorados, usuários e adesão.
 
@@ -11,6 +12,7 @@ const ABAS = [
   { id: "adesao", rotulo: "Adesão" },
   { id: "convites", rotulo: "Convites" },
   { id: "usuarios", rotulo: "Usuários" },
+  { id: "externo", rotulo: "Acesso externo (BI)" },
 ];
 
 export default function AcessosPage() {
@@ -61,6 +63,7 @@ export default function AcessosPage() {
         {aba === "adesao" && <AbaAdesao adesao={adesao} usuarios={usuarios} />}
         {aba === "convites" && <AbaConvites lojas={lojas} convites={convites} onMudou={carregar} />}
         {aba === "usuarios" && <AbaUsuarios usuarios={usuarios} lojas={lojas} onMudou={carregar} />}
+        {aba === "externo" && <AbaExterno />}
       </div>
     </div>
   );

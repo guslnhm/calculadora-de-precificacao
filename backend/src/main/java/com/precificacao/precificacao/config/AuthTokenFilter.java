@@ -14,7 +14,8 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- * Exige login em tudo, menos no login e nas páginas públicas de convite/nova senha.
+ * Exige login em tudo, menos no login, nas páginas públicas de convite/nova senha e em /externo (que confere
+ * a chave do acesso de fora no próprio controller).
  * Mentorado só passa nas rotas do painel de leitura e só para as lojas dele: o resto devolve 403.
  */
 @Component
@@ -34,6 +35,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 || path.equals("/auth/login")
                 || path.startsWith("/convites/")
                 || path.startsWith("/senha/")
+                || path.startsWith("/externo/")   // acesso de fora: tem chave própria (ExternoController)
                 || path.equals("/")
                 || path.equals("/error");
     }
