@@ -17,12 +17,15 @@ public class MonitorScheduler {
     private final MonitorService monitor;
     private final MonitorProperties cfg;
     private final com.precificacao.precificacao.painel.ResumoDiarioService resumo;
+    private final com.precificacao.precificacao.painel.base.DestaquesService destaques;
 
     public MonitorScheduler(MonitorService monitor, MonitorProperties cfg,
-                            com.precificacao.precificacao.painel.ResumoDiarioService resumo) {
+                            com.precificacao.precificacao.painel.ResumoDiarioService resumo,
+                            com.precificacao.precificacao.painel.base.DestaquesService destaques) {
         this.monitor = monitor;
         this.cfg = cfg;
         this.resumo = resumo;
+        this.destaques = destaques;
     }
 
     @Scheduled(initialDelayString = "PT20S", fixedDelayString = "#{${monitor.intervalo-segundos:30} * 1000}")
@@ -37,6 +40,11 @@ public class MonitorScheduler {
                 resumo.enviar(null);
             } else if (resumo.correcaoPendente()) {
                 resumo.enviarCorrecao();
+            }
+            try {
+                destaques.ciclo();
+            } catch (RuntimeException e) {
+                log.warn("Destaques do dia: {}", e.getMessage());
             }
         } catch (RuntimeException e) {
             log.error("Erro inesperado no ciclo do monitor", e);

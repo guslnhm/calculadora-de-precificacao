@@ -5,6 +5,7 @@ import com.precificacao.precificacao.painel.PainelRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import com.precificacao.precificacao.painel.base.BaseHistoricaService;
 import com.precificacao.precificacao.painel.base.ConsultaBase;
+import com.precificacao.precificacao.painel.base.DestaquesService;
 import com.precificacao.precificacao.painel.base.ValoresPortalCsv;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -32,10 +33,12 @@ public class BaseHistoricaController {
 
     private final BaseHistoricaService base;
     private final PainelRepository painel;
+    private final DestaquesService destaques;
 
-    public BaseHistoricaController(BaseHistoricaService base, PainelRepository painel) {
+    public BaseHistoricaController(BaseHistoricaService base, PainelRepository painel, DestaquesService destaques) {
         this.base = base;
         this.painel = painel;
+        this.destaques = destaques;
     }
 
     @GetMapping("/status")
@@ -105,6 +108,20 @@ public class BaseHistoricaController {
             }
         }
         return Map.of("linhas", n);
+    }
+
+    /** Prévia dos destaques do dia (padrão: ontem): custo do iFood acima de 35% e recordes. */
+    @GetMapping("/destaques")
+    public Map<String, Object> destaques(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dia) {
+        LocalDate d = dia != null ? dia : LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).minusDays(1);
+        return Map.of("dia", d, "texto", destaques.texto(d));
+    }
+
+    /** Envia agora os destaques do dia ao(s) grupo(s) admin. */
+    @PostMapping("/destaques/enviar")
+    public Map<String, String> enviarDestaques(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dia) {
+        LocalDate d = dia != null ? dia : LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).minusDays(1);
+        return destaques.enviar(d);
     }
 
     public record PedidoReprocessar(LocalDate de, LocalDate ate) {

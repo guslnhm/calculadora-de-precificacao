@@ -9,9 +9,11 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -344,5 +346,90 @@ class BaseHistoricaTest {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> BaseHistoricaService.importarValoresPortal(c,
                         ValoresPortalCsv.ler("id_operacao;inicio;conversao\n7;16/11/2026;27,48".getBytes(StandardCharsets.UTF_8))))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("de 0 a 1");
+    }
+
+    void pedido(String id, String quando, String status, String itens, String liq, String forma, String pago)
+            throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement("""
+                INSERT INTO public.pedidos (id_completo_pedido, nome_loja, id_loja, data_hora_pedido, status_final_pedido,
+                    valor_itens, valor_liquido, forma_pagamento, total_pago_cliente, taxa_entrega_cliente)
+                VALUES (?, 'Loja A', '111', ?::timestamp, ?, ?::numeric, ?::numeric, ?, ?::numeric, 5)""")) {
+            ps.setString(1, id);
+            ps.setString(2, quando);
+            ps.setString(3, status);
+            ps.setString(4, itens);
+            ps.setString(5, liq);
+            ps.setString(6, forma);
+            ps.setString(7, pago);
+            ps.executeUpdate();
+        }
+    }
+
+    @Test
+    void custoDoIfoodNoDiaSoComPedidosJaFechados() throws SQLException {
+        try (Statement st = c.createStatement()) {
+            st.execute("INSERT INTO silver.dim_operacao (id_operacao, id_loja, nome_operacao, id_tipo_entrega) VALUES (7, 1, 'Centro', 2)");
+        }
+        pedido("a", "2026-11-25 12:00", "CONCLUIDO", "100", "60", "Pgto via APP - PIX", "95");
+        pedido("b", "2026-11-25 13:00", "CONCLUIDO", "50", "-10", "Pgto via APP - Vale Refeição (VR)", "52");
+        pedido("c", "2026-11-25 23:50", "CONCLUIDO", "40", null, "Pgto via APP - PIX", "40");   // ainda sem valor
+        pedido("d", "2026-11-25 14:00", "CANCELADO", "30", "0", "Pgto via APP - PIX", "30");
+        pedido("e", "2026-11-24 14:00", "CONCLUIDO", "99", "50", "Pgto via APP - PIX", "99");   // outro dia
+        assertThat(Destaques.pedidosDoDia(c, java.time.LocalDate.of(2026, 11, 25))).isEqualTo(4);
+        var custos = Destaques.custos(c, java.time.LocalDate.of(2026, 11, 25));
+        assertThat(custos).hasSize(1);
+        var x = custos.get(0);
+        assertThat(x.loja()).isEqualTo("Marca A - Centro");
+        assertThat(x.pedidos()).isEqualTo(3);
+        assertThat(x.comValor()).isEqualTo(2);
+        assertThat(x.bruto()).isEqualByComparingTo("150");                 // entrega parceira: sem taxa de entrega
+        assertThat(x.repasse()).isEqualByComparingTo("102");               // 60 + (−10 + 52 do vale)
+        assertThat(x.taxa()).isEqualByComparingTo("0.68");
+        assertThat(x.custo()).isEqualByComparingTo("0.32");
+
+        // entrega própria: a taxa de entrega entra no bruto
+        try (Statement st = c.createStatement()) {
+            st.execute("UPDATE silver.dim_operacao SET id_tipo_entrega = 1 WHERE id_operacao = 7");
+        }
+        assertThat(Destaques.custos(c, java.time.LocalDate.of(2026, 11, 25)).get(0).bruto()).isEqualByComparingTo("160");
+    }
+
+    @Test
+    void recordesHistoricoEDesdeAAlteracaoDeCardapio() throws SQLException {
+        java.time.LocalDate dia = java.time.LocalDate.of(2026, 12, 20);
+        try (Statement st = c.createStatement()) {
+            st.execute("INSERT INTO silver.dim_operacao (id_operacao, id_loja, nome_operacao, id_tipo_entrega) VALUES (7, 1, 'Centro', 2)");
+            // 70 dias antes: R$ 200/dia até a alteração (01/12), depois R$ 100/dia
+            for (int i = 70; i >= 1; i--) {
+                java.time.LocalDate d = dia.minusDays(i);
+                String fat = d.isBefore(java.time.LocalDate.of(2026, 12, 1)) ? "200" : "100";
+                st.execute("INSERT INTO silver.fato_pedido (id_pedido, id_operacao, id_plataforma, id_data, data_hora_pedido, valor_itens, status_final_pedido) "
+                        + "VALUES ('h" + i + "', 7, 1, " + d.toString().replace("-", "") + ", '" + d + " 20:00', " + fat + ", 'CONCLUIDO')");
+            }
+            st.execute("INSERT INTO gold.financeiro_periodo (id_operacao, id_plataforma, periodo_tipo, data_inicio, data_fim, alteracao_cardapio) "
+                    + "VALUES (7, 1, 'SEMANAL', '2026-12-01', '2026-12-07', true)");
+            st.execute("INSERT INTO silver.fato_pedido (id_pedido, id_operacao, id_plataforma, id_data, data_hora_pedido, valor_itens, status_final_pedido) "
+                    + "VALUES ('d1', 7, 1, 20261220, '2026-12-20 20:00', 150, 'CONCLUIDO')");
+        }
+        var rs = Destaques.recordes(c, dia);
+        assertThat(rs).hasSize(1);
+        assertThat(rs.get(0).metrica()).isEqualTo("FATURAMENTO");
+        assertThat(rs.get(0).historico()).isFalse();
+        assertThat(rs.get(0).alteracao()).isEqualTo(java.time.LocalDate.of(2026, 12, 1));
+        assertThat(rs.get(0).anterior()).isEqualByComparingTo("100");
+
+        // dia acima de tudo: recorde histórico (e o "desde a alteração" não se repete)
+        try (Statement st = c.createStatement()) {
+            st.execute("UPDATE silver.fato_pedido SET valor_itens = 250 WHERE id_pedido = 'd1'");
+        }
+        rs = Destaques.recordes(c, dia);
+        assertThat(rs).hasSize(1);
+        assertThat(rs.get(0).historico()).isTrue();
+        String msg = Destaques.mensagem(dia, List.of(new Destaques.Custo(7, "Marca A - Centro", 40, 30,
+                new BigDecimal("1000"), new BigDecimal("600"))), rs, Destaques.LIMITE_CUSTO);
+        assertThat(msg).contains("📈 *Destaques de ontem — domingo, 20/12*")
+                .contains("⚠️ *Custo iFood acima de 35%* · 1 loja")
+                .contains("• Marca A - Centro: *40,0%* (40 pedidos, 75% com valor fechado)")
+                .contains("🥇 recorde histórico de faturamento: R$ 250 (antes R$ 200,");
     }
 }
