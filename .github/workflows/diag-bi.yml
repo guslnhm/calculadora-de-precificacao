@@ -15,34 +15,19 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === formula v2 ===
-          CREATE TEMP TABLE c AS
-          WITH p AS (
-            SELECT a.id_operacao, date_trunc('week', p.data_hora_pedido)::date sem,
-                   sum(p.valor_itens) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') itens,
-                   sum(p.taxa_entrega_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.tipo_entrega NOT ILIKE '%parceir%' AND p.tipo_entrega NOT ILIKE '%ifood%' AND p.tipo_entrega NOT ILIKE '%retir%') ep,
-                   sum(p.valor_liquido) liq,
-                   sum(p.total_pago_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND ((p.forma_pagamento ILIKE '%Vale Refei%' AND p.forma_pagamento NOT ILIKE '%IFOOD MEAL%') OR p.forma_pagamento ILIKE 'Pgto na Entrega%')) rec
-            FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
-            WHERE p.data_hora_pedido >= '2026-10-26' AND p.data_hora_pedido < '2026-11-23'
-            GROUP BY 1,2)
-          SELECT p.*, g.valor_bruto, g.valor_liquido, g.recebido_via_loja, g.repassado_plataforma, g.taxa_repasse,
-                 (p.liq + coalesce(p.rec,0)) / nullif(p.itens, 0) taxa_itens,
-                 (p.liq + coalesce(p.rec,0)) / nullif(p.itens + coalesce(p.ep,0), 0) taxa_ep
-          FROM p JOIN gold.financeiro_periodo g ON g.id_operacao = p.id_operacao AND g.id_plataforma = 1 AND g.periodo_tipo = 'SEMANAL' AND g.data_inicio = p.sem
-          WHERE g.taxa_repasse IS NOT NULL AND p.itens > 500;
-          SELECT count(*) n,
-                 round(avg(taxa_itens - taxa_repasse)*100, 2) med_itens_pp, round((percentile_cont(0.5) WITHIN GROUP (ORDER BY abs(taxa_itens - taxa_repasse)))::numeric*100, 2) mediana_abs_itens_pp,
-                 round(avg(taxa_ep - taxa_repasse)*100, 2) med_ep_pp, round((percentile_cont(0.5) WITHIN GROUP (ORDER BY abs(taxa_ep - taxa_repasse)))::numeric*100, 2) mediana_abs_ep_pp,
-                 round((percentile_cont(0.9) WITHIN GROUP (ORDER BY abs(taxa_ep - taxa_repasse)))::numeric*100, 2) p90_abs_ep_pp,
-                 count(*) FILTER (WHERE abs(coalesce(rec,0) - recebido_via_loja) < 1) rec_bate,
-                 count(*) FILTER (WHERE abs(itens + coalesce(ep,0) - valor_bruto) < 1) bruto_bate
-          FROM c;
-          SELECT round((percentile_cont(0.9) WITHIN GROUP (ORDER BY abs(taxa_itens - taxa_repasse)))::numeric*100, 2) p90_itens_pp,
-                 count(*) FILTER (WHERE abs(taxa_itens - taxa_repasse) <= 0.02) ate_2pp, count(*) n FROM c;
-          \echo === piores itens ===
-          SELECT id_operacao, sem, round(itens,2) itens, round(coalesce(ep,0),2) ep, valor_bruto, round(coalesce(rec,0),2) rec, recebido_via_loja, round(liq,2) liq, valor_liquido, round(taxa_itens,4) taxa_rel, round(taxa_repasse,4) taxa_portal
-          FROM c ORDER BY abs(taxa_itens - taxa_repasse) DESC LIMIT 10;
+          \echo === max ===
+          SELECT max(data_hora_pedido), count(*) FILTER (WHERE data_hora_pedido >= '2026-11-24') FROM public.pedidos;
+          \echo === diario por op ===
+          SELECT a.id_operacao, p.data_hora_pedido::date dia, count(*) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') ped,
+                 sum(p.valor_itens) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') itens,
+                 sum(p.taxa_entrega_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') entrega,
+                 sum(p.valor_liquido) liq,
+                 sum(p.total_pago_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND ((p.forma_pagamento ILIKE '%Vale Refei%' AND p.forma_pagamento NOT ILIKE '%IFOOD MEAL%') OR p.forma_pagamento ILIKE 'Pgto na Entrega%')) rec,
+                 o.id_tipo_entrega
+          FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
+          JOIN silver.dim_operacao o ON o.id_operacao = a.id_operacao
+          WHERE p.data_hora_pedido >= '2026-11-24' AND p.data_hora_pedido < '2026-11-26' AND a.id_operacao IN (1,3,4,8,39,113,124)
+          GROUP BY 1,2,8 ORDER BY 1,2;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
