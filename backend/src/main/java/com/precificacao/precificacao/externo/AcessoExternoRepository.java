@@ -25,8 +25,9 @@ public class AcessoExternoRepository {
     }
 
     /** Um dia de uma loja, como sai para fora. */
-    public record Dia(LocalDate data, String merchantId, String loja, int pedidos, int cancelados, BigDecimal faturamento,
-                      BigDecimal faturamentoCancelado, Integer novosClientes, OffsetDateTime atualizadoEm) {
+    public record Dia(LocalDate data, String merchantId, String idLojaPortal, String loja, int pedidos, int cancelados,
+                      BigDecimal faturamento, BigDecimal faturamentoCancelado, BigDecimal taxaEntrega,
+                      BigDecimal descontoLoja, Integer novosClientes, OffsetDateTime atualizadoEm) {
     }
 
     private final JdbcTemplate jdbc;
@@ -124,13 +125,15 @@ public class AcessoExternoRepository {
         args.add(Date.valueOf(de));
         args.add(Date.valueOf(ate));
         return jdbc.query("""
-                SELECT d.dia, d.merchant_id, COALESCE(m.nome, d.merchant_id) AS loja, d.pedidos, d.cancelados, d.gmv,
-                       d.gmv_cancelado, d.novos_clientes, d.coletado_em
+                SELECT d.dia, d.merchant_id, s.short_id, COALESCE(m.nome, d.merchant_id) AS loja, d.pedidos, d.cancelados,
+                       d.gmv, d.gmv_cancelado, d.taxa_entrega, d.incentivo_loja, d.novos_clientes, d.coletado_em
                 FROM painel_dia d LEFT JOIN ifood_merchant m ON m.merchant_id = d.merchant_id
+                LEFT JOIN painel_short_id s ON s.merchant_id = d.merchant_id
                 WHERE d.merchant_id IN (%s) AND d.dia BETWEEN ? AND ?
                 ORDER BY d.dia, loja""".formatted(in), (rs, i) -> new Dia(rs.getDate("dia").toLocalDate(),
-                rs.getString("merchant_id"), rs.getString("loja"), rs.getInt("pedidos"), rs.getInt("cancelados"),
-                rs.getBigDecimal("gmv"), rs.getBigDecimal("gmv_cancelado"), (Integer) rs.getObject("novos_clientes"),
+                rs.getString("merchant_id"), rs.getString("short_id"), rs.getString("loja"), rs.getInt("pedidos"),
+                rs.getInt("cancelados"), rs.getBigDecimal("gmv"), rs.getBigDecimal("gmv_cancelado"),
+                rs.getBigDecimal("taxa_entrega"), rs.getBigDecimal("incentivo_loja"), (Integer) rs.getObject("novos_clientes"),
                 rs.getObject("coletado_em", OffsetDateTime.class)), args.toArray());
     }
 

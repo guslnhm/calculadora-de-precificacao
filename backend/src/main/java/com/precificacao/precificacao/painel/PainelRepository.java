@@ -35,15 +35,17 @@ public class PainelRepository {
         for (Dia d : dias) {
             jdbc.update("""
                     INSERT INTO painel_dia (merchant_id, dia, pedidos, cancelados, gmv, gmv_cancelado, novos_clientes,
-                        incentivo_loja, tempo_entrega, tempo_preparo, atraso, coletado_em)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                        incentivo_loja, tempo_entrega, tempo_preparo, atraso, coletado_em, taxa_entrega)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT (merchant_id, dia) DO UPDATE SET pedidos = EXCLUDED.pedidos, cancelados = EXCLUDED.cancelados,
                         gmv = EXCLUDED.gmv, gmv_cancelado = EXCLUDED.gmv_cancelado,
                         novos_clientes = COALESCE(EXCLUDED.novos_clientes, painel_dia.novos_clientes),
                         incentivo_loja = EXCLUDED.incentivo_loja, tempo_entrega = EXCLUDED.tempo_entrega,
-                        tempo_preparo = EXCLUDED.tempo_preparo, atraso = EXCLUDED.atraso, coletado_em = EXCLUDED.coletado_em
+                        tempo_preparo = EXCLUDED.tempo_preparo, atraso = EXCLUDED.atraso, coletado_em = EXCLUDED.coletado_em,
+                        taxa_entrega = EXCLUDED.taxa_entrega
                     """, merchantId, Date.valueOf(d.dia), d.pedidos, d.cancelados, d.gmv, d.gmvCancelado,
-                    novos.get(d.dia), d.incentivoLoja, d.tempoEntrega, d.tempoPreparo, d.atraso, agora);
+                    novos.get(d.dia), d.incentivoLoja, d.tempoEntrega, d.tempoPreparo, d.atraso, agora,
+                    d.pedidos == 0 && d.taxaEntrega == null ? BigDecimal.ZERO : d.taxaEntrega);
         }
     }
 

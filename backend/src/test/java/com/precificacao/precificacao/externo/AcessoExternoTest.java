@@ -43,13 +43,17 @@ public class AcessoExternoTest {
             jdbc.update("DELETE FROM " + t);
         }
         jdbc.update("DELETE FROM painel_dia WHERE merchant_id LIKE 'ext-%'");
+        jdbc.update("DELETE FROM painel_short_id WHERE merchant_id LIKE 'ext-%'");
         jdbc.update("DELETE FROM ifood_merchant WHERE merchant_id LIKE 'ext-%'");
         jdbc.update("INSERT INTO ifood_merchant (merchant_id, nome, ativo) VALUES (?, 'Loja \"A\"', TRUE), (?, 'Loja B', TRUE)", A, B);
         for (String m : List.of(A, B)) {
             jdbc.update("""
-                    INSERT INTO painel_dia (merchant_id, dia, pedidos, cancelados, gmv, gmv_cancelado, novos_clientes, coletado_em)
-                    VALUES (?, '2026-11-24', 40, 2, 2500.50, 120.00, 7, now()), (?, '2026-11-25', 0, 0, 0, 0, NULL, now())""", m, m);
+                    INSERT INTO painel_dia (merchant_id, dia, pedidos, cancelados, gmv, gmv_cancelado, novos_clientes, coletado_em,
+                        taxa_entrega, incentivo_loja)
+                    VALUES (?, '2026-11-24', 40, 2, 2500.50, 120.00, 7, now(), 300.00, 150.25),
+                           (?, '2026-11-25', 0, 0, 0, 0, NULL, now(), NULL, NULL)""", m, m);
         }
+        jdbc.update("INSERT INTO painel_short_id (merchant_id, short_id, atualizado_em) VALUES (?, '1109497', now())", A);
         jdbc.update("""
                 INSERT INTO usuarios (nome, email, senha_hash, perfil, ativo, criado_em, atualizado_em)
                 VALUES ('Admin', 'admin', 'admin', 'ADMIN', TRUE, now(), now())""");
@@ -87,6 +91,10 @@ public class AcessoExternoTest {
         assertThat(v.get(0).get("faturamento").decimalValue()).isEqualByComparingTo("2500.50");
         assertThat(v.get(0).get("ticketMedio").decimalValue()).isEqualByComparingTo("62.51");
         assertThat(v.get(1).get("ticketMedio").isNull()).isTrue();
+        // itens sem frete e antes dos descontos da loja: 2500,50 - 300,00 + 150,25
+        assertThat(v.get(0).get("valorItens").decimalValue()).isEqualByComparingTo("2350.75");
+        assertThat(v.get(0).get("idLojaPortal").asText()).isEqualTo("1109497");
+        assertThat(v.get(1).get("valorItens").isNull()).isTrue(); // dia sem frete coletado
 
         // pedir a loja B com a chave da A: proibido
         chamar(get("/externo/vendas?loja=" + B), "Bearer " + chave, null, 403);
@@ -106,15 +114,18 @@ public class AcessoExternoTest {
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         String[] linhas = csv.split("\r\n");
         assertThat(linhas[0]).isEqualTo("data,merchant_id,loja,pedidos,cancelados,faturamento,faturamento_cancelado,"
-                + "ticket_medio,novos_clientes,atualizado_em");
+                + "ticket_medio,novos_clientes,atualizado_em,id_loja_portal,valor_itens,taxa_entrega,desconto_loja");
         assertThat(linhas).hasSize(3);
         assertThat(linhas[1]).startsWith("2026-11-24,ext-loja-a,\"Loja \"\"A\"\"\",40,2,2500.50,120.00,62.51,7,");
+        assertThat(linhas[1]).endsWith(",1109497,2350.75,300.00,150.25");
+        assertThat(linhas[2]).endsWith(",,2350.75,300.00,150.25"); // loja B sem id curto
 
         String excel = mvc.perform(get("/externo/vendas?de=2026-11-24&ate=2026-11-24&formato=csv-excel&loja=" + B)
                         .header("X-Chave", chave))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(excel).startsWith("﻿data;merchant_id;loja;");
         assertThat(excel).contains("2026-11-24;ext-loja-b;\"Loja B\";40;2;2500,50;120,00;62,51;7;");
+        assertThat(excel).contains(";;2350,75;300,00;150,25");
     }
 
     @Test

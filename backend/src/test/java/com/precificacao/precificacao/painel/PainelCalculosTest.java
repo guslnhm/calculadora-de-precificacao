@@ -40,12 +40,12 @@ class PainelCalculosTest {
                 {'data':[
                  {'dateRangeKey':{'value':{'from':'2026-11-01 00:00:00','to':'2026-11-02 00:00:00'},'count':12},
                   'groupByKey':{'value':{'orderStatus':'CONCLUDED'},'count':10},
-                  'gmv':{'sum':500.0},'benefitByTypePartnerTotalValue':{'sum':20},'timeToDeliveryInMin':{'avg':30}},
+                  'gmv':{'sum':500.0},'benefitByTypePartnerTotalValue':{'sum':20},'netDeliveryFee':{'sum':70},'timeToDeliveryInMin':{'avg':30}},
                  {'dateRangeKey':{'value':{'from':'2026-11-01 00:00:00','to':'2026-11-02 00:00:00'},'count':12},
                   'groupByKey':{'value':{'orderStatus':'CONFIRMED'},'count':1},
-                  'gmv':{'sum':40.0},'timeToDeliveryInMin':{'avg':60}},
+                  'gmv':{'sum':40.0},'netDeliveryFee':{'sum':5.5},'timeToDeliveryInMin':{'avg':60}},
                  {'dateRangeKey':{'value':{'from':'2026-11-01 00:00:00','to':'2026-11-02 00:00:00'},'count':12},
-                  'groupByKey':{'value':{'orderStatus':'CANCELLED'},'count':1},'gmv':{'sum':55.5}},
+                  'groupByKey':{'value':{'orderStatus':'CANCELLED'},'count':1},'gmv':{'sum':55.5},'netDeliveryFee':{'sum':9}},
                  {'dateRangeKey':{'value':{'from':'2026-11-02 00:00:00','to':'2026-11-03 00:00:00'},'count':3},
                   'groupByKey':{'value':{'orderStatus':'CONCLUDED'},'count':3},'gmv':{'sum':120}}
                 ]}""");
@@ -56,6 +56,8 @@ class PainelCalculosTest {
         assertThat(d1.gmv).isEqualByComparingTo("540");
         assertThat(d1.gmvCancelado).isEqualByComparingTo("55.5");
         assertThat(d1.incentivoLoja).isEqualByComparingTo("20");
+        assertThat(d1.taxaEntrega).isEqualByComparingTo("75.5"); // frete só dos não cancelados
+        assertThat(dias.get(LocalDate.parse("2026-11-02")).taxaEntrega).isNull(); // o iFood não mandou a métrica
         assertThat(d1.tempoEntrega).isEqualByComparingTo("32.73"); // (10*30 + 1*60) / 11
         assertThat(dias.get(LocalDate.parse("2026-11-02")).pedidos).isEqualTo(3);
         assertThat(LeitorKpis.temDatas(r)).isTrue();
