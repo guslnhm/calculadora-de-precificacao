@@ -30,12 +30,6 @@ public record ItensProperties(
         @DefaultValue("10:00") String resumoHorario,
         @DefaultValue("false") boolean avisarPausas
 ) {
-    public ItensProperties(boolean ativo, int intervaloMinutos, boolean complementos, boolean alertarNaoVendavel,
-                           boolean somenteComLojaAberta, int workers, List<String> ignorarCategorias, String resumoHorario) {
-        this(ativo, intervaloMinutos, complementos, alertarNaoVendavel, somenteComLojaAberta, workers, ignorarCategorias,
-                resumoHorario, false);
-    }
-
     public Set<String> categoriasIgnoradas() {
         Set<String> s = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         if (ignorarCategorias != null) {
