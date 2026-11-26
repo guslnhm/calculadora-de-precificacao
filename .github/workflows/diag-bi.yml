@@ -15,8 +15,6 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === tipos de entrega ===
-          SELECT tipo_entrega, count(*) FROM public.pedidos WHERE data_hora_pedido >= '2026-11-16' GROUP BY 1;
           \echo === formula v2 ===
           CREATE TEMP TABLE c AS
           WITH p AS (
@@ -40,9 +38,11 @@ jobs:
                  count(*) FILTER (WHERE abs(coalesce(rec,0) - recebido_via_loja) < 1) rec_bate,
                  count(*) FILTER (WHERE abs(itens + coalesce(ep,0) - valor_bruto) < 1) bruto_bate
           FROM c;
-          \echo === piores ===
-          SELECT id_operacao, sem, round(itens,2) itens, round(coalesce(ep,0),2) ep, valor_bruto, round(coalesce(rec,0),2) rec, recebido_via_loja, round(liq,2) liq, valor_liquido, round(taxa_ep,4) taxa_rel, round(taxa_repasse,4) taxa_portal
-          FROM c ORDER BY abs(taxa_ep - taxa_repasse) DESC LIMIT 12;
+          SELECT round((percentile_cont(0.9) WITHIN GROUP (ORDER BY abs(taxa_itens - taxa_repasse)))::numeric*100, 2) p90_itens_pp,
+                 count(*) FILTER (WHERE abs(taxa_itens - taxa_repasse) <= 0.02) ate_2pp, count(*) n FROM c;
+          \echo === piores itens ===
+          SELECT id_operacao, sem, round(itens,2) itens, round(coalesce(ep,0),2) ep, valor_bruto, round(coalesce(rec,0),2) rec, recebido_via_loja, round(liq,2) liq, valor_liquido, round(taxa_itens,4) taxa_rel, round(taxa_repasse,4) taxa_portal
+          FROM c ORDER BY abs(taxa_itens - taxa_repasse) DESC LIMIT 10;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
