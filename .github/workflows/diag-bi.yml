@@ -15,12 +15,20 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === 25/11 liq zerado ===
-          SELECT p.data_hora_pedido::date dia, p.status_final_pedido, count(*), count(*) FILTER (WHERE p.valor_liquido IS NULL) liq_nulo, count(*) FILTER (WHERE p.valor_liquido = 0) liq_zero,
-                 count(*) FILTER (WHERE p.taxas_comissoes = 0 OR p.taxas_comissoes IS NULL) sem_taxa
-          FROM public.pedidos p WHERE p.data_hora_pedido >= '2026-11-23' GROUP BY 1,2 ORDER BY 1,2;
-          \echo === op 1 dia 25 por hora ===
-          SELECT extract(hour from data_hora_pedido) h, count(*), sum(valor_itens), sum(valor_liquido), sum(taxas_comissoes) FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja WHERE a.id_operacao = 1 AND p.data_hora_pedido::date = '2026-11-25' GROUP BY 1 ORDER BY 1;
+          \echo === previa custo 24 e 25 ===
+          WITH x AS (
+          SELECT p.data_hora_pedido::date dia, a.id_operacao, count(*) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') ped,
+                 count(*) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.valor_liquido IS NOT NULL) cv,
+                 sum(p.valor_itens + CASE WHEN o.id_tipo_entrega = 1 THEN coalesce(p.taxa_entrega_cliente,0) ELSE 0 END) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.valor_liquido IS NOT NULL) bruto,
+                 sum(p.valor_liquido + CASE WHEN (p.forma_pagamento ILIKE '%Vale Refei%' AND p.forma_pagamento NOT ILIKE '%IFOOD MEAL%') OR p.forma_pagamento ILIKE 'Pgto na Entrega%' THEN coalesce(p.total_pago_cliente,0) ELSE 0 END) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.valor_liquido IS NOT NULL) rep
+          FROM public.pedidos p JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1 JOIN silver.dim_operacao o ON o.id_operacao = a.id_operacao
+          WHERE p.data_hora_pedido >= '2026-11-24' AND p.data_hora_pedido < '2026-11-26' GROUP BY 1,2)
+          SELECT dia, count(*) lojas, count(*) FILTER (WHERE ped >= 5 AND cv*2 >= ped AND 1 - rep/nullif(bruto,0) > 0.35) acima_35,
+                 round(avg(1 - rep/nullif(bruto,0)) FILTER (WHERE ped >= 5)*100,1) custo_medio,
+                 round((percentile_cont(0.5) WITHIN GROUP (ORDER BY 1 - rep/nullif(bruto,0)) FILTER (WHERE ped >= 5))::numeric*100,1) custo_mediano
+          FROM x GROUP BY 1 ORDER BY 1;
+          \echo === semanal portal: lojas com custo > 35% ===
+          SELECT data_inicio, count(*) n, count(*) FILTER (WHERE custo_plataforma > 0.35) acima FROM gold.financeiro_periodo WHERE periodo_tipo='SEMANAL' AND id_plataforma=1 AND data_inicio >= '2026-10-26' AND custo_plataforma IS NOT NULL GROUP BY 1 ORDER BY 1;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
