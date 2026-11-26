@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 /** "?instancia=x" (vazio = número principal). */
 function qInst(instancia) {
@@ -635,4 +635,9 @@ export const acessosApi = {
   editarUsuario: (id, dados) => requisicao("PUT", `/acessos/usuarios/${id}`, dados),
   linkSenha: (id) => requisicao("POST", `/acessos/usuarios/${id}/link-senha`),
   adesao: () => requisicao("GET", "/acessos/adesao"),
+  externos: () => requisicao("GET", "/acessos/externo"),
+  criarExterno: (dados) => requisicao("POST", "/acessos/externo", dados),
+  editarExterno: (id, dados) => requisicao("PUT", `/acessos/externo/${id}`, dados),
+  novaChaveExterno: (id) => requisicao("POST", `/acessos/externo/${id}/nova-chave`),
+  excluirExterno: (id) => requisicao("DELETE", `/acessos/externo/${id}`),
 };
