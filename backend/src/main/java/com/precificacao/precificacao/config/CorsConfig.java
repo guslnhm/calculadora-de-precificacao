@@ -18,7 +18,10 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins(allowedOrigin)
+                        // aceita vários endereços separados por vírgula (ex.: o domínio antigo e o novo na troca)
+                        .allowedOrigins(java.util.Arrays.stream(allowedOrigin.split(","))
+                                .map(String::strip).map(o -> o.endsWith("/") ? o.substring(0, o.length() - 1) : o)
+                                .filter(o -> !o.isEmpty()).toArray(String[]::new))
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*");
             }
