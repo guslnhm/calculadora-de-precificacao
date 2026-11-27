@@ -54,7 +54,8 @@ public class AcessoExternoService {
     public record Venda(LocalDate data, String merchantId, String loja, int pedidos, int cancelados,
                         BigDecimal faturamento, BigDecimal faturamentoCancelado, BigDecimal ticketMedio,
                         Integer novosClientes, OffsetDateTime atualizadoEm, String idLojaPortal,
-                        BigDecimal valorItens, BigDecimal taxaEntrega, BigDecimal descontoLoja) {
+                        BigDecimal valorItens, BigDecimal taxaEntrega, BigDecimal descontoLoja,
+                        Integer canceladosPagos, BigDecimal valorItensCanceladosPagos) {
     }
 
     private final AcessoExternoRepository repo;
@@ -170,7 +171,9 @@ public class AcessoExternoService {
                     d.faturamentoCancelado(), ticket, d.novosClientes(), d.atualizadoEm(), d.idLojaPortal(),
                     r != null ? r.itens() : d.pedidos() == 0 ? BigDecimal.ZERO : null,
                     r != null ? r.taxaEntrega() : d.pedidos() == 0 ? BigDecimal.ZERO : null,
-                    d.descontoLoja()));
+                    d.descontoLoja(),
+                    r != null ? Integer.valueOf(r.canceladosPagos()) : null,
+                    r != null ? r.itensCanceladosPagos() : null));
         }
         return out;
     }

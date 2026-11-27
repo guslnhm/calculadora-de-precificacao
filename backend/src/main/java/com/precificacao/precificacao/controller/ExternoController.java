@@ -31,7 +31,8 @@ import java.util.Map;
 public class ExternoController {
 
     static final String COLUNAS = "data,merchant_id,loja,pedidos,cancelados,faturamento,faturamento_cancelado,"
-            + "ticket_medio,novos_clientes,atualizado_em,id_loja_portal,valor_itens,taxa_entrega,desconto_loja";
+            + "ticket_medio,novos_clientes,atualizado_em,id_loja_portal,valor_itens,taxa_entrega,desconto_loja,"
+            + "cancelados_pagos,valor_itens_cancelados_pagos";
 
     private final AcessoExternoService service;
 
@@ -50,6 +51,7 @@ public class ExternoController {
      * Pedidos = não cancelados. faturamento = GMV do iFood dos não cancelados = itens + frete pago pelo cliente
      * - descontos bancados pela loja. valor_itens e taxa_entrega vêm do relatório de pedidos do Portal (base histórica):
      * itens sem frete e antes dos descontos, e a taxa de entrega cheia; vazios enquanto o relatório do dia não chegou.
+     * cancelados_pagos / valor_itens_cancelados_pagos: cancelados que o iFood pagou à loja (líquido > 0), do relatório.
      * id_loja_portal = id curto da loja, o mesmo dos relatórios do Portal.
      * formato: json (padrão), csv (vírgula e ponto decimal) ou csv-excel (ponto e vírgula e vírgula decimal).
      */
@@ -94,7 +96,9 @@ public class ExternoController {
                     .append(x.idLojaPortal() == null ? "" : x.idLojaPortal()).append(sep)
                     .append(numero(x.valorItens(), excel)).append(sep)
                     .append(numero(x.taxaEntrega(), excel)).append(sep)
-                    .append(numero(x.descontoLoja(), excel))
+                    .append(numero(x.descontoLoja(), excel)).append(sep)
+                    .append(x.canceladosPagos() == null ? "" : x.canceladosPagos()).append(sep)
+                    .append(numero(x.valorItensCanceladosPagos(), excel))
                     .append("\r\n");
         }
         return sb.toString();
