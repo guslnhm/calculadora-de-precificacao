@@ -15,27 +15,12 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === qg asa norte 26/11 por forma de pagamento ===
-          SELECT o.id_tipo_entrega te, p.forma_pagamento,
-                 ((p.forma_pagamento ILIKE '%Vale Refei%' AND p.forma_pagamento NOT ILIKE '%IFOOD MEAL%') OR p.forma_pagamento ILIKE 'Pgto na Entrega%') recebe_loja,
-                 count(*) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') ped,
-                 count(*) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.valor_liquido IS NULL) sem_liq,
-                 count(*) FILTER (WHERE p.status_final_pedido = 'CANCELADO') canc,
-                 sum(p.valor_itens) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.valor_liquido IS NOT NULL) itens,
-                 sum(p.taxa_entrega_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.valor_liquido IS NOT NULL) taxa,
-                 sum(p.incentivo_prom_loja) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.valor_liquido IS NOT NULL) inc_loja,
-                 sum(p.incentivo_prom_ifood) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.valor_liquido IS NOT NULL) inc_ifood,
-                 sum(p.total_pago_cliente) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.valor_liquido IS NOT NULL) pago,
-                 sum(p.valor_liquido) FILTER (WHERE p.status_final_pedido <> 'CANCELADO' AND p.valor_liquido IS NOT NULL) liquido
-          FROM public.pedidos p
-          JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
-          JOIN silver.dim_operacao o ON o.id_operacao = a.id_operacao
+          \echo === qg pedidos json ===
+          \pset format unaligned
+          \pset tuples_only on
+          SELECT row_to_json(p) FROM public.pedidos p
           WHERE p.nome_loja = 'Qg - Asa Norte' AND p.data_hora_pedido >= '2026-11-26' AND p.data_hora_pedido < '2026-11-27'
-          GROUP BY 1,2,3 ORDER BY ped DESC;
-          \echo === recebido via loja no portal (semanas) ===
-          SELECT f.data_inicio, f.valor_bruto, f.valor_liquido, f.recebido_via_loja, f.repassado_plataforma, f.custo_plataforma
-          FROM gold.financeiro_periodo f JOIN silver.dim_operacao o ON o.id_operacao=f.id_operacao JOIN silver.dim_loja l ON l.id_loja=o.id_loja
-          WHERE l.nome_loja || ' - ' || o.nome_operacao ILIKE 'Qg%Asa Norte%' AND f.periodo_tipo='SEMANAL' AND f.id_plataforma=1 AND f.data_inicio >= '2026-10-19' ORDER BY 1;
+          ORDER BY p.data_hora_pedido;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
