@@ -33,6 +33,8 @@ import java.util.Locale;
 public final class Destaques {
 
     public static final BigDecimal LIMITE_CUSTO = new BigDecimal("0.35");
+    /** Acima disso o farol fica vermelho; entre LIMITE_CUSTO e isso, amarelo. */
+    public static final BigDecimal LIMITE_VERMELHO = new BigDecimal("0.38");
     static final int MIN_PEDIDOS_CUSTO = 5;
     static final BigDecimal MIN_COBERTURA = new BigDecimal("0.5");
     static final int MIN_DIAS_HISTORICO = 60;
@@ -235,15 +237,19 @@ public final class Destaques {
         List<String> blocos = new ArrayList<>();
         blocos.add("📈 *Destaques de ontem — " + nomeDia + "*");
         if (!altos.isEmpty()) {
+            long vermelhas = altos.stream().filter(Destaques::vermelho).count();
             List<String> l = new ArrayList<>();
-            l.add("⚠️ *Custo iFood acima de " + pct(limite, 0) + "* · " + altos.size() + (altos.size() == 1 ? " loja" : " lojas"));
+            l.add("⚠️ *Custo iFood acima de " + pct(limite, 0) + "* · " + altos.size() + (altos.size() == 1 ? " loja" : " lojas")
+                    + "\n🔴 acima de " + pct(LIMITE_VERMELHO, 0) + ": " + vermelhas
+                    + " · 🟡 de " + pct(limite, 0) + " a " + pct(LIMITE_VERMELHO, 0) + ": " + (altos.size() - vermelhas));
             for (Custo x : altos) {
                 String cob = x.cobertura().compareTo(new BigDecimal("0.95")) < 0
                         ? ", " + pct(x.cobertura(), 0) + " com valor fechado" : "";
-                l.add("• " + x.loja() + ": *" + pct(x.custo(), 1) + "* (" + x.pedidos() + " pedidos" + cob + ")");
+                l.add((vermelho(x) ? "🔴 " : "🟡 ") + "*" + x.loja() + "*: *" + pct(x.custo(), 1) + "*\n"
+                        + "_" + x.pedidos() + " pedidos" + cob + "_");
             }
             l.add("_Estimativa pelo relatório de pedidos (sem anúncios, mensalidade e antecipação)._");
-            blocos.add(String.join("\n", l));
+            blocos.add(String.join("\n\n", l));
         }
         if (!recordes.isEmpty()) {
             List<String> l = new ArrayList<>();
@@ -259,11 +265,15 @@ public final class Destaques {
                         : "melhor " + o + " dos últimos " + DIAS_SEM_ALTERACAO + " dias";
                 String antes = r.anterior() == null ? "" : " (antes " + valor(r.metrica(), r.anterior())
                         + (r.diaAnterior() == null ? "" : ", " + r.diaAnterior().format(DD_MM)) + ")";
-                l.add("• *" + r.loja() + "* · " + janela + ": " + valor(r.metrica(), r.valor()) + antes);
+                l.add("*" + r.loja() + "*\n" + janela + ": " + valor(r.metrica(), r.valor()) + antes);
             }
-            blocos.add(String.join("\n", l));
+            blocos.add(String.join("\n\n", l));
         }
         return String.join("\n\n", blocos);
+    }
+
+    static boolean vermelho(Custo x) {
+        return x.custo().compareTo(LIMITE_VERMELHO) > 0;
     }
 
     private static String valor(String metrica, BigDecimal v) {
