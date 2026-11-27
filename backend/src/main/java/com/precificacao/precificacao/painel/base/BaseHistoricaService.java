@@ -159,7 +159,10 @@ public class BaseHistoricaService {
                     canal_venda, tipo_entrega)
                 SELECT p.id_completo_pedido, a.id_operacao, a.id_plataforma,
                        to_char(p.data_hora_pedido, 'YYYYMMDD')::int, p.data_hora_pedido,
-                       p.valor_itens, p.incentivo_prom_ifood, p.incentivo_prom_loja, now(), p.status_final_pedido,
+                       -- cancelamento parcial: só o que ficou (como o "valor da venda" do Portal)
+                       p.valor_itens - CASE WHEN p.status_final_pedido = 'CANCELAMENTO PARCIAL'
+                                            THEN coalesce(p.valor_itens_cancelados, 0) ELSE 0 END,
+                       p.incentivo_prom_ifood, p.incentivo_prom_loja, now(), p.status_final_pedido,
                        p.canal_venda, p.tipo_entrega
                 FROM public.pedidos p
                 JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = ?
