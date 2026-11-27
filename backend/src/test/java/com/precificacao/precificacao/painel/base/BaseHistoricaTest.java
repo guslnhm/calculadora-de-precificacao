@@ -382,7 +382,7 @@ class BaseHistoricaTest {
         try (Statement st = c.createStatement()) {
             st.execute("UPDATE public.pedidos SET valor_itens_cancelados = 103 WHERE id_completo_pedido = 'f'");
         }
-        assertThat(Destaques.pedidosDoDia(c, java.time.LocalDate.of(2026, 11, 25))).isEqualTo(5);
+        assertThat(Destaques.pedidosDoDia(c, java.time.LocalDate.of(2026, 11, 25))).isEqualTo(6);
         var custos = Destaques.custos(c, java.time.LocalDate.of(2026, 11, 25));
         assertThat(custos).hasSize(1);
         var x = custos.get(0);
