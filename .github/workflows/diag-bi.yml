@@ -15,15 +15,25 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === semana 16 a 22/11 por loja ===
-          SELECT p.id_loja, count(*) ped,
-                 sum(valor_itens) itens, sum(taxa_entrega_cliente) taxa, sum(nullif(replace(taxa_servico::text, ',', '.'),'')::numeric) serv,
-                 sum(nullif(replace(incentivo_prom_ifood::text, ',', '.'),'')::numeric) inc_ifood, sum(nullif(replace(incentivo_prom_loja::text, ',', '.'),'')::numeric) inc_loja, sum(nullif(replace(incentivo_prom_rede::text, ',', '.'),'')::numeric) inc_rede,
-                 sum(total_pago_cliente) pago, sum(nullif(replace(valor_itens_cancelados::text, ',', '.'),'')::numeric) itens_canc
-          FROM public.pedidos p
-          WHERE p.id_loja IN ('1109497','1945022','269080','702315') AND p.status_final_pedido <> 'CANCELADO'
-            AND p.data_hora_pedido >= '2026-11-16' AND p.data_hora_pedido < '2026-11-23'
-          GROUP BY 1 ORDER BY 1;
+          \echo === silver por dia ===
+          SELECT data_hora_pedido::date dia, count(*) FROM silver.fato_pedido WHERE id_plataforma=1 AND data_hora_pedido >= '2026-11-23' GROUP BY 1 ORDER BY 1;
+          \echo === mais perto do recorde em 26/11 ===
+          WITH d AS (SELECT f.id_operacao, f.data_hora_pedido::date dia, count(*) ped, sum(f.valor_itens) fat
+                     FROM silver.fato_pedido f WHERE f.id_plataforma = 1 AND f.status_final_pedido <> 'CANCELADO' AND f.data_hora_pedido < '2026-11-27' GROUP BY 1,2),
+          alt AS (SELECT id_operacao, max(data_inicio) ini FROM gold.financeiro_periodo WHERE id_plataforma=1 AND periodo_tipo='SEMANAL' AND alteracao_cardapio AND data_inicio <= '2026-11-26' GROUP BY 1),
+          h AS (SELECT * FROM d WHERE dia = '2026-11-26'),
+          x AS (
+          SELECT h.id_operacao, h.ped, h.fat, round(h.fat/h.ped,2) tk, alt.ini,
+                 (SELECT count(*) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia) dias_hist,
+                 (SELECT max(fat) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia) max_fat,
+                 (SELECT max(ped) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia) max_ped,
+                 (SELECT max(fat) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia AND d.dia >= coalesce(alt.ini, h.dia-90)) jan_fat,
+                 (SELECT max(ped) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia AND d.dia >= coalesce(alt.ini, h.dia-90)) jan_ped,
+                 (SELECT count(*) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia AND d.dia >= coalesce(alt.ini, h.dia-90)) dias_jan
+          FROM h LEFT JOIN alt ON alt.id_operacao=h.id_operacao)
+          SELECT id_operacao, ped, max_ped, jan_ped, round(fat) fat, round(max_fat) max_fat, round(jan_fat) jan_fat, dias_hist, dias_jan, ini,
+                 round(fat/nullif(jan_fat,0)*100) pct_jan_fat
+          FROM x ORDER BY fat/nullif(jan_fat,0) DESC NULLS LAST LIMIT 12;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
