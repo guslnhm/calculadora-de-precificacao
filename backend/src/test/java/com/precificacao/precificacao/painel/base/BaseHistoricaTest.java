@@ -425,11 +425,16 @@ class BaseHistoricaTest {
         rs = Destaques.recordes(c, dia);
         assertThat(rs).hasSize(1);
         assertThat(rs.get(0).historico()).isTrue();
-        String msg = Destaques.mensagem(dia, List.of(new Destaques.Custo(7, "Marca A - Centro", 40, 30,
-                new BigDecimal("1000"), new BigDecimal("600"))), rs, Destaques.LIMITE_CUSTO);
+        String msg = Destaques.mensagem(dia, List.of(
+                new Destaques.Custo(8, "Marca B - Sul", 20, 20, new BigDecimal("1000"), new BigDecimal("640")),
+                new Destaques.Custo(7, "Marca A - Centro", 40, 30, new BigDecimal("1000"), new BigDecimal("600")),
+                new Destaques.Custo(9, "Marca C - Norte", 20, 20, new BigDecimal("1000"), new BigDecimal("700"))),
+                rs, Destaques.LIMITE_CUSTO);
         assertThat(msg).contains("📈 *Destaques de ontem — domingo, 20/12*")
-                .contains("⚠️ *Custo iFood acima de 35%* · 1 loja")
-                .contains("• Marca A - Centro: *40,0%* (40 pedidos, 75% com valor fechado)")
+                .contains("⚠️ *Custo iFood acima de 35%* · 2 lojas\n🔴 acima de 38%: 1 · 🟡 de 35% a 38%: 1\n\n"
+                        + "🔴 *Marca A - Centro*: *40,0%*\n_40 pedidos, 75% com valor fechado_\n\n"
+                        + "🟡 *Marca B - Sul*: *36,0%*\n_20 pedidos_\n\n_Estimativa")
+                .doesNotContain("Marca C") // 30%: abaixo do limite
                 .contains("🥇 recorde histórico de faturamento: R$ 250 (antes R$ 200,");
     }
 }
