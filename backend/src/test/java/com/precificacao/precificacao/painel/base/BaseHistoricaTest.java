@@ -375,23 +375,29 @@ class BaseHistoricaTest {
         pedido("c", "2026-11-25 23:50", "CONCLUIDO", "40", null, "Pgto via APP - PIX", "40");   // ainda sem valor
         pedido("d", "2026-11-25 14:00", "CANCELADO", "30", "0", "Pgto via APP - PIX", "30");
         pedido("e", "2026-11-24 14:00", "CONCLUIDO", "99", "50", "Pgto via APP - PIX", "99");   // outro dia
-        assertThat(Destaques.pedidosDoDia(c, java.time.LocalDate.of(2026, 11, 25))).isEqualTo(4);
+        // cancelamento parcial: do pedido de 143, 103 foram cancelados; vale só 40 (como no Portal)
+        pedido("f", "2026-11-25 15:00", "CANCELAMENTO PARCIAL", "143", "25", "Pgto via APP - PIX", "142");
+        // cancelado que o iFood paga à loja: entra no repasse, não no bruto
+        pedido("g", "2026-11-25 16:00", "CANCELADO", "52", "31", "Pgto via APP - PIX", "43");
+        try (Statement st = c.createStatement()) {
+            st.execute("UPDATE public.pedidos SET valor_itens_cancelados = 103 WHERE id_completo_pedido = 'f'");
+        }
+        assertThat(Destaques.pedidosDoDia(c, java.time.LocalDate.of(2026, 11, 25))).isEqualTo(6);
         var custos = Destaques.custos(c, java.time.LocalDate.of(2026, 11, 25));
         assertThat(custos).hasSize(1);
         var x = custos.get(0);
         assertThat(x.loja()).isEqualTo("Marca A - Centro");
-        assertThat(x.pedidos()).isEqualTo(3);
-        assertThat(x.comValor()).isEqualTo(2);
-        assertThat(x.bruto()).isEqualByComparingTo("150");                 // entrega parceira: sem taxa de entrega
-        assertThat(x.repasse()).isEqualByComparingTo("102");               // 60 + (−10 + 52 do vale)
-        assertThat(x.taxa()).isEqualByComparingTo("0.68");
-        assertThat(x.custo()).isEqualByComparingTo("0.32");
+        assertThat(x.pedidos()).isEqualTo(4);
+        assertThat(x.comValor()).isEqualTo(3);
+        assertThat(x.bruto()).isEqualByComparingTo("190");                 // 100 + 50 + 40; entrega parceira: sem taxa
+        assertThat(x.repasse()).isEqualByComparingTo("158");               // 60 + (−10 + 52 do vale) + 25 + 31 do cancelado pago
+        assertThat(x.custo().setScale(4, java.math.RoundingMode.HALF_UP)).isEqualByComparingTo("0.1684");
 
         // entrega própria: a taxa de entrega entra no bruto
         try (Statement st = c.createStatement()) {
             st.execute("UPDATE silver.dim_operacao SET id_tipo_entrega = 1 WHERE id_operacao = 7");
         }
-        assertThat(Destaques.custos(c, java.time.LocalDate.of(2026, 11, 25)).get(0).bruto()).isEqualByComparingTo("160");
+        assertThat(Destaques.custos(c, java.time.LocalDate.of(2026, 11, 25)).get(0).bruto()).isEqualByComparingTo("205");
     }
 
     @Test

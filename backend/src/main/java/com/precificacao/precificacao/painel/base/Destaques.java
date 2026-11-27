@@ -96,13 +96,18 @@ public final class Destaques {
                 SELECT a.id_operacao, max(l.nome_loja || ' - ' || o.nome_operacao) loja,
                        count(*) FILTER (WHERE p.status_final_pedido <> 'CANCELADO') pedidos,
                        count(*) FILTER (WHERE %1$s) com_valor,
-                       sum(p.valor_itens + CASE WHEN o.id_tipo_entrega = 1 THEN coalesce(p.taxa_entrega_cliente, 0) ELSE 0 END)
+                       sum(p.valor_itens
+                           - CASE WHEN p.status_final_pedido = 'CANCELAMENTO PARCIAL' THEN coalesce(p.valor_itens_cancelados, 0) ELSE 0 END
+                           + CASE WHEN o.id_tipo_entrega = 1 THEN coalesce(p.taxa_entrega_cliente, 0) ELSE 0 END)
                            FILTER (WHERE %1$s) bruto,
-                       sum(p.valor_liquido + CASE WHEN (p.forma_pagamento ILIKE '%%Vale Refei%%'
+                       coalesce(sum(p.valor_liquido + CASE WHEN (p.forma_pagamento ILIKE '%%Vale Refei%%'
                                                         AND p.forma_pagamento NOT ILIKE '%%IFOOD MEAL%%')
                                                        OR p.forma_pagamento ILIKE 'Pgto na Entrega%%'
                                                   THEN coalesce(p.total_pago_cliente, 0) ELSE 0 END)
-                           FILTER (WHERE %1$s) repasse
+                           FILTER (WHERE %1$s), 0)
+                       -- cancelado que o iFood ainda paga à loja (ex.: cancelado depois de pronto) entra no repasse
+                       + coalesce(sum(p.valor_liquido) FILTER (WHERE p.status_final_pedido = 'CANCELADO' AND p.valor_liquido > 0), 0)
+                           repasse
                 FROM public.pedidos p
                 JOIN silver.dim_operacao_alias a ON a.id_loja_origem = p.id_loja AND a.id_plataforma = 1
                 JOIN silver.dim_operacao o ON o.id_operacao = a.id_operacao
