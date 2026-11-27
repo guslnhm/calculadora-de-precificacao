@@ -15,12 +15,15 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === qg pedidos json ===
-          \pset format unaligned
-          \pset tuples_only on
-          SELECT row_to_json(p) FROM public.pedidos p
-          WHERE p.nome_loja = 'Qg - Asa Norte' AND p.data_hora_pedido >= '2026-11-26' AND p.data_hora_pedido < '2026-11-27'
-          ORDER BY p.data_hora_pedido;
+          \echo === status distintos (out-nov) ===
+          SELECT status_final_pedido, count(*), count(*) FILTER (WHERE valor_liquido > 0) liq_pos FROM public.pedidos WHERE data_hora_pedido >= '2026-10-01' GROUP BY 1 ORDER BY 2 DESC;
+          \echo === aguas claras norte 21/10 nao concluidos ===
+          SELECT id_loja, nome_loja, id_curto, data_hora_pedido, status_final_pedido st, valor_itens, taxa_entrega_cliente, valor_itens_cancelados canc, valor_liquido, total_pago_cliente, tipo_cancelamento, origem_cancelamento, motivo_cancelamento
+          FROM public.pedidos WHERE nome_loja ILIKE '%guas Claras Norte%' AND data_hora_pedido >= '2026-10-21' AND data_hora_pedido < '2026-10-22' AND status_final_pedido <> 'CONCLUIDO';
+          \echo === aguas claras norte 21/10 totais ===
+          SELECT status_final_pedido, count(*), sum(valor_itens), sum(taxa_entrega_cliente), sum(valor_liquido) FROM public.pedidos WHERE nome_loja ILIKE '%guas Claras Norte%' AND data_hora_pedido >= '2026-10-21' AND data_hora_pedido < '2026-10-22' GROUP BY 1;
+          \echo === cancelados com liquido > 0 por tipo (out-nov) ===
+          SELECT tipo_cancelamento, origem_cancelamento, count(*), sum(valor_itens), sum(valor_liquido) FROM public.pedidos WHERE data_hora_pedido >= '2026-10-01' AND status_final_pedido = 'CANCELADO' AND valor_liquido > 0 GROUP BY 1,2 ORDER BY 3 DESC LIMIT 10;
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
