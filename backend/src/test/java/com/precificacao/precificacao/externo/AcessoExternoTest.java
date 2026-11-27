@@ -34,7 +34,8 @@ public class AcessoExternoTest {
         ItensDoRelatorio relatorioFalso() {
             return (ids, de, ate) -> ids.contains("1109497")
                     ? Map.of(ItensDoRelatorio.chave("1109497", java.time.LocalDate.parse("2026-11-24")),
-                            new ItensDoRelatorio.Valores(new java.math.BigDecimal("2380.75"), new java.math.BigDecimal("270.00")))
+                            new ItensDoRelatorio.Valores(new java.math.BigDecimal("2380.75"), new java.math.BigDecimal("270.00"),
+                            2, new java.math.BigDecimal("41.90")))
                     : Map.of();
         }
     }
@@ -107,6 +108,8 @@ public class AcessoExternoTest {
         // itens e frete vêm do relatório de pedidos (não da conta com o frete do Analytics)
         assertThat(v.get(0).get("valorItens").decimalValue()).isEqualByComparingTo("2380.75");
         assertThat(v.get(0).get("taxaEntrega").decimalValue()).isEqualByComparingTo("270.00");
+        assertThat(v.get(0).get("canceladosPagos").asInt()).isEqualTo(2);
+        assertThat(v.get(0).get("valorItensCanceladosPagos").decimalValue()).isEqualByComparingTo("41.90");
         assertThat(v.get(0).get("idLojaPortal").asText()).isEqualTo("1109497");
         assertThat(v.get(1).get("valorItens").decimalValue()).isEqualByComparingTo("0"); // dia sem pedidos
 
@@ -128,18 +131,19 @@ public class AcessoExternoTest {
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         String[] linhas = csv.split("\r\n");
         assertThat(linhas[0]).isEqualTo("data,merchant_id,loja,pedidos,cancelados,faturamento,faturamento_cancelado,"
-                + "ticket_medio,novos_clientes,atualizado_em,id_loja_portal,valor_itens,taxa_entrega,desconto_loja");
+                + "ticket_medio,novos_clientes,atualizado_em,id_loja_portal,valor_itens,taxa_entrega,desconto_loja,"
+                + "cancelados_pagos,valor_itens_cancelados_pagos");
         assertThat(linhas).hasSize(3);
         assertThat(linhas[1]).startsWith("2026-11-24,ext-loja-a,\"Loja \"\"A\"\"\",40,2,2500.50,120.00,62.51,7,");
-        assertThat(linhas[1]).endsWith(",1109497,2380.75,270.00,150.25");
-        assertThat(linhas[2]).endsWith(",,,,150.25"); // loja B: sem id curto, sem relatório
+        assertThat(linhas[1]).endsWith(",1109497,2380.75,270.00,150.25,2,41.90");
+        assertThat(linhas[2]).endsWith(",,,,150.25,,"); // loja B: sem id curto, sem relatório
 
         String excel = mvc.perform(get("/externo/vendas?de=2026-11-24&ate=2026-11-24&formato=csv-excel&loja=" + B)
                         .header("X-Chave", chave))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(excel).startsWith("﻿data;merchant_id;loja;");
         assertThat(excel).contains("2026-11-24;ext-loja-b;\"Loja B\";40;2;2500,50;120,00;62,51;7;");
-        assertThat(excel).contains(";;;;150,25");
+        assertThat(excel).contains(";;;;150,25;;");
     }
 
     @Test

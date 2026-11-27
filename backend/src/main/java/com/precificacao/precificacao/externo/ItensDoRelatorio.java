@@ -12,7 +12,13 @@ import java.util.Map;
  */
 public interface ItensDoRelatorio {
 
-    record Valores(BigDecimal itens, BigDecimal taxaEntrega) {
+    /**
+     * @param itens              itens dos pedidos que valeram (sem cancelados; cancelamento parcial só com o que ficou)
+     * @param taxaEntrega        taxa de entrega cheia desses pedidos
+     * @param canceladosPagos    pedidos cancelados que o iFood pagou à loja (líquido > 0)
+     * @param itensCanceladosPagos valor dos itens desses pedidos
+     */
+    record Valores(BigDecimal itens, BigDecimal taxaEntrega, int canceladosPagos, BigDecimal itensCanceladosPagos) {
     }
 
     /** Chave: id curto da loja + "|" + dia (yyyy-MM-dd). Só os dias que já estão na base. */
