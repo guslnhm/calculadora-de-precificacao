@@ -48,7 +48,8 @@ public class ExternoController {
 
     /**
      * Pedidos = não cancelados. faturamento = GMV do iFood dos não cancelados = itens + frete pago pelo cliente
-     * - descontos bancados pela loja. valor_itens = itens sem frete e antes dos descontos da loja.
+     * - descontos bancados pela loja. valor_itens e taxa_entrega vêm do relatório de pedidos do Portal (base histórica):
+     * itens sem frete e antes dos descontos, e a taxa de entrega cheia; vazios enquanto o relatório do dia não chegou.
      * id_loja_portal = id curto da loja, o mesmo dos relatórios do Portal.
      * formato: json (padrão), csv (vírgula e ponto decimal) ou csv-excel (ponto e vírgula e vírgula decimal).
      */

@@ -26,6 +26,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 public class AcessoExternoTest {
 
+    /** Relatório de pedidos falso: só a loja A (id curto 1109497) no dia 24/11. */
+    @org.springframework.boot.test.context.TestConfiguration
+    static class Relatorio {
+        @org.springframework.context.annotation.Bean
+        @org.springframework.context.annotation.Primary
+        ItensDoRelatorio relatorioFalso() {
+            return (ids, de, ate) -> ids.contains("1109497")
+                    ? Map.of(ItensDoRelatorio.chave("1109497", java.time.LocalDate.parse("2026-11-24")),
+                            new ItensDoRelatorio.Valores(new java.math.BigDecimal("2380.75"), new java.math.BigDecimal("270.00")))
+                    : Map.of();
+        }
+    }
+
     static final String A = "ext-loja-a";
     static final String B = "ext-loja-b";
 
@@ -91,10 +104,11 @@ public class AcessoExternoTest {
         assertThat(v.get(0).get("faturamento").decimalValue()).isEqualByComparingTo("2500.50");
         assertThat(v.get(0).get("ticketMedio").decimalValue()).isEqualByComparingTo("62.51");
         assertThat(v.get(1).get("ticketMedio").isNull()).isTrue();
-        // itens sem frete e antes dos descontos da loja: 2500,50 - 300,00 + 150,25
-        assertThat(v.get(0).get("valorItens").decimalValue()).isEqualByComparingTo("2350.75");
+        // itens e frete vêm do relatório de pedidos (não da conta com o frete do Analytics)
+        assertThat(v.get(0).get("valorItens").decimalValue()).isEqualByComparingTo("2380.75");
+        assertThat(v.get(0).get("taxaEntrega").decimalValue()).isEqualByComparingTo("270.00");
         assertThat(v.get(0).get("idLojaPortal").asText()).isEqualTo("1109497");
-        assertThat(v.get(1).get("valorItens").isNull()).isTrue(); // dia sem frete coletado
+        assertThat(v.get(1).get("valorItens").decimalValue()).isEqualByComparingTo("0"); // dia sem pedidos
 
         // pedir a loja B com a chave da A: proibido
         chamar(get("/externo/vendas?loja=" + B), "Bearer " + chave, null, 403);
@@ -117,15 +131,15 @@ public class AcessoExternoTest {
                 + "ticket_medio,novos_clientes,atualizado_em,id_loja_portal,valor_itens,taxa_entrega,desconto_loja");
         assertThat(linhas).hasSize(3);
         assertThat(linhas[1]).startsWith("2026-11-24,ext-loja-a,\"Loja \"\"A\"\"\",40,2,2500.50,120.00,62.51,7,");
-        assertThat(linhas[1]).endsWith(",1109497,2350.75,300.00,150.25");
-        assertThat(linhas[2]).endsWith(",,2350.75,300.00,150.25"); // loja B sem id curto
+        assertThat(linhas[1]).endsWith(",1109497,2380.75,270.00,150.25");
+        assertThat(linhas[2]).endsWith(",,,,150.25"); // loja B: sem id curto, sem relatório
 
         String excel = mvc.perform(get("/externo/vendas?de=2026-11-24&ate=2026-11-24&formato=csv-excel&loja=" + B)
                         .header("X-Chave", chave))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(excel).startsWith("﻿data;merchant_id;loja;");
         assertThat(excel).contains("2026-11-24;ext-loja-b;\"Loja B\";40;2;2500,50;120,00;62,51;7;");
-        assertThat(excel).contains(";;2350,75;300,00;150,25");
+        assertThat(excel).contains(";;;;150,25");
     }
 
     @Test
