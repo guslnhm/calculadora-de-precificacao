@@ -58,12 +58,15 @@ public class AcessoExternoService {
     }
 
     private final AcessoExternoRepository repo;
+    private final ItensDoRelatorio relatorio;
     private final AuthService auth;
     private final Clock clock;
     private final ZoneId zona;
 
-    public AcessoExternoService(AcessoExternoRepository repo, AuthService auth, Clock clock, IfoodProperties ifood) {
+    public AcessoExternoService(AcessoExternoRepository repo, ItensDoRelatorio relatorio, AuthService auth, Clock clock,
+                                IfoodProperties ifood) {
         this.repo = repo;
+        this.relatorio = relatorio;
         this.auth = auth;
         this.clock = clock;
         this.zona = ifood.zona();
@@ -155,29 +158,24 @@ public class AcessoExternoService {
             lojas = List.of(loja.strip());
         }
         List<Venda> out = new ArrayList<>();
-        for (Dia d : repo.dias(lojas, ini, fim)) {
+        List<Dia> dias = repo.dias(lojas, ini, fim);
+        Map<String, ItensDoRelatorio.Valores> rel = relatorio.buscar(
+                dias.stream().map(Dia::idLojaPortal).filter(java.util.Objects::nonNull).distinct().toList(), ini, fim);
+        for (Dia d : dias) {
+            ItensDoRelatorio.Valores r = d.idLojaPortal() == null ? null
+                    : rel.get(ItensDoRelatorio.chave(d.idLojaPortal(), d.data()));
             BigDecimal ticket = d.pedidos() > 0 && d.faturamento() != null
                     ? d.faturamento().divide(BigDecimal.valueOf(d.pedidos()), 2, RoundingMode.HALF_UP) : null;
             out.add(new Venda(d.data(), d.merchantId(), d.loja(), d.pedidos(), d.cancelados(), d.faturamento(),
                     d.faturamentoCancelado(), ticket, d.novosClientes(), d.atualizadoEm(), d.idLojaPortal(),
-                    valorItens(d), d.taxaEntrega(), d.descontoLoja()));
+                    r != null ? r.itens() : d.pedidos() == 0 ? BigDecimal.ZERO : null,
+                    r != null ? r.taxaEntrega() : d.pedidos() == 0 ? BigDecimal.ZERO : null,
+                    d.descontoLoja()));
         }
         return out;
     }
 
     // ------------------------------------------------------------------ apoio
-
-    /**
-     * Valor dos itens sem frete e antes dos descontos bancados pela loja: faturamento (GMV) - frete + desconto da loja.
-     * Null enquanto o dia ainda não tem a taxa de entrega coletada.
-     */
-    static BigDecimal valorItens(Dia d) {
-        if (d.faturamento() == null || d.taxaEntrega() == null) {
-            return null;
-        }
-        BigDecimal desc = d.descontoLoja() == null ? BigDecimal.ZERO : d.descontoLoja();
-        return d.faturamento().subtract(d.taxaEntrega()).add(desc);
-    }
 
     private Acesso buscar(long id) {
         return repo.porId(id).map(l -> acesso(l, repo.lojasIfood()))
