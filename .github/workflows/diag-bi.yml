@@ -15,25 +15,15 @@ jobs:
           test -n "$BI_DATABASE_URL" || { echo "secret BI_DATABASE_URL vazio"; exit 1; }
           cat > q.sql <<'SQL'
           \pset pager off
-          \echo === silver por dia ===
-          SELECT data_hora_pedido::date dia, count(*) FROM silver.fato_pedido WHERE id_plataforma=1 AND data_hora_pedido >= '2026-11-23' GROUP BY 1 ORDER BY 1;
-          \echo === mais perto do recorde em 26/11 ===
-          WITH d AS (SELECT f.id_operacao, f.data_hora_pedido::date dia, count(*) ped, sum(f.valor_itens) fat
-                     FROM silver.fato_pedido f WHERE f.id_plataforma = 1 AND f.status_final_pedido <> 'CANCELADO' AND f.data_hora_pedido < '2026-11-27' GROUP BY 1,2),
-          alt AS (SELECT id_operacao, max(data_inicio) ini FROM gold.financeiro_periodo WHERE id_plataforma=1 AND periodo_tipo='SEMANAL' AND alteracao_cardapio AND data_inicio <= '2026-11-26' GROUP BY 1),
-          h AS (SELECT * FROM d WHERE dia = '2026-11-26'),
-          x AS (
-          SELECT h.id_operacao, h.ped, h.fat, round(h.fat/h.ped,2) tk, alt.ini,
-                 (SELECT count(*) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia) dias_hist,
-                 (SELECT max(fat) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia) max_fat,
-                 (SELECT max(ped) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia) max_ped,
-                 (SELECT max(fat) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia AND d.dia >= coalesce(alt.ini, h.dia-90)) jan_fat,
-                 (SELECT max(ped) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia AND d.dia >= coalesce(alt.ini, h.dia-90)) jan_ped,
-                 (SELECT count(*) FROM d WHERE d.id_operacao=h.id_operacao AND d.dia<h.dia AND d.dia >= coalesce(alt.ini, h.dia-90)) dias_jan
-          FROM h LEFT JOIN alt ON alt.id_operacao=h.id_operacao)
-          SELECT id_operacao, ped, max_ped, jan_ped, round(fat) fat, round(max_fat) max_fat, round(jan_fat) jan_fat, dias_hist, dias_jan, ini,
-                 round(fat/nullif(jan_fat,0)*100) pct_jan_fat
-          FROM x ORDER BY fat/nullif(jan_fat,0) DESC NULLS LAST LIMIT 12;
+          \echo === alipio 14/10 ===
+          SELECT p.id_loja, p.nome_loja, p.data_hora_pedido, p.status_final_pedido st, p.valor_itens, p.taxa_entrega_cliente, p.taxa_servico,
+                 p.incentivo_prom_ifood, p.incentivo_prom_loja, p.incentivo_prom_rede, p.total_pago_cliente, p.valor_liquido, p.forma_pagamento
+          FROM public.pedidos p
+          WHERE p.nome_loja ILIKE '%Al_pio%' AND p.data_hora_pedido >= '2026-10-14' AND p.data_hora_pedido < '2026-10-15'
+          ORDER BY p.data_hora_pedido;
+          \echo === colunas com entrega/frete ===
+          SELECT string_agg(column_name, ', ') FROM information_schema.columns WHERE table_schema='public' AND table_name='pedidos'
+            AND (column_name ILIKE '%entrega%' OR column_name ILIKE '%frete%' OR column_name ILIKE '%incentivo%' OR column_name ILIKE '%desconto%' OR column_name ILIKE '%subsid%');
           SQL
           docker run --rm -e BI_DATABASE_URL -v "$PWD:/w" postgres:18 \
             sh -c 'psql "$BI_DATABASE_URL" -X -f /w/q.sql > /w/saida.txt 2>&1 || true'
